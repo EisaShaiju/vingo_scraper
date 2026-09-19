@@ -10,20 +10,51 @@ from __future__ import annotations
 
 import enum
 from datetime import datetime
+from urllib.parse import urlparse
 
 from pydantic import BaseModel, Field, field_validator
 
 
-class ExtractionMethod(str, enum.Enum):
-    """How a row was obtained.
+def stable_source_key(url: str) -> str:
+    """Photo identity that survives Facebook's CDN churn.
 
-    Tracked per-row because a rising share of DOM_FALLBACK is our earliest
-    signal that the GraphQL shape has drifted -- days before anyone notices
-    missing data. The canary monitor alerts on this ratio.
+    Same photo, two runs:
+      scontent-mia5-1.xx.fbcdn.net/v/t39../817651258_..._n.jpg?stp=c0.124.261...
+      scontent.fboi1-1.fna.fbcdn.net/v/t39../817651258_..._n.jpg?stp=dst-jpg_s960x960...
+
+    Host and query differ, and the bytes differ (different resolution), so
+    neither the URL nor a content hash identifies the photo. The path does.
+    """
+    try:
+        return urlparse(url).path or url
+    except Exception:
+        return url
+
+
+class ExtractionMethod(str, enum.Enum):
+    """Where a row came from.
+
+    Kept per-row for provenance: when ingest quality changes we need to know
+    whether the source changed with it. GRAPHQL is retained so historical rows
+    from the pre-Apify pipeline stay readable.
     """
 
-    GRAPHQL = "graphql"
-    DOM_FALLBACK = "dom_fallback"
+    APIFY = "apify"
+    GRAPHQL = "graphql"  # legacy: self-hosted browser era
+
+
+class ImageStatus(str, enum.Enum):
+    """Rehosting state for one image.
+
+    Facebook CDN urls are signed and expire within hours-to-days, so an image
+    is only servable once it is in our own storage. A per-image status means a
+    single failed download degrades one photo instead of losing the listing.
+    """
+
+    PENDING = "pending"
+    STORED = "stored"
+    FAILED = "failed"
+    REJECTED = "rejected"  # downloaded, but not actually an image
 
 
 class Condition(str, enum.Enum):
@@ -61,12 +92,42 @@ class Seller(BaseModel):
 
 
 class ListingImage(BaseModel):
+    """One listing photo, tracked from Facebook CDN to our own storage."""
+
+    # The original fbcdn url. Kept for provenance and for re-fetching after a
+    # failed upload -- it is NEVER served to a client, because it expires.
     source_url: str
-    # Populated only when rehosting is enabled (config.rehost_images).
-    # Until then we display thumbnails hot-linked and link back to source.
-    rehosted_url: str | None = None
+
+    # Stable identity for the *photo*, independent of which derivative
+    # Facebook happened to serve. The fbcdn host and query string rotate
+    # between runs (and the same photo comes back at different resolutions,
+    # so its bytes and sha256 change), but the URL path does not. Without
+    # this, every re-ingest would insert duplicate image rows forever.
+    source_key: str | None = None
+
+    # Our permanent storage url. This is the only url anything downstream may
+    # render. Populated once status is STORED.
+    storage_url: str | None = None
+
+    status: ImageStatus = ImageStatus.PENDING
     is_primary: bool = False
-    phash: str | None = None
+
+    # sha256 of the image bytes. Doubles as dedupe key (the same photo reused
+    # across listings is stored once) and as the storage path component, which
+    # is what makes re-ingesting a listing idempotent.
+    sha256: str | None = None
+    content_type: str | None = None
+    size_bytes: int | None = None
+    error: str | None = None
+
+    def model_post_init(self, _ctx) -> None:
+        if not self.source_key:
+            self.source_key = stable_source_key(self.source_url)
+
+    @property
+    def is_servable(self) -> bool:
+        """True only when we can render this without depending on Facebook."""
+        return self.status is ImageStatus.STORED and bool(self.storage_url)
 
 
 class Listing(BaseModel):

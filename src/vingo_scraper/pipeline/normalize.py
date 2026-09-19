@@ -93,12 +93,26 @@ def parse_condition(raw: str | None) -> Condition:
 
 
 def parse_timestamp(raw: int | float | str | None) -> datetime | None:
-    """FB timestamps arrive as unix seconds (sometimes ms) in GraphQL."""
+    """Parse a listing timestamp.
+
+    Two dialects in play: Facebook's own payloads carry unix seconds (sometimes
+    milliseconds), while the Apify Actor sends ISO 8601 with a trailing Z
+    ("2026-09-19T02:39:57.000Z"). Both must produce a tz-aware datetime, since
+    freshness is what the density decision rests on.
+    """
     if raw is None:
         return None
     if isinstance(raw, str):
-        if not raw.isdigit():
+        raw = raw.strip()
+        if not raw:
             return None
+        if not raw.isdigit():
+            try:
+                # fromisoformat rejects a trailing "Z" before 3.11.
+                parsed = datetime.fromisoformat(raw.replace("Z", "+00:00"))
+            except ValueError:
+                return None
+            return parsed if parsed.tzinfo else parsed.replace(tzinfo=UTC)
         raw = int(raw)
     value = float(raw)
     # Heuristic: anything past ~233 AD is milliseconds, not seconds.

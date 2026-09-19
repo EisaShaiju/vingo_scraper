@@ -1,34 +1,31 @@
 # Vingo — Facebook Marketplace Ingestion
 
-Seeds Vingo's catalog with Facebook Marketplace listings (India). Built as a
-POC whose own telemetry produces the evidence for a maintenance retainer.
-
-Full plan: `~/.claude/plans/ok-i-am-trying-peaceful-ocean.md`
-
----
+Ingests Facebook Marketplace listings (India) via Apify's managed Actor,
+rehosts every image to our own storage, and writes to Supabase.
 
 ## Read this before running anything
 
-**1. Marketplace requires login.** Verified live on this machine:
-`/marketplace/mumbai/search` hard-redirects to `/login/?next=…`. There is no
-logged-out path to search results.
+**1. Images must be rehosted, and that is the point of this codebase.**
+Facebook CDN urls are signed with `oh=`/`oe=` parameters and expire within
+hours-to-days. A listing saved with an `fbcdn.net` url looks perfectly healthy
+at write time and shows a broken image to a buyer a week later. Every image is
+downloaded, verified, and uploaded to our storage *during ingestion* — never as
+a later batch job, which would find the urls already dead.
 
-**2. That weakens the legal footing.** *Meta v. Bright Data* (N.D. Cal., Jan
-2024) held Facebook's ToS do not bar **logged-out** scraping of public data.
-Because this project must log in, that ruling does not cover it — logged-in
-scraping makes us a user, bound by the ToS. Do not let anyone cite Bright Data
-as cover here.
+**2. Nothing auto-publishes.** Listings land `pending_review`. A human approves
+before anything is buyer-visible. This is both catalog quality control and the
+process to point at if a seller or Meta objects.
 
-**3. Republishing is the bigger exposure.** Listing photos are the seller's
-copyright; seller names and locations are personal data under India's DPDP Act
-2023. Mitigations are built in (review queue, no auto-publish, link-back,
-image rehosting off by default) but they reduce exposure, they do not erase it.
-Get Vingo's decision in writing. Not legal advice — have counsel review before
-anything goes buyer-visible.
+**3. The legal position needs counsel.** Listing photos are the seller's
+copyright and seller details are personal data under India's DPDP Act. Because
+we now *store* seller photos rather than hot-linking them, the exposure is more
+concrete than it was, not less. Mitigations are built in (review queue,
+link-back, minimal seller fields) but they reduce exposure, they don't erase
+it. Not legal advice.
 
-**4. Density is unproven.** Marketplace India launched as a limited trial and
-never reached OLX/Quikr density. Phase 0 exists to settle this before money is
-spent on infrastructure.
+**4. Apify bills per result** (~$0.005/item). `resultsLimit` is always set and
+two independent caps are enforced (`apify_max_items_hard_cap`,
+`apify_max_charge_usd`) because a typo in `--max-items` is a billing incident.
 
 ---
 
@@ -37,136 +34,105 @@ spent on infrastructure.
 ```bash
 python -m venv .venv
 .venv/Scripts/python.exe -m pip install -e ".[dev]"
-.venv/Scripts/python.exe -m playwright install chromium
-cp .env.example .env
+cp .env.example .env          # fill in Apify token + Supabase credentials
 ```
 
-## Phase 0 — density probe (do this first)
+Supabase needs: a project, a **public** bucket named `listing-images`, both
+connection strings, and the service-role key. See `docs/supabase.md` — the
+pooler ports are not interchangeable and the traps there are silent.
 
 ```bash
-# One-time: authenticate an account in a real browser window.
-# Credentials are never stored by this tool; only the session is kept.
-vingo-login --account probe1
-
-# Run the city x category grid.
-vingo-probe --account probe1
+alembic upgrade head          # uses the :5432 migration url, not :6543
 ```
 
-Writes `reports/density_probe.json` and prints a matrix plus a go/no-go.
+## Run
 
-Exit codes are meaningful, so a scheduled run cannot fail silently:
+```bash
+# Fetch and map only — no storage writes, no database writes.
+vingo-scrape --query iphone --location mumbai --max-items 10 --dry-run
+
+# Full ingest.
+vingo-scrape --query iphone --location mumbai --max-items 100
+```
+
+Exit codes are meaningful so a scheduled run can't fail quietly:
 
 | Code | Meaning |
 |---|---|
-| 0 | GO or MARGINAL — usable data collected |
-| 2 | BLOCKED — session dead/challenged. **Not** a statement about inventory |
-| 3 | NO-GO — measured successfully, inventory too thin |
+| 0 | Success |
+| 2 | Apify run failed — **not** a statement about inventory |
+| 3 | Ran fine, zero listings — a density signal |
+| 4 | Listings ingested but every image failed — not servable |
 
-The BLOCKED/NO-GO split matters: "we couldn't measure" and "there's nothing
-there" lead to opposite decisions, and conflating them is how a client gets
-told the wrong thing.
+The 2-vs-3 split matters: "we couldn't measure" and "there's nothing there"
+lead to opposite decisions.
 
 ---
 
 ## Architecture
 
-### Why intercept GraphQL instead of parsing the DOM
-
-The well-known open-source scraper for this
-([passivebot](https://github.com/passivebot/facebook-marketplace-scraper),
-398★, archived Nov 2024) drives Playwright, dumps HTML, and parses it with CSS
-selectors. Facebook's class names are hashed and regenerated on deploy, so
-every selector is a tripwire. That is why it is archived.
-
-Instead, we drive a real browser and attach a passive listener to
-`/api/graphql/` responses, reading the structured JSON the page already
-receives. We do **not** call GraphQL directly — that needs a `doc_id` (rotates
-every few weeks) plus a session-bound `fb_dtsg` token. Letting the page make
-its own authenticated requests means a `doc_id` rotation costs us nothing.
-
-The parser then **walks the payload tree** for listing-shaped objects rather
-than following a fixed path like
-`data.marketplace_search.feed_units.edges[]`. FB renames wrappers far more
-often than it changes the listing model, so a restructure is a no-op for us.
-`tests/test_graphql_extract.py::test_survives_wrapper_restructuring` pins this.
-
-### Two paths, one contract
-
-| Path | Source | Tag |
-|---|---|---|
-| Primary | Intercepted GraphQL JSON | `graphql` |
-| Fallback | Embedded JSON in `<script>`, then anchor heuristics | `dom_fallback` |
-
-Both emit the same `Listing`. Every row records `extraction_method`, so a
-**rising share of `dom_fallback` is the early warning** that the GraphQL shape
-has drifted — days before anyone notices missing data. That signal is what the
-retainer is actually selling.
-
-The fallback never matches on hashed class names — it anchors on
-`/marketplace/item/<id>/` hrefs, the one structural invariant the site needs to
-keep working. `test_no_dependency_on_hashed_class_names` enforces this.
-
-### Layout
-
 ```
-src/vingo_scraper/
-  config.py            # geo, categories, rate limits -- check here first when FB changes
-  browser/
-    session.py         # persistent per-account contexts, login-wall detection
-    stealth.py         # fingerprint hardening (hygiene, not a cloak)
-    interceptor.py     # passive /api/graphql/ capture
-  extract/
-    schema.py          # the Listing contract
-    graphql.py         # primary parser (tree-walking)
-    dom.py             # fallback parser
-  pipeline/
-    normalize.py       # INR parsing (incl. lakh/crore), condition, timestamps
-    search.py          # drives one city x category search
-    probe.py           # Phase 0 density metrics + go/no-go
-  cli.py
+apify/urls.py      (search_query, location) -> Marketplace URL
+apify/client.py    trigger Actor, wait, fetch dataset, record cost
+apify/runner.py    orchestration: fetch -> parse -> rehost -> persist
+extract/           fb_payload.py: payload -> Listing (tree-walking parser)
+pipeline/          normalize.py: INR incl. lakh/crore, condition, timestamps
+media/             rehost.py: download -> verify -> hash -> upload
+                   storage.py: Supabase adapter (+ InMemoryStore for tests)
+db/                models, session (pooler-aware), repository (upsert/dedupe)
+alembic/           migrations
 ```
+
+### Why our parameters differ from the Actor's
+
+The Actor takes `startUrls` / `resultsLimit` / `includeListingDetails`. We
+expose `(search_query, location, max_items)` and translate in `apify/client.py`.
+There are several competing Marketplace Actors; swapping one in should touch
+two files, not every call site.
+
+### Why the parser survived the pivot from self-hosted browsers
+
+The Actor returns **Facebook's own field names**, and `fb_payload.py` walks the
+payload tree looking for listing-shaped objects rather than following a fixed
+path. It parsed Apify items with zero changes. Don't "simplify" it into direct
+key access — that fragility is exactly what it avoids.
+
+### Media pipeline guarantees
+
+- Images identified by **magic bytes**, not url extension or `Content-Type`.
+  An expired fbcdn url commonly returns an HTML error page with a 200; those
+  are rejected, never uploaded.
+- Storage key is `listings/{fb_listing_id}/{sha256[:16]}.{ext}` —
+  content-addressed, so re-ingesting overwrites rather than duplicates.
+- Identical bytes across listings upload **once**.
+- A failed image costs one image; the listing still persists with
+  `status='failed'` for retry.
 
 ---
-
-## Status
-
-Built and tested:
-
-- Playwright harness with persistent sessions and stealth hardening
-- GraphQL interceptor (handles NDJSON multipart + anti-hijack prefixes)
-- GraphQL tree-walking parser, resilient to wrapper renames
-- DOM fallback on the same contract, independent of class names
-- INR normalization including `1.2 lakh` / `45k` / `2.5 cr`
-- Phase 0 probe with tested go/no-go thresholds
-- 60 tests, all offline against frozen fixtures
-
-Not built yet (Phases 3, 5–8 of the plan):
-
-- Postgres persistence, Alembic migrations, upsert/dedupe
-- Account pool, sticky proxies, ban detection
-- FastAPI service and review queue
-- Canary monitor and `selector_health` baseline
-
-## Rate discipline
-
-`config.py` defaults are deliberately conservative: 3–8s randomized delays,
-~50 page loads per account per day. **Raising these is the fastest way to burn
-the account pool.** Account burn is a recurring operating cost, not an
-incident — budget for it.
 
 ## Development
 
 ```bash
-.venv/Scripts/python.exe -m pytest tests/ -q     # 60 tests, no network
-.venv/Scripts/python.exe -m ruff check src/ tests/
+.venv/Scripts/python.exe -m pytest tests/ -q          # 93 tests, fully offline
+.venv/Scripts/python.exe -m ruff check src/ tests/ --fix
 ```
 
-### When Facebook breaks something
+Tests never touch the network or a live database — Apify is faked, HTTP is
+stubbed with `respx`, storage uses `InMemoryStore`. Diagnosing a breakage must
+never require credentials.
 
-1. Capture a fresh payload and drop it in `tests/fixtures/`
-2. Run the suite — the golden tests localize the break
-3. Fix the key lists in `extract/graphql.py` (or `config.py` for URL params)
-4. Keep the fixture; it becomes the regression guard
+On Windows use `PYTHONIOENCODING=utf-8` for anything printing `₹`.
 
-This loop is the retainer's actual work, and it is why the tests run entirely
-offline: diagnosing a breakage should never require a live session.
+## Status
+
+Built and tested: Apify trigger with billing guards · payload parsing ·
+INR/lakh/crore normalization · media rehosting with verification, dedupe and
+failure isolation · SQLAlchemy models + Alembic migration · upsert/dedupe
+repository · end-to-end orchestration · CLI.
+
+**Not yet run against live Apify or Supabase** — that needs credentials. The
+first real run should be small (`--max-items 10`) to freeze a genuine dataset
+fixture and confirm the per-item cost.
+
+Not built: FastAPI review-queue service, the failed-image retry sweep, and the
+India density probe (now cheap — a few small Actor runs).

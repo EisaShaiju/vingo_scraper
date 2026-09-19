@@ -31,7 +31,7 @@ def make_listing(
         price_minor=price_minor,
         posted_at=posted,
         images=[ListingImage(source_url="https://x/i.jpg")] if photo else [],
-        extraction_method=ExtractionMethod.GRAPHQL,
+        extraction_method=ExtractionMethod.APIFY,
     )
 
 
@@ -111,9 +111,14 @@ def test_recommendation_go_on_healthy_density():
 
 
 def test_recommendation_blocked_when_all_errored():
-    """No data because of login failure must not read as 'no inventory'."""
+    """A failed run must not read as 'no inventory'.
+
+    These lead to opposite decisions: one means re-run, the other means tell
+    the client to abandon the catalog. Conflating them is how a client gets
+    exactly the wrong advice.
+    """
     report = _report([], 0, 0)
-    report.errors = ["mumbai/electronics: LoginRequiredError"]
+    report.errors = ["mumbai/electronics: ApifyRunFailed: status=FAILED"]
     rec = report.recommendation()
     assert rec.startswith("BLOCKED")
     assert "NO-GO" not in rec

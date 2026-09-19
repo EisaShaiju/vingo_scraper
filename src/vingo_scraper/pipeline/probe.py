@@ -10,29 +10,19 @@ right move is to take the matrix to the client and re-scope -- not to build a
 better scraper for an empty shelf.
 
 Output is a JSON matrix plus a readable summary table.
+
+NOTE: the browser-driven runner was removed in the Apify pivot. The metrics
+and go/no-go thresholds below are source-agnostic -- they reduce a list of
+Listings to a decision -- so an Apify-backed runner drops straight in.
 """
 
 from __future__ import annotations
 
-import json
 import statistics
-from dataclasses import asdict, dataclass, field
+from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
-from pathlib import Path
 
-import structlog
-
-from vingo_scraper.browser.session import (
-    LoginRequiredError,
-    browser_session,
-    human_delay,
-    is_authenticated,
-)
-from vingo_scraper.config import CATEGORIES, INDIA_CITIES
 from vingo_scraper.extract.schema import Listing
-from vingo_scraper.pipeline.search import search_city_category
-
-log = structlog.get_logger(__name__)
 
 FRESH_DAYS = 30
 
@@ -157,75 +147,3 @@ class ProbeReport:
                 "-- GraphQL shape may have drifted."
             )
         return "\n".join(lines)
-
-
-async def run_probe(
-    *,
-    account_id: str = "default",
-    cities: list[str] | None = None,
-    categories: list[str] | None = None,
-    scrolls: int = 4,
-    output: Path | None = None,
-) -> ProbeReport:
-    """Execute the density probe across the city x category grid."""
-    cities = cities or list(INDIA_CITIES.values())
-    categories = categories or list(CATEGORIES.keys())
-
-    report = ProbeReport(
-        started_at=datetime.now(UTC).isoformat(),
-        cities=cities,
-        categories=categories,
-    )
-
-    async with browser_session(account_id) as context:
-        if not await is_authenticated(context):
-            raise LoginRequiredError(
-                f"account '{account_id}' has no live session. "
-                f"Run: vingo-login --account {account_id}"
-            )
-
-        for city in cities:
-            for category in categories:
-                result = await search_city_category(
-                    context, city, category, scrolls=scrolls
-                )
-
-                if result.error:
-                    report.errors.append(
-                        f"{city}/{category}: {result.error}"
-                    )
-                    report.cells.append(
-                        CellMetrics(
-                            city=city, category=category, error=result.error
-                        )
-                    )
-                    # A dead session will fail every remaining cell the same
-                    # way; stop rather than grinding through 24 more failures.
-                    if "LoginRequired" in result.error:
-                        log.error("probe.aborted", reason="session lost")
-                        break
-                    continue
-
-                cell = summarize(result.listings, city=city, category=category)
-                cell.used_fallback = result.used_fallback
-                report.cells.append(cell)
-                report.total_listings += cell.total
-                report.total_fresh += cell.fresh_30d
-                if result.used_fallback:
-                    report.fallback_cells += 1
-
-                # Pace between cells -- this is the rate discipline that keeps
-                # the account alive.
-                await human_delay()
-            else:
-                continue
-            break
-
-    if output:
-        output.parent.mkdir(parents=True, exist_ok=True)
-        payload = asdict(report)
-        payload["recommendation"] = report.recommendation()
-        output.write_text(json.dumps(payload, indent=2), encoding="utf-8")
-        log.info("probe.written", path=str(output))
-
-    return report

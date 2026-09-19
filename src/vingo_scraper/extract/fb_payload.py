@@ -1,4 +1,10 @@
-"""Primary extractor: parse intercepted GraphQL payloads into Listings.
+"""Parse Facebook Marketplace payloads into Listings.
+
+Input is whatever carries Facebook's own listing field names. Today that is
+an Apify dataset item; it was previously an intercepted GraphQL response.
+Both work unchanged, because the Actor returns Facebook's field names
+verbatim (marketplace_listing_title, listing_price, primary_listing_photo,
+marketplace_listing_seller, location.reverse_geocode).
 
 Durability strategy -- we do NOT hardcode a path like
     body["data"]["marketplace_search"]["feed_units"]["edges"][...]
@@ -37,18 +43,31 @@ from vingo_scraper.pipeline.normalize import (
 log = structlog.get_logger(__name__)
 
 # A node is listing-shaped if it has an id plus a title plus a price container.
+# NOTE: the Apify Actor returns camelCase (listingTitle, listingPrice), while
+# Facebook's own payloads use snake_case (marketplace_listing_title). The
+# Actor's published docs advertise the snake_case names but its dataset does
+# not use them -- verified against a real run. Both dialects are listed here so
+# either source parses.
 _TITLE_KEYS = (
     "marketplace_listing_title",
+    "listingTitle",
     "custom_title",
     "listing_title",
     "title",
 )
 _PRICE_CONTAINER_KEYS = (
     "listing_price",
+    "listingPrice",
     "formatted_price",
     "price",
     "current_price",
 )
+
+# Fields that look like minor-unit amounts but are NOT the listing's price.
+# `amount_with_offset_in_currency` is a USD-cents conversion: a Rs 40,000 item
+# reports 41526. Using it would price everything at ~1/100th and look
+# plausible, so it is denied explicitly rather than merely not-preferred.
+_PRICE_DENY = frozenset({"amount_with_offset_in_currency"})
 _ID_KEYS = ("id", "story_key", "legacy_id", "listing_id")
 
 _TYPENAME_HINTS = ("marketplacelisting", "groupcommercelisting")
@@ -61,13 +80,16 @@ def parse_payloads(
     *,
     city: str | None = None,
     category: str | None = None,
+    method: ExtractionMethod = ExtractionMethod.APIFY,
 ) -> list[Listing]:
     """Extract every listing found across a set of captured payloads."""
     listings: dict[str, Listing] = {}
     for payload in payloads:
         body = getattr(payload, "body", payload)
         for node in _walk_for_listings(body):
-            listing = _node_to_listing(node, city=city, category=category)
+            listing = _node_to_listing(
+                node, city=city, category=category, method=method
+            )
             if listing and listing.fb_listing_id not in listings:
                 listings[listing.fb_listing_id] = listing
     return list(listings.values())
@@ -127,7 +149,7 @@ def _extract_price(node: dict[str, Any]) -> int | None:
             # amount_with_offset is already in minor units -- use it directly
             # rather than round-tripping through a float.
             offset = raw.get("amount_with_offset")
-            if offset is not None:
+            if offset is not None and "amount_with_offset" not in _PRICE_DENY:
                 try:
                     return int(str(offset))
                 except (TypeError, ValueError):
@@ -154,7 +176,13 @@ def _extract_images(node: dict[str, Any]) -> list[ListingImage]:
         if depth > 6 or len(urls) >= 12:
             return
         if isinstance(value, dict):
-            uri = value.get("uri") or value.get("url") or value.get("src")
+            uri = (
+                value.get("uri")
+                or value.get("url")
+                or value.get("src")
+                # Actor-specific: primaryListingPhoto.photo_image_url
+                or value.get("photo_image_url")
+            )
             if isinstance(uri, str) and uri.startswith("http") and uri not in urls:
                 urls.append(uri)
             for sub in value.values():
@@ -165,7 +193,9 @@ def _extract_images(node: dict[str, Any]) -> list[ListingImage]:
 
     for key in (
         "primary_listing_photo",
+        "primaryListingPhoto",
         "listing_photos",
+        "listingPhotos",
         "photos",
         "image",
         "primary_photo",
@@ -199,10 +229,10 @@ def _extract_seller(node: dict[str, Any]) -> Seller | None:
 
 def _extract_location(node: dict[str, Any]) -> str | None:
     for key in (
+        "locationText",
         "location_text",
         "location_vanity_or_city_and_state",
         "location",
-        "locationText",
     ):
         raw = node.get(key)
         if isinstance(raw, str) and raw.strip():
@@ -235,6 +265,7 @@ def _extract_description(node: dict[str, Any]) -> str | None:
 
 def _extract_posted_at(node: dict[str, Any]) -> datetime | None:
     for key in (
+        "timestamp",
         "creation_time",
         "created_time",
         "listing_creation_time",
@@ -247,7 +278,11 @@ def _extract_posted_at(node: dict[str, Any]) -> datetime | None:
 
 
 def _node_to_listing(
-    node: dict[str, Any], *, city: str | None, category: str | None
+    node: dict[str, Any],
+    *,
+    city: str | None,
+    category: str | None,
+    method: ExtractionMethod = ExtractionMethod.APIFY,
 ) -> Listing | None:
     raw_id = _first_present(node, _ID_KEYS)
     title = _first_present(node, _TITLE_KEYS)
@@ -259,7 +294,12 @@ def _node_to_listing(
     try:
         return Listing(
             fb_listing_id=fb_id,
-            listing_url=node.get("url") or listing_url(fb_id),
+            listing_url=(
+                node.get("itemUrl")
+                or node.get("listingUrl")
+                or node.get("url")
+                or listing_url(fb_id)
+            ),
             title=clean_text(title, limit=300) or "",
             description=_extract_description(node),
             price_minor=_extract_price(node),
@@ -272,7 +312,7 @@ def _node_to_listing(
             seller=_extract_seller(node),
             images=_extract_images(node),
             posted_at=_extract_posted_at(node),
-            extraction_method=ExtractionMethod.GRAPHQL,
+            extraction_method=method,
             scraped_at=datetime.now(UTC),
         )
     except Exception as exc:  # pragma: no cover - defensive

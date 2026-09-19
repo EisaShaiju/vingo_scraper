@@ -221,3 +221,13 @@ __marimo__/
 .state/
 reports/
 .env
+
+# client-facing pitch material (commercial, not part of the codebase)
+pitch/
+
+# internal working docs (untracked, not for production)
+CLAUDE.md
+docs/
+
+# demo console runtime state
+.state/

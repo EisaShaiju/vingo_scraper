@@ -13,7 +13,7 @@ from pathlib import Path
 
 import pytest
 
-from vingo_scraper.extract.graphql import parse_payloads
+from vingo_scraper.extract.fb_payload import parse_payloads
 from vingo_scraper.extract.schema import Condition, ExtractionMethod, ReviewStatus
 
 FIXTURES = Path(__file__).parent / "fixtures"
@@ -44,7 +44,7 @@ def test_core_fields(search_payload):
     assert iphone.location_text == "Bandra, Mumbai"
     assert iphone.seller.fb_seller_id == "998877665544"
     assert iphone.posted_at is not None
-    assert iphone.extraction_method is ExtractionMethod.GRAPHQL
+    assert iphone.extraction_method is ExtractionMethod.APIFY
 
 
 def test_price_falls_back_to_formatted_string(search_payload):
@@ -92,7 +92,7 @@ def test_images_primary_flagged_and_deduped(search_payload):
     assert sum(img.is_primary for img in images) == 1
     assert len({img.source_url for img in images}) == 3
     # Rehosting is off by default; nothing should be rehosted yet.
-    assert all(img.rehosted_url is None for img in images)
+    assert all(img.storage_url is None for img in images)
 
 
 def test_everything_lands_pending_review(search_payload):

@@ -1,0 +1,451 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Vingo · Ingestion Console</title>
+<style>
+  /* Palette lifted from justvingo.com: indigo primary on a near-white ground. */
+  :root{
+    --brand:#4F46E5; --brand-dark:#4338CA; --brand-soft:#EEF2FF;
+    --ink:#0F172A; --muted:#64748B; --line:#E2E8F0;
+    --bg:#F8FAFC; --card:#FFFFFF;
+    --ok:#059669; --ok-soft:#ECFDF5; --warn:#D97706; --err:#DC2626; --err-soft:#FEF2F2;
+    --radius:16px;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{
+    font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+    background:var(--bg); color:var(--ink); line-height:1.5;
+    -webkit-font-smoothing:antialiased;
+  }
+  .wrap{max-width:1280px;margin:0 auto;padding:0 24px}
+
+  /* ---------- header ---------- */
+  header{background:var(--card);border-bottom:1px solid var(--line);position:sticky;top:0;z-index:20}
+  .nav{display:flex;align-items:center;gap:28px;height:64px}
+  .logo{font-size:26px;font-weight:800;color:var(--brand);letter-spacing:-.5px}
+  .logo span{color:var(--brand)}
+  .tag{font-size:13px;color:var(--muted);border-left:1px solid var(--line);padding-left:18px}
+  .right{margin-left:auto;display:flex;align-items:center;gap:14px}
+  .pill{font-size:12px;padding:5px 11px;border-radius:999px;background:var(--brand-soft);
+        color:var(--brand-dark);font-weight:600}
+  .pill.live{background:var(--ok-soft);color:var(--ok)}
+  .pill.down{background:var(--err-soft);color:var(--err)}
+
+  /* ---------- hero / control ---------- */
+  .hero{background:linear-gradient(135deg,#EEF2FF 0%,#E0F2FE 100%);
+        border-radius:var(--radius);padding:30px;margin:26px 0 22px;
+        display:flex;align-items:center;gap:28px;flex-wrap:wrap}
+  .hero h1{font-size:27px;font-weight:800;letter-spacing:-.6px;margin-bottom:5px}
+  .hero p{color:#475569;font-size:14px;max-width:560px}
+  .controls{margin-left:auto;display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap}
+  .field{display:flex;flex-direction:column;gap:5px}
+  .field label{font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px}
+  .field input,.field select{
+    padding:10px 13px;border:1px solid var(--line);border-radius:10px;font-size:14px;
+    background:var(--card);font-family:inherit;min-width:120px;color:var(--ink)}
+  .field input:focus,.field select:focus{outline:2px solid var(--brand);outline-offset:-1px}
+  button{font-family:inherit;cursor:pointer;border:none}
+  .btn{background:var(--brand);color:#fff;padding:12px 22px;border-radius:10px;
+       font-size:14px;font-weight:700;display:flex;align-items:center;gap:9px;
+       transition:background .15s;white-space:nowrap}
+  .btn:hover:not(:disabled){background:var(--brand-dark)}
+  .btn:disabled{opacity:.55;cursor:not-allowed}
+  .spin{width:15px;height:15px;border:2px solid rgba(255,255,255,.35);
+        border-top-color:#fff;border-radius:50%;animation:s .7s linear infinite}
+  @keyframes s{to{transform:rotate(360deg)}}
+
+  /* ---------- stats ---------- */
+  .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:14px;margin-bottom:22px}
+  .stat{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:17px 19px}
+  .stat .k{font-size:11px;color:var(--muted);text-transform:uppercase;font-weight:700;letter-spacing:.5px}
+  .stat .v{font-size:27px;font-weight:800;margin-top:5px;letter-spacing:-1px}
+  .stat .v.green{color:var(--ok)} .stat .v.red{color:var(--err)}
+  .stat .sub{font-size:11px;color:var(--muted);margin-top:2px}
+  .bump{animation:b .6s ease}
+  @keyframes b{0%{background:#FEF9C3}100%{background:var(--card)}}
+
+  /* ---------- layout ---------- */
+  .grid{display:grid;grid-template-columns:1fr 380px;gap:20px;align-items:start}
+  @media(max-width:1080px){.grid{grid-template-columns:1fr}}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);overflow:hidden}
+  .card-h{padding:15px 19px;border-bottom:1px solid var(--line);display:flex;
+          align-items:center;gap:10px}
+  .card-h h2{font-size:15px;font-weight:700}
+  .card-h .n{font-size:12px;color:var(--muted);margin-left:auto}
+
+  /* ---------- pipeline ---------- */
+  .steps{padding:15px 19px;display:flex;flex-direction:column;gap:2px}
+  .step{display:flex;align-items:center;gap:11px;padding:8px 0;font-size:13px;opacity:.4;
+        transition:opacity .2s}
+  .step.on{opacity:1}
+  .dot{width:22px;height:22px;border-radius:50%;background:#E2E8F0;flex-shrink:0;
+       display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;color:#94A3B8}
+  .step.on .dot{background:var(--brand);color:#fff}
+  .step.ok .dot{background:var(--ok);color:#fff}
+  .step.bad .dot{background:var(--err);color:#fff}
+  .step .lbl{font-weight:600}
+  .step .meta{margin-left:auto;font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums}
+
+  .log{background:#0F172A;color:#94A3B8;font-family:ui-monospace,'Cascadia Code',Menlo,monospace;
+       font-size:11.5px;padding:13px 16px;max-height:210px;overflow-y:auto;line-height:1.65}
+  .log div{white-space:pre-wrap;word-break:break-word}
+  .log .t{color:#475569}
+  .log .g{color:#34D399} .log .b{color:#60A5FA} .log .r{color:#F87171} .log .y{color:#FBBF24}
+
+  /* ---------- table ---------- */
+  .tbl-wrap{overflow-x:auto}
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  th{text-align:left;padding:10px 14px;font-size:10.5px;text-transform:uppercase;
+     letter-spacing:.5px;color:var(--muted);font-weight:700;border-bottom:1px solid var(--line);
+     background:#FBFDFF;position:sticky;top:0}
+  td{padding:11px 14px;border-bottom:1px solid #F1F5F9;vertical-align:middle}
+  tr:last-child td{border-bottom:none}
+  tr.new{animation:nw 1.4s ease}
+  @keyframes nw{0%{background:#ECFDF5}100%{background:transparent}}
+  .thumb{width:46px;height:46px;border-radius:9px;object-fit:cover;background:#F1F5F9;
+         border:1px solid var(--line);display:block}
+  .ttl{font-weight:600;max-width:270px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .ttl a{color:inherit;text-decoration:none}
+  .ttl a:hover{color:var(--brand)}
+  .price{font-weight:700;font-variant-numeric:tabular-nums;white-space:nowrap}
+  .badge{font-size:10.5px;padding:3px 8px;border-radius:999px;font-weight:700;white-space:nowrap}
+  .b-new{background:var(--ok-soft);color:var(--ok)}
+  .b-used{background:#F1F5F9;color:#475569}
+  .b-pend{background:#FFFBEB;color:var(--warn)}
+  .b-appr{background:var(--ok-soft);color:var(--ok)}
+  .muted{color:var(--muted);font-size:12px}
+  .empty{padding:56px 20px;text-align:center;color:var(--muted);font-size:14px}
+
+  /* ---------- supabase panel ---------- */
+  .sb{padding:16px 19px;display:flex;flex-direction:column;gap:11px}
+  .sb-row{display:flex;justify-content:space-between;font-size:13px;
+          padding-bottom:9px;border-bottom:1px solid #F1F5F9}
+  .sb-row:last-child{border:none;padding:0}
+  .sb-row .k{color:var(--muted)}
+  .sb-row .v{font-weight:700;font-variant-numeric:tabular-nums}
+  .inv{background:var(--ok-soft);border:1px solid #A7F3D0;border-radius:11px;padding:11px 13px;
+       font-size:12px;color:#065F46;display:flex;gap:9px;align-items:flex-start}
+  .inv.bad{background:var(--err-soft);border-color:#FECACA;color:#991B1B}
+  .runs{font-size:12px}
+  .run{display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid #F1F5F9}
+  .run:last-child{border:none}
+  .run .id{font-family:ui-monospace,monospace;color:var(--muted);font-size:11px}
+  footer{padding:26px 0 36px;color:var(--muted);font-size:12px;text-align:center}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="wrap nav">
+    <div class="logo">vingo<span>.</span></div>
+    <div class="tag">Marketplace Ingestion Console</div>
+    <div class="right">
+      <span class="pill" id="p-src">Apify → Supabase</span>
+      <span class="pill" id="p-health">checking…</span>
+    </div>
+  </div>
+</header>
+
+<div class="wrap">
+
+  <div class="hero">
+    <div>
+      <h1>Today's update</h1>
+      <p>Pulls live Facebook Marketplace listings, rehosts every photo onto our
+         own storage, and writes them to Supabase. Nothing is published until a
+         human approves it.</p>
+    </div>
+    <div class="controls">
+      <div class="field">
+        <label>Query</label>
+        <input id="q" value="iphone">
+      </div>
+      <div class="field">
+        <label>City</label>
+        <select id="loc">
+          <option value="mumbai">Mumbai</option>
+          <option value="delhi">Delhi</option>
+          <option value="bangalore">Bengaluru</option>
+          <option value="hyderabad">Hyderabad</option>
+          <option value="pune">Pune</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Items</label>
+        <input id="n" type="number" value="10" min="1" max="25" style="min-width:80px">
+      </div>
+      <button class="btn" id="run">
+        <span id="run-ico">▶</span><span id="run-txt">Run today's update</span>
+      </button>
+    </div>
+  </div>
+
+  <div class="stats" id="stats"></div>
+
+  <div class="grid">
+    <div style="display:flex;flex-direction:column;gap:20px">
+
+      <div class="card">
+        <div class="card-h">
+          <h2>Pipeline</h2>
+          <span class="n" id="pipe-state">idle</span>
+        </div>
+        <div class="steps" id="steps"></div>
+        <div class="log" id="log"><div class="t">Ready. Press “Run today's update”.</div></div>
+      </div>
+
+      <div class="card">
+        <div class="card-h">
+          <h2>Listings in Supabase</h2>
+          <span class="n" id="tbl-n"></span>
+        </div>
+        <div class="tbl-wrap">
+          <table>
+            <thead><tr>
+              <th></th><th>Title</th><th>Price</th><th>Condition</th>
+              <th>Location</th><th>Photos</th><th>Status</th><th>Updated</th>
+            </tr></thead>
+            <tbody id="rows"><tr><td colspan="8" class="empty">Loading…</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:20px">
+      <div class="card">
+        <div class="card-h"><h2>Supabase</h2><span class="n" id="sb-proj"></span></div>
+        <div class="sb" id="sb"></div>
+      </div>
+      <div class="card">
+        <div class="card-h"><h2>Recent runs</h2></div>
+        <div class="sb runs" id="runs"></div>
+      </div>
+    </div>
+  </div>
+
+  <footer>
+    Images are downloaded from Facebook's expiring CDN and rehosted to Supabase
+    Storage · listings land <strong>pending review</strong> and are never
+    auto-published
+  </footer>
+</div>
+
+<script>
+const $ = s => document.querySelector(s);
+const fmt = n => n==null ? '—' : '₹' + Number(n).toLocaleString('en-IN');
+const ago = iso => {
+  if(!iso) return '—';
+  const d = (Date.now() - new Date(iso)) / 1000;
+  if (d < 60) return Math.floor(d)+'s ago';
+  if (d < 3600) return Math.floor(d/60)+'m ago';
+  if (d < 86400) return Math.floor(d/3600)+'h ago';
+  return Math.floor(d/86400)+'d ago';
+};
+
+const STEPS = [
+  ['apify',   'Apify actor run'],
+  ['parse',   'Parse listings'],
+  ['rehost',  'Rehost images → Supabase'],
+  ['persist', 'Upsert into Postgres'],
+];
+
+function drawSteps(state={}){
+  $('#steps').innerHTML = STEPS.map(([k,label],i)=>{
+    const st = state[k] || '';
+    const cls = st==='done' ? 'on ok' : st==='bad' ? 'on bad' : st==='run' ? 'on' : '';
+    const mark = st==='done' ? '✓' : st==='bad' ? '!' : (i+1);
+    return `<div class="step ${cls}">
+      <div class="dot">${mark}</div>
+      <div class="lbl">${label}</div>
+      <div class="meta">${state[k+'_meta']||''}</div>
+    </div>`;
+  }).join('');
+}
+
+function log(msg, cls=''){
+  const el = $('#log');
+  const t = new Date().toLocaleTimeString('en-GB');
+  el.insertAdjacentHTML('beforeend', `<div><span class="t">${t}</span> <span class="${cls}">${msg}</span></div>`);
+  el.scrollTop = el.scrollHeight;
+}
+
+let prevStats = {};
+async function loadStats(){
+  const s = await (await fetch('/api/stats')).json();
+  const cards = [
+    ['Listings', s.listings, ''],
+    ['Images stored', s.images_stored, ''],
+    ['Pending review', s.pending_review, ''],
+    ['Runs', s.runs, ''],
+    ['Apify spend', '$'+(s.cost_usd||0).toFixed(4), ''],
+    ['fbcdn leaks', s.fbcdn_leaks, s.fbcdn_leaks===0?'green':'red'],
+  ];
+  $('#stats').innerHTML = cards.map(([k,v,c])=>{
+    const changed = prevStats[k]!==undefined && prevStats[k]!==v;
+    return `<div class="stat ${changed?'bump':''}">
+      <div class="k">${k}</div><div class="v ${c}">${v}</div>
+      ${k==='fbcdn leaks'?'<div class="sub">must stay 0</div>':''}
+    </div>`;
+  }).join('');
+  cards.forEach(([k,v])=>prevStats[k]=v);
+
+  $('#sb-proj').textContent = s.supabase_project;
+  $('#sb').innerHTML = `
+    <div class="sb-row"><span class="k">Project</span><span class="v">${s.supabase_project}</span></div>
+    <div class="sb-row"><span class="k">Bucket</span><span class="v">${s.bucket}</span></div>
+    <div class="sb-row"><span class="k">listing rows</span><span class="v">${s.listings}</span></div>
+    <div class="sb-row"><span class="k">listing_image rows</span><span class="v">${s.images}</span></div>
+    <div class="sb-row"><span class="k">scrape_run rows</span><span class="v">${s.runs}</span></div>
+    <div class="sb-row"><span class="k">Last run</span><span class="v">${ago(s.last_run_at)}</span></div>
+    <div class="inv ${s.fbcdn_leaks?'bad':''}">
+      <span>${s.fbcdn_leaks?'✕':'✓'}</span>
+      <span><strong>${s.fbcdn_leaks}</strong> stored URLs point at Facebook.
+      Every served image is on our own storage, so nothing breaks when
+      Facebook's signed links expire.</span>
+    </div>`;
+}
+
+let known = new Set();
+async function loadListings(highlight=false){
+  const d = await (await fetch('/api/listings?limit=60')).json();
+  $('#tbl-n').textContent = d.count + ' rows';
+  if(!d.listings.length){
+    $('#rows').innerHTML = '<tr><td colspan="8" class="empty">No listings yet — run an update.</td></tr>';
+    return;
+  }
+  $('#rows').innerHTML = d.listings.map(l=>{
+    const isNew = highlight && !known.has(l.fb_listing_id);
+    const cond = l.condition==='new' ? 'b-new' : 'b-used';
+    const rev = l.review_status==='pending_review' ? 'b-pend' : 'b-appr';
+    return `<tr class="${isNew?'new':''}">
+      <td>${l.thumb?`<img class="thumb" src="${l.thumb}" loading="lazy">`:'<div class="thumb"></div>'}</td>
+      <td class="ttl"><a href="${l.listing_url}" target="_blank" rel="noopener">${l.title}</a></td>
+      <td class="price">${fmt(l.price_inr)}</td>
+      <td><span class="badge ${cond}">${l.condition.replace(/_/g,' ')}</span></td>
+      <td class="muted">${l.location||'—'}</td>
+      <td class="muted">${l.image_count}</td>
+      <td><span class="badge ${rev}">${l.review_status.replace(/_/g,' ')}</span></td>
+      <td class="muted">${ago(l.last_seen_at)}</td>
+    </tr>`;
+  }).join('');
+  d.listings.forEach(l=>known.add(l.fb_listing_id));
+}
+
+async function loadRuns(){
+  const d = await (await fetch('/api/runs?limit=6')).json();
+  $('#runs').innerHTML = d.runs.length ? d.runs.map(r=>`
+    <div class="run">
+      <div><div class="id">${r.run_id||'—'}</div>
+           <div class="muted">${r.items_ingested} listings · ${r.images_stored} imgs</div></div>
+      <div style="text-align:right">
+        <div class="v" style="font-weight:700;color:${r.status==='SUCCEEDED'?'var(--ok)':'var(--muted)'}">${r.status}</div>
+        <div class="muted">${ago(r.started_at)}</div>
+      </div>
+    </div>`).join('') : '<div class="muted">No runs yet.</div>';
+}
+
+async function health(){
+  try{
+    const h = await (await fetch('/api/health')).json();
+    const el = $('#p-health');
+    el.textContent = h.ok ? 'Supabase connected' : 'Supabase down';
+    el.className = 'pill ' + (h.ok?'live':'down');
+  }catch{ $('#p-health').textContent='offline'; }
+}
+
+$('#run').onclick = async () => {
+  const btn = $('#run');
+  btn.disabled = true;
+  $('#run-ico').outerHTML = '<span class="spin" id="run-ico"></span>';
+  $('#run-txt').textContent = 'Running…';
+  $('#log').innerHTML = '';
+  $('#pipe-state').textContent = 'running';
+  const state = {};
+  drawSteps(state);
+
+  let job;
+  try{
+    const r = await fetch('/api/ingest', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({
+        query: $('#q').value, location: $('#loc').value,
+        max_items: parseInt($('#n').value)||10,
+      })
+    });
+    if(!r.ok){ throw new Error((await r.json()).detail || r.statusText); }
+    job = (await r.json()).job_id;
+  }catch(e){
+    log('Failed to start: '+e.message, 'r');
+    return reset();
+  }
+
+  const es = new EventSource(`/api/ingest/${job}/stream`);
+  es.onmessage = ev => {
+    const d = JSON.parse(ev.data);
+    switch(d.stage){
+      case 'job:start':
+        log(`Starting: "${d.query}" in ${d.location}, max ${d.max_items}`, 'b');
+        state.apify='run'; drawSteps(state); break;
+      case 'apify:start':
+        log('Triggering Apify actor…'); break;
+      case 'apify:done':
+        state.apify='done'; state.apify_meta=`${d.items} items`;
+        state.parse='run'; drawSteps(state);
+        log(`Actor finished — ${d.items} items, run ${d.run_id}`, 'g');
+        if(d.cost_usd!=null) log(`Cost: $${Number(d.cost_usd).toFixed(4)}`);
+        break;
+      case 'parse:done':
+        state.parse='done'; state.parse_meta=`${d.listings} listings`;
+        drawSteps(state);
+        log(`Parsed ${d.listings} listings`, 'g');
+        (d.sample||[]).forEach(s=>log(`   · ${s.title} — ₹${Number(s.price||0).toLocaleString('en-IN')} (${s.images} photos)`));
+        break;
+      case 'rehost:start':
+        state.rehost='run'; state.rehost_meta=`0/${d.total}`; drawSteps(state);
+        log(`Rehosting ${d.total} images off Facebook's CDN…`, 'y'); break;
+      case 'rehost:done':
+        state.rehost = d.failed ? 'done' : 'done';
+        state.rehost_meta=`${d.stored}/${d.total}`; drawSteps(state);
+        log(`Rehosted ${d.stored} images${d.failed?`, ${d.failed} failed`:''}`, d.failed?'y':'g');
+        break;
+      case 'persist:start':
+        state.persist='run'; drawSteps(state); break;
+      case 'persist:done':
+        state.persist='done'; state.persist_meta=`+${d.created} new, ${d.updated} updated`;
+        drawSteps(state);
+        log(`Database: ${d.created} created, ${d.updated} updated`, 'g'); break;
+      case 'complete':
+        log('Done.', 'g'); break;
+      case 'dry_run':
+        log('Dry run — skipped storage and database', 'y'); break;
+      case 'empty':
+        log('No listings returned (density signal, not a failure)', 'y'); break;
+      case 'error':
+        Object.keys(state).forEach(k=>{ if(state[k]==='run') state[k]='bad'; });
+        drawSteps(state); log('ERROR: '+d.message, 'r'); break;
+      case 'job:end':
+        es.close();
+        $('#pipe-state').textContent = d.status;
+        loadStats(); loadListings(true); loadRuns();
+        reset();
+        break;
+    }
+  };
+  es.onerror = () => { es.close(); log('Stream closed.', 'y'); reset(); };
+
+  function reset(){
+    btn.disabled = false;
+    const ico = $('#run-ico'); if(ico) ico.outerHTML = '<span id="run-ico">▶</span>';
+    $('#run-txt').textContent = 'Run today\'s update';
+  }
+};
+
+drawSteps({});
+health(); loadStats(); loadListings(); loadRuns();
+setInterval(()=>{ if(!$('#run').disabled){ loadStats(); loadRuns(); } }, 15000);
+</script>
+</body>
+</html>

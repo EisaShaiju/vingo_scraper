@@ -1,0 +1,1038 @@
+[
+  {
+    "facebookUrl": "https://www.facebook.com/marketplace/mumbai/search/?query=iphone&sortBy=creation_time_descend",
+    "id": "4328838274095723",
+    "itemUrl": "https://www.facebook.com/marketplace/item/4328838274095723/",
+    "listingAttributes": [
+      {
+        "attribute_name": "Condition",
+        "value": "used_good",
+        "label": "Used - Good"
+      }
+    ],
+    "condition": "Used - Good",
+    "timestamp": "2026-09-19T02:39:57.000Z",
+    "deliveryTypes": [
+      "IN_PERSON"
+    ],
+    "listingPhotos": [
+      {
+        "__typename": "CatalogMarketplaceEnhancementTransformedImage",
+        "accessibility_caption": "No photo description available.",
+        "image": {
+          "height": 960,
+          "width": 720,
+          "uri": "https://scontent-phl2-1.xx.fbcdn.net/v/t39.84726-6/814818159_1609948417300217_8466015063189397231_n.jpg?stp=dst-jpg_s960x960_tt6&_nc_cat=111&ccb=1-7&_nc_sid=92e707&_nc_ohc=ehAiite7PMwQ7kNvwFYsjcM&_nc_oc=AdoQ_2ayCHTh2tg_HYDYsHZlO0qU5hJSWP0zBrSzWtuCUxZbQQPqkKOjnmh3iYkgB2lh_lWmJ0xKBpDpY43cfFpB&_nc_zt=14&_nc_ht=scontent-phl2-1.xx&_nc_gid=sxSdzw-caX3gIdmSyAlpaw&_nc_ss=7d289&oh=00_AQJAOHavZCUZnI6HTkx5ryKQktWljQiFY99GZUnbLHmQfA&oe=6AB3FD51"
+        },
+        "id": "1609948407300218"
+      },
+      {
+        "__typename": "ProductImage",
+        "accessibility_caption": "No photo description available.",
+        "image": {
+          "height": 960,
+          "width": 720,
+          "uri": "https://scontent-phl2-1.xx.fbcdn.net/v/t45.5328-4/817987648_1545605894259601_8024061101954535013_n.jpg?stp=dst-jpg_s960x960_tt6&_nc_cat=110&ccb=1-7&_nc_sid=247b10&_nc_ohc=v0YUNBqyD5YQ7kNvwFMRfhB&_nc_oc=AdprWJpic-ZV-GVjPKT4c5E3wODPyGv1OqkxxePpHlsR-VgDUO_XsqB5z334yqcm3-wlCvTySXBt3XZ6w-S7YzXV&_nc_zt=23&_nc_ht=scontent-phl2-1.xx&_nc_gid=sxSdzw-caX3gIdmSyAlpaw&_nc_ss=7d289&oh=00_AQIiZrqo7D1al-gIFj6olrPjSsCFrIRDNeHQ5yS-EVnuCQ&oe=6AB40BA6"
+        },
+        "id": "1545605887592935"
+      },
+      {
+        "__typename": "ProductImage",
+        "accessibility_caption": "No photo description available.",
+        "image": {
+          "height": 960,
+          "width": 720,
+          "uri": "https://scontent-phl2-1.xx.fbcdn.net/v/t45.5328-4/814834188_2331048810764961_8685047117881988950_n.jpg?stp=dst-jpg_s960x960_tt6&_nc_cat=108&ccb=1-7&_nc_sid=247b10&_nc_ohc=EU1ruHd6V7MQ7kNvwENi5d7&_nc_oc=AdplLUpYJPQSd0obXkwAgpVGvKjeeMNnicSwXRy46BWcZ8Sk7Psp0UHN9T3uBY261h4qTRR8dNDFeZQv0QnRGxKc&_nc_zt=23&_nc_ht=scontent-phl2-1.xx&_nc_gid=sxSdzw-caX3gIdmSyAlpaw&_nc_ss=7d289&oh=00_AQL3G7DE_tOilFeJ3J7VW4hCFqs8RIHkN55r0LtYwjVRXA&oe=6AB3E884"
+        },
+        "id": "2331048797431629"
+      },
+      {
+        "__typename": "ProductImage",
+        "accessibility_caption": "No photo description available.",
+        "image": {
+          "height": 960,
+          "width": 720,
+          "uri": "https://scontent-phl2-1.xx.fbcdn.net/v/t45.5328-4/806355623_1398048972450758_7656688247790560183_n.jpg?stp=dst-jpg_s960x960_tt6&_nc_cat=100&ccb=1-7&_nc_sid=247b10&_nc_ohc=ziGoKTP8vR0Q7kNvwGKG-ro&_nc_oc=AdpRMn9nyUiRnPIaSjc76-jZplhMxNNLjeWBkpSy_tZzIh0tFaaCXKN76v7FkE5guErTf9afCQI9mAURqVlINEVp&_nc_zt=23&_nc_ht=scontent-phl2-1.xx&_nc_gid=sxSdzw-caX3gIdmSyAlpaw&_nc_ss=7d289&oh=00_AQKqQ1-Jg9F9H_hHRGJ70x2IAB56iHN3qU-NQTNp5B_A8A&oe=6AB3F440"
+        },
+        "id": "1398048965784092"
+      },
+      {
+        "__typename": "ProductImage",
+        "accessibility_caption": "No photo description available.",
+        "image": {
+          "height": 960,
+          "width": 720,
+          "uri": "https://scontent-phl2-1.xx.fbcdn.net/v/t45.5328-4/815066867_1415835307197986_7122397116079392162_n.jpg?stp=dst-jpg_p720x720_tt6&_nc_cat=104&ccb=1-7&_nc_sid=247b10&_nc_ohc=w44vbcDzt0MQ7kNvwER8Dr5&_nc_oc=AdqQnAviQJ58nt7AclkarUUzoyw_oKUGlgwenEv-uAfGv8H-kF2X75nt_WMCyiOi2IhCxu8uzqQI10xci30-tZI_&_nc_zt=23&_nc_ht=scontent-phl2-1.xx&_nc_gid=sxSdzw-caX3gIdmSyAlpaw&_nc_ss=7d289&oh=00_AQLkveJ7VZrXIsi_EjOAcBXyLNCinaZdrSyuti4R1LGnSw&oe=6AB3FCBD"
+        },
+        "id": "1415835300531320"
+      },
+      {
+        "__typename": "ProductImage",
+        "accessibility_caption": "No photo description available.",
+        "image": {
+          "height": 960,
+          "width": 720,
+          "uri": "https://scontent-phl2-1.xx.fbcdn.net/v/t45.5328-4/817849535_1794218558664585_5282122769334346641_n.jpg?stp=dst-jpg_s960x960_tt6&_nc_cat=106&ccb=1-7&_nc_sid=247b10&_nc_ohc=9sQXWBV4s9UQ7kNvwE6n5e1&_nc_oc=AdqRvzPavJbcMl7J1EM1EuHPXN7lDr3Wc5djivzVcbIaSOHkWRl9xWaOtg_l6x8c1S4YaUGDsSa_kr3NlVBzGl11&_nc_zt=23&_nc_ht=scontent-phl2-1.xx&_nc_gid=sxSdzw-caX3gIdmSyAlpaw&_nc_ss=7d289&oh=00_AQJ2g4UvvSQmPlp5zDXd4I4p3yL89iBCs0zgh81nsxGNzA&oe=6AB3F5C5"
+        },
+        "id": "1794218555331252"
+      }
+    ],
+    "listingPrice": {
+      "formatted_amount_zeros_stripped": "\u20b940,000",
+      "amount_with_offset_in_currency": "41526",
+      "amount": "40000.00",
+      "currency": "INR"
+    },
+    "location": {
+      "latitude": 19.162902832031,
+      "longitude": 73.251342773438
+    },
+    "locationText": {
+      "text": "Badlapur, MH"
+    },
+    "listingTitle": "Iphone 14 pro max",
+    "description": {
+      "text": "Iphone 14 pro max for sell \nAll woking \nFace id working \nTruetone also working \nBattery chahge \nDisplay change hai but market og hai \nBil available \nCharger calble erphone \nNo problem "
+    },
+    "isHidden": false,
+    "isLive": true,
+    "isPending": false,
+    "isSold": false,
+    "isViewerSeller": false,
+    "listingVideo": [],
+    "listingCategoryId": "1557869527812749",
+    "strikethroughPrice": null,
+    "primaryListingPhoto": {
+      "__typename": "CatalogMarketplaceEnhancementTransformedImage",
+      "id": "1609948407300218",
+      "photo_image_url": "https://scontent.fcae1-1.fna.fbcdn.net/v/t39.84726-6/814818159_1609948417300217_8466015063189397231_n.jpg?stp=c0.43.261.261a_dst-jpg_p261x260_tt6&_nc_cat=111&_nc_map=urlgen_bucketless&ccb=1-7&_nc_sid=92e707&_nc_ohc=ehAiite7PMwQ7kNvwHUgS_M&_nc_oc=AdonMzCZHJA0qYpG--5Ie1DAwJvkm5EV-gQuUm9G7O9bcsDqOfmnVYUIOCa63esde2g&_nc_zt=14&_nc_ht=scontent.fcae1-1.fna&_nc_gid=X7W3zzFSqfJ869DMjA2Q-g&_nc_ss=73289&oh=00_AQK5I9ACCrQ6PMVPThc8z8WjlhrA0BCE8VSftaOPAHWFzQ&oe=6AB3FD51"
+    },
+    "customSubTitlesWithRenderingFlags": []
+  },
+  {
+    "facebookUrl": "https://www.facebook.com/marketplace/mumbai/search/?query=iphone&sortBy=creation_time_descend",
+    "id": "2812631799123900",
+    "itemUrl": "https://www.facebook.com/marketplace/item/2812631799123900/",
+    "listingAttributes": [
+      {
+        "attribute_name": "Condition",
+        "value": "new",
+        "label": "New"
+      }
+    ],
+    "condition": "New",
+    "timestamp": "2026-09-19T01:08:26.000Z",
+    "deliveryTypes": [
+      "IN_PERSON"
+    ],
+    "listingPhotos": [
+      {
+        "__typename": "CatalogMarketplaceEnhancementTransformedImage",
+        "accessibility_caption": "No photo description available.",
+        "image": {
+          "height": 960,
+          "width": 432,
+          "uri": "https://scontent-dfw5-2.xx.fbcdn.net/v/t39.84726-6/816030291_1408021387328913_3399900762860806271_n.jpg?stp=dst-jpg_s960x960_tt6&_nc_cat=100&ccb=1-7&_nc_sid=92e707&_nc_ohc=JeZ0b6SN1p4Q7kNvwEmDsvX&_nc_oc=Adoex9MmtYbK04lEcWruRl7IbYhWEsmZxhm3dfOJ1-uaF1KmtmqHn7O0JW5T59E2qJI&_nc_zt=14&_nc_ht=scontent-dfw5-2.xx&_nc_gid=odBaxZdMro6IfP2MQfpcPQ&_nc_ss=73289&oh=00_AQJwmaZjk-z9clUmJ3W8CzcVjM1Qc4BYXXjQb-bfXWaPnw&oe=6AB3E94D"
+        },
+        "id": "1408021383995580"
+      },
+      {
+        "__typename": "ProductImage",
+        "accessibility_caption": "No photo description available.",
+        "image": {
+          "height": 960,
+          "width": 432,
+          "uri": "https://scontent-dfw6-2.xx.fbcdn.net/v/t45.5328-4/814638453_2096011354332707_8186261513618018994_n.jpg?stp=dst-jpg_s960x960_tt6&_nc_cat=110&ccb=1-7&_nc_sid=247b10&_nc_ohc=KGSROcUuZ_EQ7kNvwESP611&_nc_oc=AdqQjrZ7Doh_q_lK3ILQVKEfaICbM-sjKrlhSau6tEkk0CtEEt-vOoyQMhL59vgXaOQ&_nc_zt=23&_nc_ht=scontent-dfw6-2.xx&_nc_gid=odBaxZdMro6IfP2MQfpcPQ&_nc_ss=73289&oh=00_AQKnT8t5pvoqUzCU3jIiU2F_Wh0JqQ2BzkNgEPbxONnhkg&oe=6AB3F099"
+        },
+        "id": "2096011344332708"
+      },
+      {
+        "__typename": "ProductImage",
+        "accessibility_caption": "No photo description available.",
+        "image": {
+          "height": 960,
+          "width": 432,
+          "uri": "https://scontent-dfw5-1.xx.fbcdn.net/v/t45.5328-4/814730104_1609006621021114_4375487018671415811_n.jpg?stp=dst-jpg_s960x960_tt6&_nc_cat=111&ccb=1-7&_nc_sid=247b10&_nc_ohc=R3TRO_VyYPcQ7kNvwGJyzTV&_nc_oc=Ado2J7prQ9xcbf0yyPAEKjVszEt93pdRdyUFRxbCEb-V5jAE3hz98HNmRBrlZL5k8Iw&_nc_zt=23&_nc_ht=scontent-dfw5-1.xx&_nc_gid=odBaxZdMro6IfP2MQfpcPQ&_nc_ss=73289&oh=00_AQK8OuEvlw-FB-B26vivQyBvXFnLSTjOP2q3POTEPCjLIA&oe=6AB3D987"
+        },
+        "id": "1609006617687781"
+      },
+      {
+        "__typename": "ProductImage",
+        "accessibility_caption": "No photo description available.",
+        "image": {
+          "height": 960,
+          "width": 432,
+          "uri": "https://scontent-dfw6-1.xx.fbcdn.net/v/t45.5328-4/814672228_1407395017472266_1066417765751756617_n.jpg?stp=dst-jpg_s960x960_tt6&_nc_cat=103&ccb=1-7&_nc_sid=247b10&_nc_ohc=S7h-fIZBia8Q7kNvwGqGWoN&_nc_oc=AdrlEoXDh4VZJwy2_14xI3KrjkAGPk0pmfguvGheFrWGNnfT6pKoqIcZ6ukdFJJXL_o&_nc_zt=23&_nc_ht=scontent-dfw6-1.xx&_nc_gid=odBaxZdMro6IfP2MQfpcPQ&_nc_ss=73289&oh=00_AQL1q3WzKLoevb0adrt7tT4FqyKLra6qZASWsLblGf-Upw&oe=6AB3EE14"
+        },
+        "id": "1407395007472267"
+      },
+      {
+        "__typename": "ProductImage",
+        "accessibility_caption": "No photo description available.",
+        "image": {
+          "height": 960,
+          "width": 432,
+          "uri": "https://scontent-dfw5-2.xx.fbcdn.net/v/t45.5328-4/814672180_1968438670757184_2346026119922983747_n.jpg?stp=dst-jpg_s960x960_tt6&_nc_cat=100&ccb=1-7&_nc_sid=247b10&_nc_ohc=0eihwwddsxcQ7kNvwFDASif&_nc_oc=AdpArAgaCsiQceCR7gll9uH5FTE-g6UTYfr4wxJDbyyuG4xfCS2omE5pNn6UID06ilo&_nc_zt=23&_nc_ht=scontent-dfw5-2.xx&_nc_gid=odBaxZdMro6IfP2MQfpcPQ&_nc_ss=73289&oh=00_AQJlASlTWrOrEr26iFt0I9cx95t1XpIm-oWRgPBPcMuuOA&oe=6AB3E1FA"
+        },
+        "id": "1968438667423851"
+      }
+    ],
+    "listingPrice": {
+      "formatted_amount_zeros_stripped": "\u20b970,000",
+      "amount_with_offset_in_currency": "72671",
+      "amount": "70000.00",
+      "currency": "INR"
+    },
+    "location": {
+      "latitude": 19.064025878906,
+      "longitude": 72.877807617188
+    },
+    "locationText": {
+      "text": "Mumbai, MH"
+    },
+    "listingTitle": "Iphone 16 plus",
+    "description": {
+      "text": "500 shiping charges and all india dilivery "
+    },
+    "isHidden": false,
+    "isLive": true,
+    "isPending": false,
+    "isSold": false,
+    "isViewerSeller": false,
+    "listingVideo": [],
+    "listingCategoryId": "1557869527812749",
+    "strikethroughPrice": null,
+    "primaryListingPhoto": {
+      "__typename": "CatalogMarketplaceEnhancementTransformedImage",
+      "id": "1408021383995580",
+      "photo_image_url": "https://scontent.fcae1-1.fna.fbcdn.net/v/t39.84726-6/816030291_1408021387328913_3399900762860806271_n.jpg?stp=c0.159.261.261a_dst-jpg_p261x260_tt6&_nc_cat=100&_nc_map=urlgen_bucketless&ccb=1-7&_nc_sid=92e707&_nc_ohc=JeZ0b6SN1p4Q7kNvwF4zqxG&_nc_oc=Adq2CZo178W-PNFIIaMa-uCH7zyBPdQjRVKaTRaI-ql0PQA_0X-L9ks_YEvepMynxFU&_nc_zt=14&_nc_ht=scontent.fcae1-1.fna&_nc_gid=X7W3zzFSqfJ869DMjA2Q-g&_nc_ss=73289&oh=00_AQLHTngJ8a_irBmsasBcwrTG0Qu9qpmF6EeMzJxQpsXYzw&oe=6AB3E94D"
+    },
+    "customSubTitlesWithRenderingFlags": []
+  },
+  {
+    "facebookUrl": "https://www.facebook.com/marketplace/mumbai/search/?query=iphone&sortBy=creation_time_descend",
+    "id": "2164539247799009",
+    "itemUrl": "https://www.facebook.com/marketplace/item/2164539247799009/",
+    "listingAttributes": [
+      {
+        "attribute_name": "Condition",
+        "value": "used_good",
+        "label": "Used - Good"
+      }
+    ],
+    "condition": "Used - Good",
+    "timestamp": "2026-09-18T21:20:48.000Z",
+    "deliveryTypes": [
+      "IN_PERSON"
+    ],
+    "listingPhotos": [
+      {
+        "__typename": "CatalogMarketplaceEnhancementTransformedImage",
+        "accessibility_caption": "No photo description available.",
+        "image": {
+          "height": 960,
+          "width": 720,
+          "uri": "https://scontent-det1-1.xx.fbcdn.net/v/t39.84726-6/814368547_1847719180002769_3011655821054782872_n.jpg?stp=dst-jpg_s960x960_tt6&_nc_cat=100&ccb=1-7&_nc_sid=92e707&_nc_ohc=lxxSJqRm8ygQ7kNvwFSpwZA&_nc_oc=Adp8sNvcGD_njyu51yvT9HdBja3TFs1ERJEk04YZYt3yus_Q3M0COadkrUpfpSlAmp8&_nc_zt=14&_nc_ht=scontent-det1-1.xx&_nc_gid=siKetBMnAnoNEMQZRvgX6A&_nc_ss=7d289&oh=00_AQLa5MsvtP4CUGHXTp76v_-o484htSHqZV1eZfqF3wV3Cg&oe=6AB3F9E1"
+        },
+        "id": "1847719176669436"
+      },
+      {
+        "__typename": "ProductImage",
+        "accessibility_caption": "No photo description available.",
+        "image": {
+          "height": 960,
+          "width": 720,
+          "uri": "https://scontent-det1-1.xx.fbcdn.net/v/t45.5328-4/817470897_908349852357680_1290197394550721719_n.jpg?stp=dst-jpg_s960x960_tt6&_nc_cat=101&ccb=1-7&_nc_sid=247b10&_nc_ohc=iu9FaLW-aRUQ7kNvwHGCudX&_nc_oc=Adrx2W-vcsjJvrgDakopAEklVoqqMyAOf8_sFRJGnZ1F7QLUGlmc0TtePDgSNiP3M9E&_nc_zt=23&_nc_ht=scontent-det1-1.xx&_nc_gid=siKetBMnAnoNEMQZRvgX6A&_nc_ss=7d289&oh=00_AQKS8hOBq-y9PNQeWr_N9hFEcAY5pzaT6ZJgxtSnbHzaww&oe=6AB3FB57"
+        },
+        "id": "908349849024347"
+      },
+      {
+        "__typename": "ProductImage",
+        "accessibility_caption": "No photo description available.",
+        "image": {
+          "height": 960,
+          "width": 720,
+          "uri": "https://scontent-det1-1.xx.fbcdn.net/v/t45.5328-4/814916869_1646232783797275_5421504917883616809_n.jpg?stp=dst-jpg_s960x960_tt6&_nc_cat=100&ccb=1-7&_nc_sid=247b10&_nc_ohc=8nvueuv2o_gQ7kNvwEJXTy7&_nc_oc=AdooYAvni_C-VaS8Ky3RFzHwrigcHXrHmEIzbBWzqVIp-TeJBREv_fOXaF-Mq1R9SsM&_nc_zt=23&_nc_ht=scontent-det1-1.xx&_nc_gid=siKetBMnAnoNEMQZRvgX6A&_nc_ss=7d289&oh=00_AQKetd-Wf37ReIw-sxw6uj3B0y64R9cZH_98toan10yjzA&oe=6AB3F6F9"
+        },
+        "id": "1646232780463942"
+      },
+      {
+        "__typename": "ProductImage",
+        "accessibility_caption": "No photo description available.",
+        "image": {
+          "height": 960,
+          "width": 720,
+          "uri": "https://scontent-det1-1.xx.fbcdn.net/v/t45.5328-4/814916966_1864847778212685_2566980301467969387_n.jpg?stp=dst-jpg_s960x960_tt6&_nc_cat=110&ccb=1-7&_nc_sid=247b10&_nc_ohc=ipehMUdhBj0Q7kNvwExmjGK&_nc_oc=Adp8krZNi3twPN-DLLenO8-tSqSTeUATF2HqI0AvQZ5BH23ONpbyPSWirD4lZv-56qw&_nc_zt=23&_nc_ht=scontent-det1-1.xx&_nc_gid=siKetBMnAnoNEMQZRvgX6A&_nc_ss=7d289&oh=00_AQIyq0tS8QTsNZh7XD040VrSH6yBxypTGmAj6X6fH_D-iA&oe=6AB3E4EB"
+        },
+        "id": "1864847771546019"
+      },
+      {
+        "__typename": "ProductImage",
+        "accessibility_caption": "No photo description available.",
+        "image": {
+          "height": 960,
+          "width": 720,
+          "uri": "https://scontent-det1-1.xx.fbcdn.net/v/t45.5328-4/814916821_1039981562189911_8453138364261314234_n.jpg?stp=dst-jpg_s960x960_tt6&_nc_cat=105&ccb=1-7&_nc_sid=247b10&_nc_ohc=f8KYFBAzvJwQ7kNvwHEmGbx&_nc_oc=AdqRJblF6jjk5Bs_Xc1iwc5RpfVHBahLdRKcoyfOcSc28dY0iCYgZRIXZZcD-V7nJhU&_nc_zt=23&_nc_ht=scontent-det1-1.xx&_nc_gid=siKetBMnAnoNEMQZRvgX6A&_nc_ss=7d289&oh=00_AQJkbnVuJ1OUeEfjc_5cl_RSnueB5617GJl3OB-rBhRNEQ&oe=6AB3D771"
+        },
+        "id": "1039981552189912"
+      },
+      {
+        "__typename": "ProductImage",
+        "accessibility_caption": "No photo description available.",
+        "image": {
+          "height": 960,
+          "width": 720,
+          "uri": "https://scontent-det1-1.xx.fbcdn.net/v/t45.5328-4/814917039_1598310258413834_2069775391093469476_n.jpg?stp=dst-jpg_s960x960_tt6&_nc_cat=111&ccb=1-7&_nc_sid=247b10&_nc_ohc=KrXNeU1ED-gQ7kNvwHah5AJ&_nc_oc=AdpoSvhDN0CSiYW0DEuln2QpqI1yIxa-T4EXQzEybnld7M_VNo18xzsvOnmXT8tfVlg&_nc_zt=23&_nc_ht=scontent-det1-1.xx&_nc_gid=siKetBMnAnoNEMQZRvgX6A&_nc_ss=7d289&oh=00_AQLm0MWsd8hNWhFx4lY4_GfuG2SkP8lhumDagu60pJLR4g&oe=6AB3EFA6"
+        },
+        "id": "1598310251747168"
+      },
+      {
+        "__typename": "ProductImage",
+        "accessibility_caption": "No photo description available.",
+        "image": {
+          "height": 960,
+          "width": 502,
+          "uri": "https://scontent-det1-1.xx.fbcdn.net/v/t45.5328-4/817146202_29257789813812608_4961213007545739215_n.jpg?stp=dst-jpg_s960x960_tt6&_nc_cat=105&ccb=1-7&_nc_sid=247b10&_nc_ohc=pVVDQD3KDoYQ7kNvwGqD75-&_nc_oc=AdrHt11-rfRPIBYqX8GWIBOZpi5escEhM4DUv9QS4wHNOyEUkbrEOuS-VgB6UtftCZY&_nc_zt=23&_nc_ht=scontent-det1-1.xx&_nc_gid=siKetBMnAnoNEMQZRvgX6A&_nc_ss=7d289&oh=00_AQI9eWBJUj5ErmkR5LukMtzNfd53F7Y2sMYn1ndcyvo3IA&oe=6AB3F74E"
+        },
+        "id": "29257789790479277"
+      }
+    ],
+    "listingPrice": {
+      "formatted_amount_zeros_stripped": "\u20b938,400",
+      "amount_with_offset_in_currency": "39865",
+      "amount": "38400.00",
+      "currency": "INR"
+    },
+    "location": {
+      "latitude": 19.366149902344,
+      "longitude": 72.811889648438
+    },
+    "locationText": {
+      "text": "Vasai, MH"
+    },
+    "listingTitle": "IPHONE (14 PRO MAX)|GOLD~COLOUR|",
+    "description": {
+      "text": "Display changed  \u2022 Battery needs replacement \u2022 Service condition.\nPhone only + cable included.\nAadhaar copy can be provided for verification.\n"
+    },
+    "isHidden": false,
+    "isLive": true,
+    "isPending": false,
+    "isSold": false,
+    "isViewerSeller": false,
+    "listingVideo": [],
+    "listingCategoryId": "1557869527812749",
+    "strikethroughPrice": null,
+    "primaryListingPhoto": {
+      "__typename": "CatalogMarketplaceEnhancementTransformedImage",
+      "id": "1847719176669436",
+      "photo_image_url": "https://scontent.fcae1-1.fna.fbcdn.net/v/t39.84726-6/814368547_1847719180002769_3011655821054782872_n.jpg?stp=c0.43.261.261a_dst-jpg_p261x260_tt6&_nc_cat=100&_nc_map=urlgen_bucketless&ccb=1-7&_nc_sid=92e707&_nc_ohc=lxxSJqRm8ygQ7kNvwEYHKsQ&_nc_oc=Adrz7tvf7sK35xhhAg2vl3NnABOoQia1pSgeFkhoRUaT8PL8pn2c222v-UBvIoYqk2c&_nc_zt=14&_nc_ht=scontent.fcae1-1.fna&_nc_gid=X7W3zzFSqfJ869DMjA2Q-g&_nc_ss=73289&oh=00_AQKxMhlQoT-4-vlP6MHyPRVGC2nKhasug-Ony26A4RI2rg&oe=6AB3F9E1"
+    },
+    "customSubTitlesWithRenderingFlags": []
+  },
+  {
+    "facebookUrl": "https://www.facebook.com/marketplace/mumbai/search/?query=iphone&sortBy=creation_time_descend",
+    "id": "2474040316455788",
+    "itemUrl": "https://www.facebook.com/marketplace/item/2474040316455788/",
+    "listingAttributes": [
+      {
+        "attribute_name": "Condition",
+        "value": "used_like_new",
+        "label": "Used - like new"
+      }
+    ],
+    "condition": "Used - like new",
+    "timestamp": "2026-09-19T05:17:31.000Z",
+    "deliveryTypes": [
+      "IN_PERSON"
+    ],
+    "listingPhotos": [
+      {
+        "__typename": "ProductImage",
+        "accessibility_caption": "No photo description available.",
+        "image": {
+          "height": 960,
+          "width": 720,
+          "uri": "https://scontent-lga3-1.xx.fbcdn.net/v/t45.5328-4/809844433_27984278471249660_7789955668738633103_n.jpg?stp=dst-jpg_p720x720_tt6&_nc_cat=111&ccb=1-7&_nc_sid=247b10&_nc_ohc=UtDv92yW35IQ7kNvwGi7E39&_nc_oc=Adq6j_adsczI1Lp9AghROJjDJK0XxXeDNk6x--rJyVjctgpiPg4vLHwPoHPs6kKLSm7Y-jk8r0bLKIh-GT_4Jhyf&_nc_zt=23&_nc_ht=scontent-lga3-1.xx&_nc_gid=8V4WwOHcZ85_dc6_3Ecn3Q&_nc_ss=7d289&oh=00_AQJ_yzYxPGofg-7_oYX7UCw3vNe97D0Wcwm6zsy0qoQf1Q&oe=6AB3DFB7"
+        },
+        "id": "27984278411249666"
+      },
+      {
+        "__typename": "ProductImage",
+        "accessibility_caption": "No photo description available.",
+        "image": {
+          "height": 960,
+          "width": 720,
+          "uri": "https://scontent-lga3-1.xx.fbcdn.net/v/t45.5328-4/813650782_1107221868319544_6499316036244618366_n.jpg?stp=dst-jpg_p720x720_tt6&_nc_cat=103&ccb=1-7&_nc_sid=247b10&_nc_ohc=M4UXkyzfnfwQ7kNvwEbwMsr&_nc_oc=AdroETCJ3TkM_cnYlBY6yVkrt7js3L9_skbcsYvYg4pQNy0gZgdfg-VxUT991KJ0jnQ1RuznYoHgtsU0pek_lhRK&_nc_zt=23&_nc_ht=scontent-lga3-1.xx&_nc_gid=8V4WwOHcZ85_dc6_3Ecn3Q&_nc_ss=7d289&oh=00_AQIAnAf1oUgXBq8sjakSFLZku5EX_KAb-20KArc3MJD6Hw&oe=6AB3DDD3"
+        },
+        "id": "1107221864986211"
+      },
+      {
+        "__typename": "ProductImage",
+        "accessibility_caption": "No photo description available.",
+        "image": {
+          "height": 960,
+          "width": 720,
+          "uri": "https://scontent-lga3-1.xx.fbcdn.net/v/t45.5328-4/811864981_2809830452750552_1944327659092218774_n.jpg?stp=dst-jpg_p720x720_tt6&_nc_cat=111&ccb=1-7&_nc_sid=247b10&_nc_ohc=MXfLPPz5XE0Q7kNvwHmWnVy&_nc_oc=AdrwnzEIH9e-iuECCUL2Y7_4MurTc_oJFmfbfq6pDj5l9T0qzkxHT6NE2M9zRBQrZehxpzTOBJBsT4ebc9sZOZR0&_nc_zt=23&_nc_ht=scontent-lga3-1.xx&_nc_gid=8V4WwOHcZ85_dc6_3Ecn3Q&_nc_ss=7d289&oh=00_AQILwsgWeyYgwEl7p5qSSAxEGJ6q3Ag4H0g_UUwAgmQ5bQ&oe=6AB404DD"
+        },
+        "id": "2809830442750553"
+      },
+      {
+        "__typename": "ProductImage",
+        "accessibility_caption": "No photo description available.",
+        "image": {
+          "height": 960,
+          "width": 720,
+          "uri": "https://scontent-lga3-1.xx.fbcdn.net/v/t45.5328-4/802642050_1856821461969823_3572498373374223968_n.jpg?stp=dst-jpg_p720x720_tt6&_nc_cat=111&ccb=1-7&_nc_sid=247b10&_nc_ohc=JRZ0vxsDkPIQ7kNvwETm2Nf&_nc_oc=AdpvaQn159-WKAEilanQSrZMva041QSdUSyrAloyh-baXif5_tl-0ujOU0RcDSL13hPgZxCuiIF0lMImx8hcMxZA&_nc_zt=23&_nc_ht=scontent-lga3-1.xx&_nc_gid=8V4WwOHcZ85_dc6_3Ecn3Q&_nc_ss=7d289&oh=00_AQIe5opwDlRidfigt_D-HQ3XErzJSZKrznVOvNxPsmZ9rQ&oe=6AB3FC9A"
+        },
+        "id": "1856821458636490"
+      },
+      {
+        "__typename": "ProductImage",
+        "accessibility_caption": "No photo description available.",
+        "image": {
+          "height": 960,
+          "width": 720,
+          "uri": "https://scontent-lga3-3.xx.fbcdn.net/v/t45.5328-4/808823529_3993945124072824_164655236273371460_n.jpg?stp=dst-jpg_p720x720_tt6&_nc_cat=106&ccb=1-7&_nc_sid=247b10&_nc_ohc=uYfxj9TSujYQ7kNvwEFJMof&_nc_oc=AdqH-BENYhU_VNzv8r-nufYUv58usxpXQ8ixW3EI8xWTZpYO-OixLHU3R_kkU_-ElDiUBXyOW8XLLAOtu1v-znD-&_nc_zt=23&_nc_ht=scontent-lga3-3.xx&_nc_gid=8V4WwOHcZ85_dc6_3Ecn3Q&_nc_ss=7d289&oh=00_AQKA5owbwctOpbo-Nop8BAU-xP5yNSLDcyWpC2GUSlgB5w&oe=6AB3D9E2"
+        },
+        "id": "3993945120739491"
+      },
+      {
+        "__typename": "ProductImage",
+        "accessibility_caption": "No photo description available.",
+        "image": {
+          "height": 960,
+          "width": 720,
+          "uri": "https://scontent-lga3-1.xx.fbcdn.net/v/t45.5328-4/802641944_1649313206793692_4930808380441640905_n.jpg?stp=dst-jpg_p720x720_tt6&_nc_cat=103&ccb=1-7&_nc_sid=247b10&_nc_ohc=agVN_fjDw0MQ7kNvwH5_4KO&_nc_oc=Adp2vsZTTedWqtdVCFRCO6cV-5jZ0R8PAJqS4q8hdL-xV1oZZOqoHa26zr_gPwVe-ly9BdwhiI0hKr_fk2RQpXh8&_nc_zt=23&_nc_ht=scontent-lga3-1.xx&_nc_gid=8V4WwOHcZ85_dc6_3Ecn3Q&_nc_ss=7d289&oh=00_AQK-YAvbS9pugM2-nf2VW7wb1ujwzfokE-AA6JaiMJAUTw&oe=6AB3E91B"
+        },
+        "id": "1649313203460359"
+      },
+      {
+        "__typename": "ProductImage",
+        "accessibility_caption": "No photo description available.",
+        "image": {
+          "height": 960,
+          "width": 720,
+          "uri": "https://scontent-lga3-2.xx.fbcdn.net/v/t45.5328-4/813650667_1407228184719394_8270795768030695041_n.jpg?stp=dst-jpg_p720x720_tt6&_nc_cat=105&ccb=1-7&_nc_sid=247b10&_nc_ohc=8kBcJ42u2w4Q7kNvwErll8N&_nc_oc=Ado996VViM6E32kh5l_KLb2pkPBQiQoECHiLCSIqhD1h_zPootwSFXtVHScC3aZ_JRkQtWdNkToXysbJpTARAKpI&_nc_zt=23&_nc_ht=scontent-lga3-2.xx&_nc_gid=8V4WwOHcZ85_dc6_3Ecn3Q&_nc_ss=7d289&oh=00_AQKNB4SULTvYHOGbpyO4ZULTgNh99qpJEaSmQN8Mtnsk1A&oe=6AB3DD70"
+        },
+        "id": "1407228178052728"
+      },
+      {
+        "__typename": "ProductImage",
+        "accessibility_caption": "No photo description available.",
+        "image": {
+          "height": 960,
+          "width": 720,
+          "uri": "https://scontent-lga3-3.xx.fbcdn.net/v/t45.5328-4/813650793_1891985538451052_6487436096978819439_n.jpg?stp=dst-jpg_p720x720_tt6&_nc_cat=104&ccb=1-7&_nc_sid=247b10&_nc_ohc=jo0JZc5d6pwQ7kNvwFa685z&_nc_oc=AdoSnBIxc_yMrsa-8Z-36P5LAcyMBh3rr1aEGCg40E-8CPhgXU_FhyfkD4t1QpFWQaDCtZPO22v64GZx74zZYNL_&_nc_zt=23&_nc_ht=scontent-lga3-3.xx&_nc_gid=8V4WwOHcZ85_dc6_3Ecn3Q&_nc_ss=7d289&oh=00_AQLwjwi3uuZgAQdg9okCmzyzwluQW0cn3xjeLJqKv_Y60g&oe=6AB3F765"
+        },
+        "id": "1891985528451053"
+      },
+      {
+        "__typename": "ProductImage",
+        "accessibility_caption": "No photo description available.",
+        "image": {
+          "height": 960,
+          "width": 720,
+          "uri": "https://scontent-lga3-1.xx.fbcdn.net/v/t45.5328-4/809940535_4349493585314327_8742396625183578903_n.jpg?stp=dst-jpg_p720x720_tt6&_nc_cat=111&ccb=1-7&_nc_sid=247b10&_nc_ohc=YWkJv1gFLekQ7kNvwEqS6oX&_nc_oc=AdppsCemMRaOlDCUOO5Vl8XaRYhI8HuwMn0Ae5sDii9TaTd-ILG58xeDvGTUTpWrMK2psg-dMoSYZYW3xlwjSQ4L&_nc_zt=23&_nc_ht=scontent-lga3-1.xx&_nc_gid=8V4WwOHcZ85_dc6_3Ecn3Q&_nc_ss=7d289&oh=00_AQIIxnc-1jux2DxKh0kmM6ISpXcjiCVsL-otOKjOZOvzow&oe=6AB3EE50"
+        },
+        "id": "4349493571980995"
+      },
+      {
+        "__typename": "ProductImage",
+        "accessibility_caption": "No photo description available.",
+        "image": {
+          "height": 960,
+          "width": 720,
+          "uri": "https://scontent-lga3-1.xx.fbcdn.net/v/t45.5328-4/794414221_1092742556537704_1630686330537915249_n.jpg?stp=dst-jpg_p720x720_tt6&_nc_cat=103&ccb=1-7&_nc_sid=247b10&_nc_ohc=8P0_N1ix-y0Q7kNvwEa-Jp0&_nc_oc=AdrMJyRNXCDg97J2TCkVcBu_tT7BJNsaFOAC_ev6P2DMbTG6H1dk48l7evjI1j2xMi_mh-xsLMZGDLbyzCuPfLGE&_nc_zt=23&_nc_ht=scontent-lga3-1.xx&_nc_gid=8V4WwOHcZ85_dc6_3Ecn3Q&_nc_ss=7d289&oh=00_AQJ3qwr0KW9q0j3CT8Ait7iN5u0qKiLUlcA2_y49pZjiNw&oe=6AB3D7C0"
+        },
+        "id": "1092742553204371"
+      }
+    ],
+    "listingPrice": {
+      "formatted_amount_zeros_stripped": "\u20b975,000",
+      "amount_with_offset_in_currency": "77861",
+      "amount": "75000.00",
+      "currency": "INR"
+    },
+    "location": {
+      "latitude": 19.058532714844,
+      "longitude": 73.009643554688
+    },
+    "locationText": {
+      "text": "Navi Mumbai, MH"
+    },
+    "listingTitle": "Iphone 17",
+    "description": {
+      "text": "\ud83d\udcf1 APPLE iPHONE 17 \u2014 WHITE | 256GB\n\n\u2728 100% Battery Health | 130 Cycle Count\n\ud83d\udee1\ufe0f Warranty till April 2027\n\u2705 Clean & scratchless condition\n\ud83d\udce6 Original Box + Cable + All accessories\n\ud83e\uddfe Original shop/dealer bill available\n\ud83d\udd27 Never opened \u2022 Never repaired\n\ud83d\udcaf Genuine & properly maintained\n\n\ud83d\udcb0 Price: As per current market rate \u2014 already kept cheaper.\n\u274c No exchange\n\u274c No cheap offers / unnecessary negotiations\n\u274c Please don\u2019t give me pricing advice \u2014 price is already set according to the market.\n\n\ud83d\udccd Buyer to collect from my location\n\ud83e\udd1d Genuine buyers only.\n\ud83d\udeab Lowball/cheap offers will be directly blocked.\n\nIf interested, message only if you\u2019re ready to deal."
+    },
+    "isHidden": false,
+    "isLive": true,
+    "isPending": false,
+    "isSold": false,
+    "isViewerSeller": false,
+    "listingVideo": [],
+    "listingCategoryId": "1557869527812749",
+    "strikethroughPrice": null,
+    "primaryListingPhoto": {
+      "__typename": "ProductImage",
+      "id": "27984278411249666",
+      "photo_image_url": "https://scontent.fcae1-1.fna.fbcdn.net/v/t45.5328-4/809844433_27984278471249660_7789955668738633103_n.jpg?stp=c0.43.261.261a_dst-jpg_p261x260_tt6&_nc_cat=111&_nc_map=urlgen_bucketless&ccb=1-7&_nc_sid=247b10&_nc_ohc=UtDv92yW35IQ7kNvwEZjsT3&_nc_oc=AdqIphYxLQnfZlKO_HhJrhkvSneeXsIApG1akHYc6NNHU3E2cUD8kjQp7OEXbCv9Cx8&_nc_zt=23&_nc_ht=scontent.fcae1-1.fna&_nc_gid=X7W3zzFSqfJ869DMjA2Q-g&_nc_ss=73289&oh=00_AQIDgzH4cFTiLyqu3sddiZuzms_T4tZgT_yBFv00QSeqig&oe=6AB3DFB7"
+    },
+    "customSubTitlesWithRenderingFlags": []
+  },
+  {
+    "facebookUrl": "https://www.facebook.com/marketplace/mumbai/search/?query=iphone&sortBy=creation_time_descend",
+    "id": "1481098453871331",
+    "itemUrl": "https://www.facebook.com/marketplace/item/1481098453871331/",
+    "listingAttributes": [
+      {
+        "attribute_name": "Condition",
+        "value": "used_like_new",
+        "label": "Used - like new"
+      },
+      {
+        "attribute_name": "Color",
+        "value": "ultramarine",
+        "label": "ultramarine"
+      }
+    ],
+    "condition": "Used - like new",
+    "timestamp": "2026-09-19T02:56:35.000Z",
+    "deliveryTypes": [
+      "IN_PERSON",
+      "PUBLIC_MEETUP"
+    ],
+    "listingPhotos": [
+      {
+        "__typename": "CatalogMarketplaceEnhancementTransformedImage",
+        "accessibility_caption": "No photo description available.",
+        "image": {
+          "height": 447,
+          "width": 447,
+          "uri": "https://scontent-ord5-1.xx.fbcdn.net/v/t39.84726-6/800715680_2104934693471364_6111898764982257785_n.jpg?_nc_cat=101&ccb=1-7&_nc_sid=92e707&_nc_ohc=U0P3gbMnpNIQ7kNvwGFE5Fy&_nc_oc=AdqYoouQWR2XVaEmWrmIwm-RUHOuftou9AEaIpOOLJ-LPJoc08a64vnaK7MMnBdNiUGICozo9bZeixMUZEHkRHiP&_nc_zt=14&_nc_ht=scontent-ord5-1.xx&_nc_gid=5i4fmSev7zXH0WYI2xptkQ&_nc_ss=7d289&oh=00_AQILQJn0Kzw2kAS9pEkIb-bHTGwa5dCYaZ83HC8_EuCFew&oe=6AB3DE08"
+        },
+        "id": "2104934690138031"
+      }
+    ],
+    "listingPrice": {
+      "formatted_amount_zeros_stripped": "\u20b960,000",
+      "amount_with_offset_in_currency": "62289",
+      "amount": "60000.00",
+      "currency": "INR"
+    },
+    "location": {
+      "latitude": 19.245300292969,
+      "longitude": 73.163452148438
+    },
+    "locationText": {
+      "text": "Ulhasnagar, MH"
+    },
+    "listingTitle": "iPhone 16 128GB | Excellent Condition | 89% Battery Health | Bill + Box + Original Cable | \u20b960,000",
+    "description": {
+      "text": ""
+    },
+    "isHidden": false,
+    "isLive": true,
+    "isPending": false,
+    "isSold": false,
+    "isViewerSeller": false,
+    "listingVideo": [],
+    "listingCategoryId": "1557869527812749",
+    "strikethroughPrice": null,
+    "primaryListingPhoto": {
+      "__typename": "CatalogMarketplaceEnhancementTransformedImage",
+      "id": "2104934690138031",
+      "photo_image_url": "https://scontent.fcae1-1.fna.fbcdn.net/v/t39.84726-6/800715680_2104934693471364_6111898764982257785_n.jpg?stp=c0.0.261.261a_dst-jpg_p261x260_tt6&_nc_cat=101&_nc_map=urlgen_bucketless&ccb=1-7&_nc_sid=92e707&_nc_ohc=U0P3gbMnpNIQ7kNvwF3TNJm&_nc_oc=AdqdrKg8vOkMkuHgvIQfy0Zj4qOczjuLphThEXNUENRrVEKB-gmgxwYJDlTDgFpJN8A&_nc_zt=14&_nc_ht=scontent.fcae1-1.fna&_nc_gid=X7W3zzFSqfJ869DMjA2Q-g&_nc_ss=73289&oh=00_AQLcAWusNgylp9e8ciqnvSxg8_sCVQBB9iDGBQKgjDrRBA&oe=6AB3DE08"
+    },
+    "customSubTitlesWithRenderingFlags": []
+  },
+  {
+    "facebookUrl": "https://www.facebook.com/marketplace/mumbai/search/?query=iphone&sortBy=creation_time_descend",
+    "id": "1785891416077929",
+    "itemUrl": "https://www.facebook.com/marketplace/item/1785891416077929/",
+    "listingAttributes": [
+      {
+        "attribute_name": "Condition",
+        "value": "used_like_new",
+        "label": "Used - like new"
+      },
+      {
+        "attribute_name": "Brand",
+        "value": "iPhone",
+        "label": "iPhone"
+      }
+    ],
+    "condition": "Used - like new",
+    "timestamp": "2026-09-18T20:46:08.000Z",
+    "deliveryTypes": [
+      "IN_PERSON"
+    ],
+    "listingPhotos": [
+      {
+        "__typename": "CatalogMarketplaceEnhancementTransformedImage",
+        "accessibility_caption": "No photo description available.",
+        "image": {
+          "height": 960,
+          "width": 720,
+          "uri": "https://scontent-atl3-1.xx.fbcdn.net/v/t39.84726-6/814629631_1428205685868175_5750479499539558200_n.jpg?stp=dst-jpg_s960x960_tt6&_nc_cat=107&ccb=1-7&_nc_sid=92e707&_nc_ohc=nhH30ThafYsQ7kNvwHNdS9-&_nc_oc=AdrPq85rifMK80ExJ_5RZrdVHP6S2L2VXImEq4puSTcPav4YyDfGbkkwxKwIk3WAZ5hik6SxrJSw4jH7r1LrU9nc&_nc_zt=14&_nc_ht=scontent-atl3-1.xx&_nc_gid=aEHfw2sB54exPjCABixWLw&_nc_ss=73289&oh=00_AQKnyPDohsTjL0V5M5uGm1IZ5x6VBnKvoIEJ4Du5QezEEg&oe=6AB400AE"
+        },
+        "id": "1428205679201509"
+      },
+      {
+        "__typename": "ProductImage",
+        "accessibility_caption": "No photo description available.",
+        "image": {
+          "height": 960,
+          "width": 720,
+          "uri": "https://scontent-atl3-1.xx.fbcdn.net/v/t45.5328-4/814916890_1941596867248104_3453711353736566634_n.jpg?stp=dst-jpg_s960x960_tt6&_nc_cat=106&ccb=1-7&_nc_sid=247b10&_nc_ohc=lBM-BLdcoOMQ7kNvwFwqFje&_nc_oc=AdolgdEeEpFaFw33wntY1c9nR_C8Qo3I7szIODA4czZtZiIwqkoi_6pDtQ2UpgX10gBMlA3UNH-uyRF9WsRdE0KE&_nc_zt=23&_nc_ht=scontent-atl3-1.xx&_nc_gid=aEHfw2sB54exPjCABixWLw&_nc_ss=73289&oh=00_AQKYM8EuO9PcSaxUjOZ4fYiP22hZ6XhwylNMu4O4tnCAyw&oe=6AB3D745"
+        },
+        "id": "1941596863914771"
+      },
+      {
+        "__typename": "ProductImage",
+        "accessibility_caption": "No photo description available.",
+        "image": {
+          "height": 960,
+          "width": 720,
+          "uri": "https://scontent-atl3-1.xx.fbcdn.net/v/t45.5328-4/817366009_1739955207125536_1465260147504333173_n.jpg?stp=dst-jpg_s960x960_tt6&_nc_cat=106&ccb=1-7&_nc_sid=247b10&_nc_ohc=YC9wE-hHCqUQ7kNvwFH5XK5&_nc_oc=Adohi1OWwkJxBGrIIgWMtznbTSZifPbeL-VeWpwDyiid370z0LIhLGeIn7WJkaDPUyfp87Vvo7bi2QkyOpVwI1QX&_nc_zt=23&_nc_ht=scontent-atl3-1.xx&_nc_gid=aEHfw2sB54exPjCABixWLw&_nc_ss=73289&oh=00_AQJbFRN4ynXpOPesQpxT3J3953zZvSXW-WX-QGOCzf7_eQ&oe=6AB3F87A"
+        },
+        "id": "1739955203792203"
+      },
+      {
+        "__typename": "ProductImage",
+        "accessibility_caption": "No photo description available.",
+        "image": {
+          "height": 960,
+          "width": 720,
+          "uri": "https://scontent-atl3-2.xx.fbcdn.net/v/t45.5328-4/814917219_3012170859129267_1871319822726577810_n.jpg?stp=dst-jpg_s960x960_tt6&_nc_cat=104&ccb=1-7&_nc_sid=247b10&_nc_ohc=oUFTbNuT-QIQ7kNvwEVtUtN&_nc_oc=AdqMSsFhPxlwhGtgbcQxayDQ65IJ6N_LiLSjlT61O4yX7wwx_bQd9NynxrBZkuCv5VGC4ctS6tnLpp4tYc0nPj1j&_nc_zt=23&_nc_ht=scontent-atl3-2.xx&_nc_gid=aEHfw2sB54exPjCABixWLw&_nc_ss=73289&oh=00_AQKocdHz66VLYWvtCJYp22iPfv_OeLb0dduzSWB2JIHGhg&oe=6AB402A2"
+        },
+        "id": "3012170852462601"
+      },
+      {
+        "__typename": "ProductImage",
+        "accessibility_caption": "No photo description available.",
+        "image": {
+          "height": 960,
+          "width": 720,
+          "uri": "https://scontent-atl3-1.xx.fbcdn.net/v/t45.5328-4/814917107_2052785502072948_8318931020911028694_n.jpg?stp=dst-jpg_s960x960_tt6&_nc_cat=100&ccb=1-7&_nc_sid=247b10&_nc_ohc=6hNiH76CyI8Q7kNvwFk_Qzb&_nc_oc=AdqOnWcfMepoHUEBTPPOML0fzLbtCIdHBN5-sRQYvDwDykXbSrUzRo2RT7XeWvnaHosI3Ia5OdaQSA7tXqYbuXHR&_nc_zt=23&_nc_ht=scontent-atl3-1.xx&_nc_gid=aEHfw2sB54exPjCABixWLw&_nc_ss=73289&oh=00_AQK_zQHE-izSAMuXmeQJ-d6l02YQlUHjCFR8m5_kfH-IhA&oe=6AB40530"
+        },
+        "id": "2052785498739615"
+      },
+      {
+        "__typename": "ProductImage",
+        "accessibility_caption": "No photo description available.",
+        "image": {
+          "height": 960,
+          "width": 720,
+          "uri": "https://scontent-atl3-1.xx.fbcdn.net/v/t45.5328-4/814916937_1662826291877700_1868420801826022599_n.jpg?stp=dst-jpg_s960x960_tt6&_nc_cat=106&ccb=1-7&_nc_sid=247b10&_nc_ohc=FWbq30aF5EQQ7kNvwEvB2nY&_nc_oc=AdrzRd9v-gLOS-aSHnVTuLBV8-pUn_ZuH4rkSYtSkXuOZTy3ryCJvq3lZalLBXQKwfTkyMjblC2SWR_HPQDqlvR-&_nc_zt=23&_nc_ht=scontent-atl3-1.xx&_nc_gid=aEHfw2sB54exPjCABixWLw&_nc_ss=73289&oh=00_AQIjl94lHeCRK0QI13Cafq4A663mN6I_k6PwUtDPeeY8Dg&oe=6AB3EC60"
+        },
+        "id": "1662826285211034"
+      },
+      {
+        "__typename": "ProductImage",
+        "accessibility_caption": "No photo description available.",
+        "image": {
+          "height": 960,
+          "width": 720,
+          "uri": "https://scontent-atl3-2.xx.fbcdn.net/v/t45.5328-4/815058326_1617156123298014_5597723445111202675_n.jpg?stp=dst-jpg_s960x960_tt6&_nc_cat=104&ccb=1-7&_nc_sid=247b10&_nc_ohc=Zof0QEvxmicQ7kNvwEeAYCm&_nc_oc=Adok2ySiTOcDfZWDxq20Lv97ptTXNrHZ9I5zDvM3CNzmsjiO8kDQP8m7xkxygMPLGiaL4yKZtA9UwU87S8fouxB8&_nc_zt=23&_nc_ht=scontent-atl3-2.xx&_nc_gid=aEHfw2sB54exPjCABixWLw&_nc_ss=73289&oh=00_AQKgA0itrSbiTj2LesY2YAMvvUsXlU6m4I-BGDJGTFSOzg&oe=6AB402B0"
+        },
+        "id": "1617156116631348"
+      }
+    ],
+    "listingPrice": {
+      "formatted_amount_zeros_stripped": "\u20b960,000",
+      "amount_with_offset_in_currency": "62289",
+      "amount": "60000.00",
+      "currency": "INR"
+    },
+    "location": {
+      "latitude": 19.157409667969,
+      "longitude": 72.943725585938
+    },
+    "locationText": {
+      "text": "Mumbai, MH"
+    },
+    "listingTitle": "iPhone 15 pro",
+    "description": {
+      "text": "Used condition \n15 pro \n128Gb \nCamera Quality is too good \nBattery health 87%\nContact [hidden information]"
+    },
+    "isHidden": false,
+    "isLive": true,
+    "isPending": false,
+    "isSold": false,
+    "isViewerSeller": false,
+    "listingVideo": [],
+    "listingCategoryId": "1670493229902393",
+    "strikethroughPrice": null,
+    "primaryListingPhoto": {
+      "__typename": "CatalogMarketplaceEnhancementTransformedImage",
+      "id": "1428205679201509",
+      "photo_image_url": "https://scontent.fcae1-1.fna.fbcdn.net/v/t39.84726-6/814629631_1428205685868175_5750479499539558200_n.jpg?stp=c0.43.261.261a_dst-jpg_p261x260_tt6&_nc_cat=107&_nc_map=urlgen_bucketless&ccb=1-7&_nc_sid=92e707&_nc_ohc=nhH30ThafYsQ7kNvwH3GpGx&_nc_oc=AdoPlndFjb4O4eGjTEGaD8ENmJjYifbn_tlzNDvBKknY6QkX7U3UgCNvwq9gYQRML8c&_nc_zt=14&_nc_ht=scontent.fcae1-1.fna&_nc_gid=X7W3zzFSqfJ869DMjA2Q-g&_nc_ss=73289&oh=00_AQLJVfsWNG4yDzRyDizYos7WkYQcGW5OYsboYqqhNJ472Q&oe=6AB400AE"
+    },
+    "customSubTitlesWithRenderingFlags": []
+  },
+  {
+    "facebookUrl": "https://www.facebook.com/marketplace/mumbai/search/?query=iphone&sortBy=creation_time_descend",
+    "id": "924673076964577",
+    "itemUrl": "https://www.facebook.com/marketplace/item/924673076964577/",
+    "listingAttributes": [
+      {
+        "attribute_name": "Condition",
+        "value": "used_good",
+        "label": "Used - Good"
+      },
+      {
+        "attribute_name": "Brand",
+        "value": "iPhone",
+        "label": "iPhone"
+      }
+    ],
+    "condition": "Used - Good",
+    "timestamp": "2026-09-18T21:25:46.000Z",
+    "deliveryTypes": [
+      "IN_PERSON"
+    ],
+    "listingPhotos": [
+      {
+        "__typename": "CatalogMarketplaceEnhancementTransformedImage",
+        "accessibility_caption": "No photo description available.",
+        "image": {
+          "height": 960,
+          "width": 492,
+          "uri": "https://scontent-dfw5-1.xx.fbcdn.net/v/t39.84726-6/817651258_2574421493280688_5549030962519930199_n.jpg?stp=dst-jpg_s960x960_tt6&_nc_cat=106&ccb=1-7&_nc_sid=92e707&_nc_ohc=-E_Y3gVGiwAQ7kNvwH0fP8U&_nc_oc=AdqVqIx6AAmN53Gb7lvNSPbH2LNVEleWECX17fK071EOFFRlPM7ZVg1FO-WjBtaluNM&_nc_zt=14&_nc_ht=scontent-dfw5-1.xx&_nc_gid=Cctz5FaTYt4l74uD4_zkmA&_nc_ss=7f289&oh=00_AQJbVt3od25TYo80EfBm9amwDGC8krJS5-KvD2uDBmnCvQ&oe=6AB3DE3E"
+        },
+        "id": "2574421486614022"
+      }
+    ],
+    "listingPrice": {
+      "formatted_amount_zeros_stripped": "\u20b930,000",
+      "amount_with_offset_in_currency": "31145",
+      "amount": "30000.00",
+      "currency": "INR"
+    },
+    "location": {
+      "latitude": 19.223327636719,
+      "longitude": 72.855834960938
+    },
+    "locationText": {
+      "text": "Mumbai, MH"
+    },
+    "listingTitle": "iPhone 13 Pro 512 gb",
+    "description": {
+      "text": "Display and battery change h baki all working fine exchange with same range phone "
+    },
+    "isHidden": false,
+    "isLive": true,
+    "isPending": false,
+    "isSold": false,
+    "isViewerSeller": false,
+    "listingVideo": [],
+    "listingCategoryId": "1557869527812749",
+    "strikethroughPrice": null,
+    "primaryListingPhoto": {
+      "__typename": "CatalogMarketplaceEnhancementTransformedImage",
+      "id": "2574421486614022",
+      "photo_image_url": "https://scontent.fcae1-1.fna.fbcdn.net/v/t39.84726-6/817651258_2574421493280688_5549030962519930199_n.jpg?stp=c0.124.261.261a_dst-jpg_p261x260_tt6&_nc_cat=106&_nc_map=urlgen_bucketless&ccb=1-7&_nc_sid=92e707&_nc_ohc=-E_Y3gVGiwAQ7kNvwFJOPLx&_nc_oc=AdrR1phH9njpy07WQ0X7ASHWGMuNY7hN70GaoSkbBv2OXe7sEMq77OJ4gXWgT0hulu0&_nc_zt=14&_nc_ht=scontent.fcae1-1.fna&_nc_gid=X7W3zzFSqfJ869DMjA2Q-g&_nc_ss=73289&oh=00_AQJUSdYO7na3wp1hBQfIVTHrUTCRok0B-CESYMG1Ab8TRQ&oe=6AB3DE3E"
+    },
+    "customSubTitlesWithRenderingFlags": []
+  },
+  {
+    "facebookUrl": "https://www.facebook.com/marketplace/mumbai/search/?query=iphone&sortBy=creation_time_descend",
+    "id": "2020130872035753",
+    "itemUrl": "https://www.facebook.com/marketplace/item/2020130872035753/",
+    "listingAttributes": [
+      {
+        "attribute_name": "Condition",
+        "value": "new",
+        "label": "New"
+      }
+    ],
+    "condition": "New",
+    "timestamp": "2026-09-18T20:37:19.000Z",
+    "deliveryTypes": [
+      "IN_PERSON"
+    ],
+    "listingPhotos": [
+      {
+        "__typename": "CatalogMarketplaceEnhancementTransformedImage",
+        "accessibility_caption": "No photo description available.",
+        "image": {
+          "height": 960,
+          "width": 720,
+          "uri": "https://scontent.fagc1-2.fna.fbcdn.net/v/t39.84726-6/814039403_1719297946864801_5821550868741685844_n.jpg?stp=dst-jpg_p720x720_tt6&_nc_cat=102&_nc_map=urlgen_bucketless&ccb=1-7&_nc_sid=92e707&_nc_ohc=SgMM4xwP3n0Q7kNvwFSu_4E&_nc_oc=Adp2YjA1hvcI-I1AHB3fPrxGC89TZvdjq_bU9VgLMKFBqXQJG0MVouLGa4AWF7B8XK5GYQa_z70N5sWhKm8sp-n1&_nc_zt=14&_nc_ht=scontent.fagc1-2.fna&_nc_gid=mw0Mv84mNcMZOPF0p4KG5A&_nc_ss=7d289&oh=00_AQIrFRw_Nxje4R7bu7Mub9adzTADDKTU9uYr9E43iyEoWw&oe=6AB4097F"
+        },
+        "id": "1719297930198136"
+      },
+      {
+        "__typename": "ProductImage",
+        "accessibility_caption": "No photo description available.",
+        "image": {
+          "height": 960,
+          "width": 720,
+          "uri": "https://scontent.fagc1-1.fna.fbcdn.net/v/t45.5328-4/814917194_1451382550385607_1503321533021692144_n.jpg?stp=dst-jpg_p720x720_tt6&_nc_cat=105&_nc_map=urlgen_bucketless&ccb=1-7&_nc_sid=247b10&_nc_ohc=hAzcCFBvJZMQ7kNvwGj3je0&_nc_oc=AdoH104txjgtMOhbjFvI2gCL1c1u_63q0npauO7JvT5dJtLvblwK6BlSR7pPYY7DgerWJWBKttNzzR5QCGFgcpDH&_nc_zt=23&_nc_ht=scontent.fagc1-1.fna&_nc_gid=mw0Mv84mNcMZOPF0p4KG5A&_nc_ss=7d289&oh=00_AQJCYVp8LNDs6-Kg5ZKIkdl3oXPTwmhpOpV64LGoJvjIXQ&oe=6AB3DF3F"
+        },
+        "id": "1451382543718941"
+      },
+      {
+        "__typename": "ProductImage",
+        "accessibility_caption": "No photo description available.",
+        "image": {
+          "height": 720,
+          "width": 960,
+          "uri": "https://scontent.fagc1-2.fna.fbcdn.net/v/t45.5328-4/816636226_38442805045366824_6621446228113626400_n.jpg?stp=dst-jpg_p720x720_tt6&_nc_cat=101&_nc_map=urlgen_bucketless&ccb=1-7&_nc_sid=247b10&_nc_ohc=QuxMGtwwfBsQ7kNvwE1_SsO&_nc_oc=AdrRCK8GRlwDtj73z_fxYT5ccQ5kq6_CZftIr6C_kznYIqlYVL2h3rY-nZ9gq0r5hGNNcfz93Pjb0SjdKRHtClV_&_nc_zt=23&_nc_ht=scontent.fagc1-2.fna&_nc_gid=mw0Mv84mNcMZOPF0p4KG5A&_nc_ss=7d289&oh=00_AQJ7Uc7Cz9KOV5S-NJrzt5_SGQHQKoD6LQ-i9kUf5BI5gg&oe=6AB3F869"
+        },
+        "id": "38442804948700167"
+      },
+      {
+        "__typename": "ProductImage",
+        "accessibility_caption": "No photo description available.",
+        "image": {
+          "height": 720,
+          "width": 960,
+          "uri": "https://scontent.fagc1-1.fna.fbcdn.net/v/t45.5328-4/815837466_2528689420905493_1769049031214527980_n.jpg?stp=dst-jpg_p720x720_tt6&_nc_cat=108&_nc_map=urlgen_bucketless&ccb=1-7&_nc_sid=247b10&_nc_ohc=7tOrjJMjSwoQ7kNvwHzjd9q&_nc_oc=AdrJKOQR6Sc70BQ1N-ZUFYrfXpnZKOw0qbYezhXQ_F5Xj0_Nr6y5sV1ngpe8fa25yqQuc46oPIj5C12f5bl9Hd5X&_nc_zt=23&_nc_ht=scontent.fagc1-1.fna&_nc_gid=mw0Mv84mNcMZOPF0p4KG5A&_nc_ss=7d289&oh=00_AQL4t92FT3TMHEXOFixydUuYqUOt3wYazhQ2aXCaP54Y2g&oe=6AB3D6F6"
+        },
+        "id": "2528689404238828"
+      },
+      {
+        "__typename": "ProductImage",
+        "accessibility_caption": "No photo description available.",
+        "image": {
+          "height": 720,
+          "width": 960,
+          "uri": "https://scontent.fagc1-1.fna.fbcdn.net/v/t45.5328-4/814916846_1602649968171528_5450859048530599102_n.jpg?stp=dst-jpg_p720x720_tt6&_nc_cat=109&_nc_map=urlgen_bucketless&ccb=1-7&_nc_sid=247b10&_nc_ohc=feWxxfe0fB0Q7kNvwEVYVP9&_nc_oc=AdqzJcQmAlXpyJh24oPYS3alwGux2yu23SCwsvS2N4WfXMefSCFVUkK8pafOoWYjvK65fpuUTcbfhFJ8i1WQIc6y&_nc_zt=23&_nc_ht=scontent.fagc1-1.fna&_nc_gid=mw0Mv84mNcMZOPF0p4KG5A&_nc_ss=7d289&oh=00_AQLZ3JD_dSo4iammIGlyqXzozPq_04F7klDpQmdSJBEsIQ&oe=6AB3D915"
+        },
+        "id": "1602649954838196"
+      },
+      {
+        "__typename": "ProductImage",
+        "accessibility_caption": "No photo description available.",
+        "image": {
+          "height": 720,
+          "width": 960,
+          "uri": "https://scontent.fagc1-2.fna.fbcdn.net/v/t45.5328-4/814916987_2046197279332973_7002012205854028348_n.jpg?stp=dst-jpg_p720x720_tt6&_nc_cat=100&_nc_map=urlgen_bucketless&ccb=1-7&_nc_sid=247b10&_nc_ohc=0EWNYkzg_BIQ7kNvwG1b70y&_nc_oc=AdpFu-aGzW3UdfhkYCn2-nkmDc6Uf3lgd-FKWtwz1pWCnT8RAhyCxKc4zycE4Xe4ie1rVhNI2bPr83Lv32xulOOk&_nc_zt=23&_nc_ht=scontent.fagc1-2.fna&_nc_gid=mw0Mv84mNcMZOPF0p4KG5A&_nc_ss=7d289&oh=00_AQKCbi0HvILiltl8TWt19edgDe7VnVwf57RIzdfhQ7Pc8Q&oe=6AB3F03A"
+        },
+        "id": "2046197272666307"
+      }
+    ],
+    "listingPrice": {
+      "formatted_amount_zeros_stripped": "\u20b989,999",
+      "amount_with_offset_in_currency": "93433",
+      "amount": "89999.00",
+      "currency": "INR"
+    },
+    "location": {
+      "latitude": 19.058532714844,
+      "longitude": 72.833862304688
+    },
+    "locationText": {
+      "text": "Mumbai, MH"
+    },
+    "listingTitle": "iPhone 17 256gb 100% condition",
+    "description": {
+      "text": "Phone & box cable available hai \nBattery health 93 \nJis ko lana hai wahi mesg kare "
+    },
+    "isHidden": false,
+    "isLive": true,
+    "isPending": false,
+    "isSold": false,
+    "isViewerSeller": false,
+    "listingVideo": [],
+    "listingCategoryId": "1557869527812749",
+    "strikethroughPrice": null,
+    "primaryListingPhoto": {
+      "__typename": "CatalogMarketplaceEnhancementTransformedImage",
+      "id": "1719297930198136",
+      "photo_image_url": "https://scontent.fcae1-1.fna.fbcdn.net/v/t39.84726-6/814039403_1719297946864801_5821550868741685844_n.jpg?stp=c0.43.261.261a_dst-jpg_p261x260_tt6&_nc_cat=102&_nc_map=urlgen_bucketless&ccb=1-7&_nc_sid=92e707&_nc_ohc=SgMM4xwP3n0Q7kNvwGHGtIW&_nc_oc=AdqX9EKO8A9iRQ_O1pr1lZ8fadr8YNqvU0qfMum7teCHnzyipu4jRluADRBomtP79AU&_nc_zt=14&_nc_ht=scontent.fcae1-1.fna&_nc_gid=X7W3zzFSqfJ869DMjA2Q-g&_nc_ss=73289&oh=00_AQJDfY5f99nimFb39nSUw3biBgENrXebh49rp4syxU2qVQ&oe=6AB4097F"
+    },
+    "customSubTitlesWithRenderingFlags": []
+  },
+  {
+    "facebookUrl": "https://www.facebook.com/marketplace/mumbai/search/?query=iphone&sortBy=creation_time_descend",
+    "id": "1778648300003604",
+    "itemUrl": "https://www.facebook.com/marketplace/item/1778648300003604/",
+    "listingAttributes": [
+      {
+        "attribute_name": "Condition",
+        "value": "used_like_new",
+        "label": "Used - like new"
+      }
+    ],
+    "condition": "Used - like new",
+    "timestamp": "2026-09-19T04:58:19.000Z",
+    "deliveryTypes": [
+      "IN_PERSON"
+    ],
+    "listingPhotos": [
+      {
+        "__typename": "CatalogMarketplaceEnhancementTransformedImage",
+        "accessibility_caption": "No photo description available.",
+        "image": {
+          "height": 960,
+          "width": 720,
+          "uri": "https://scontent-phx1-1.xx.fbcdn.net/v/t39.84726-6/799855802_1517523777057771_5984663594485082688_n.jpg?stp=dst-jpg_s960x960_tt6&_nc_cat=103&ccb=1-7&_nc_sid=92e707&_nc_ohc=JVLWH-B64ysQ7kNvwEsc0f5&_nc_oc=Adom9eq08ghhBo8QztAo1RG2Sfj-nRryPx-Ga0a5WWC1KwyaRXGOQwF5tqG8FNLA_xc&_nc_zt=14&_nc_ht=scontent-phx1-1.xx&_nc_gid=Mf1s2a1gSGz_u0B1wgZzcw&_nc_ss=73289&oh=00_AQIPpqFYY4wnDCa2cjvCIy2nuFwtU65lZdUdFjIbQqMgcg&oe=6AB40256"
+        },
+        "id": "1517523773724438"
+      },
+      {
+        "__typename": "ProductImage",
+        "accessibility_caption": "No photo description available.",
+        "image": {
+          "height": 960,
+          "width": 720,
+          "uri": "https://scontent-phx1-1.xx.fbcdn.net/v/t45.5328-4/812644381_1449190930422388_1876319632619027038_n.jpg?stp=dst-jpg_s960x960_tt6&_nc_cat=103&ccb=1-7&_nc_sid=247b10&_nc_ohc=mQKELS_JK1gQ7kNvwFllgNM&_nc_oc=AdogCBVpoLxDdQz8y5RyGfJSVSP7mwhWFuYT9QXtKUuN5l9C4S9o96CVGHxiIkaw9DU&_nc_zt=23&_nc_ht=scontent-phx1-1.xx&_nc_gid=Mf1s2a1gSGz_u0B1wgZzcw&_nc_ss=73289&oh=00_AQIIU3S7QELLWBOaXv51DYGMSYuIhgzWflc0V27xYXEZeQ&oe=6AB4079B"
+        },
+        "id": "1449190917089056"
+      },
+      {
+        "__typename": "ProductImage",
+        "accessibility_caption": "No photo description available.",
+        "image": {
+          "height": 960,
+          "width": 720,
+          "uri": "https://scontent-phx1-1.xx.fbcdn.net/v/t45.5328-4/812687960_1845148743350285_6013749236716111327_n.jpg?stp=dst-jpg_s960x960_tt6&_nc_cat=103&ccb=1-7&_nc_sid=247b10&_nc_ohc=udUpHWJU3jkQ7kNvwFsD6h0&_nc_oc=Adp6fl5gysBw6SoTegyRoNebEUfcIhtMLWoNFYGp2AUnLvJ_vbfRU3-y7KmHq8Tkkx0&_nc_zt=23&_nc_ht=scontent-phx1-1.xx&_nc_gid=Mf1s2a1gSGz_u0B1wgZzcw&_nc_ss=73289&oh=00_AQIwhZJdWamvxZOLDPN7EAj4lyLj4DFo2twSN3sHVZerBQ&oe=6AB3D6D6"
+        },
+        "id": "1845148736683619"
+      },
+      {
+        "__typename": "ProductImage",
+        "accessibility_caption": "No photo description available.",
+        "image": {
+          "height": 960,
+          "width": 720,
+          "uri": "https://scontent-phx1-1.xx.fbcdn.net/v/t45.5328-4/812688562_2160921811490319_790702905559077934_n.jpg?stp=dst-jpg_s960x960_tt6&_nc_cat=109&ccb=1-7&_nc_sid=247b10&_nc_ohc=ryqeWiZ_uOIQ7kNvwFDMeKl&_nc_oc=Adq75eNGDVKNqCk_jXyebgW3DuwXG4lH0uQ6vejhJPbGkTde5Pkgms9xTr1ncBeSvDc&_nc_zt=23&_nc_ht=scontent-phx1-1.xx&_nc_gid=Mf1s2a1gSGz_u0B1wgZzcw&_nc_ss=73289&oh=00_AQLj5O_q17_XEp03HQvvs3zoJrjxwvZ-CnqzQ1Hqw1-Gsg&oe=6AB3D6BA"
+        },
+        "id": "2160921808156986"
+      },
+      {
+        "__typename": "ProductImage",
+        "accessibility_caption": "No photo description available.",
+        "image": {
+          "height": 960,
+          "width": 720,
+          "uri": "https://scontent-phx1-1.xx.fbcdn.net/v/t45.5328-4/812688107_27445005328438350_2675998998523108026_n.jpg?stp=dst-jpg_s960x960_tt6&_nc_cat=107&ccb=1-7&_nc_sid=247b10&_nc_ohc=KSWCCjoNgXUQ7kNvwEaZQGL&_nc_oc=AdrWbNOMvp3f7O7CWuMp3aMU1iCdDqNP5qfi8m4cQ9wKIf9VYvgwHaV3NZLc9EtCfew&_nc_zt=23&_nc_ht=scontent-phx1-1.xx&_nc_gid=Mf1s2a1gSGz_u0B1wgZzcw&_nc_ss=73289&oh=00_AQK5KjXCmIoZF-aTN_07REddJlkZ4lEqzIsIucrqj5eiyA&oe=6AB3D921"
+        },
+        "id": "27445005238438359"
+      },
+      {
+        "__typename": "ProductImage",
+        "accessibility_caption": "No photo description available.",
+        "image": {
+          "height": 960,
+          "width": 720,
+          "uri": "https://scontent-phx1-1.xx.fbcdn.net/v/t45.5328-4/812688626_1422947039803805_1672396700234342238_n.jpg?stp=dst-jpg_s960x960_tt6&_nc_cat=102&ccb=1-7&_nc_sid=247b10&_nc_ohc=tFjwKhM7ofoQ7kNvwEVE-Ix&_nc_oc=Adp-kdleWDQwYH6uwnEb-UuY-GOsfjEloN5htL6qpt_ITy2WleII_lXMQrg9l1nhVxQ&_nc_zt=23&_nc_ht=scontent-phx1-1.xx&_nc_gid=Mf1s2a1gSGz_u0B1wgZzcw&_nc_ss=73289&oh=00_AQLci_LyUEHTlxR-9m8JXHqZFW1ohseOJJJZNve_P39zrw&oe=6AB3DC36"
+        },
+        "id": "1422947033137139"
+      },
+      {
+        "__typename": "ProductImage",
+        "accessibility_caption": "No photo description available.",
+        "image": {
+          "height": 960,
+          "width": 720,
+          "uri": "https://scontent-phx1-1.xx.fbcdn.net/v/t45.5328-4/812688203_2649435648863596_5826681713656569225_n.jpg?stp=dst-jpg_s960x960_tt6&_nc_cat=103&ccb=1-7&_nc_sid=247b10&_nc_ohc=oEnBPfLtBiAQ7kNvwGobPMZ&_nc_oc=Adqv0kRmw-sgt4QJFU-QXe6ShEV-nqk7HxnnhU35QzY5ZAQzGgQ9-H7xgEoFV5Y-VQ0&_nc_zt=23&_nc_ht=scontent-phx1-1.xx&_nc_gid=Mf1s2a1gSGz_u0B1wgZzcw&_nc_ss=73289&oh=00_AQJA0jxitpmpithfff37G8ZSE529ddDmNByhyhcz9XLp9w&oe=6AB3F289"
+        },
+        "id": "2649435642196930"
+      }
+    ],
+    "listingPrice": {
+      "formatted_amount_zeros_stripped": "\u20b937,500",
+      "amount_with_offset_in_currency": "38931",
+      "amount": "37500.00",
+      "currency": "INR"
+    },
+    "location": {
+      "latitude": 18.520202636719,
+      "longitude": 73.855590820312
+    },
+    "locationText": {
+      "text": "Pune, MH"
+    },
+    "listingTitle": "Pristine condition Iphone 14 plus 128gb out warranty for sale",
+    "description": {
+      "text": "Like new Iphone 14 plus 128gb \nOut warranty \nBattery 78% but give full day backup \nNever opened \nSell asap "
+    },
+    "isHidden": false,
+    "isLive": true,
+    "isPending": false,
+    "isSold": false,
+    "isViewerSeller": false,
+    "listingVideo": [],
+    "listingCategoryId": "1557869527812749",
+    "strikethroughPrice": null,
+    "primaryListingPhoto": {
+      "__typename": "CatalogMarketplaceEnhancementTransformedImage",
+      "id": "1517523773724438",
+      "photo_image_url": "https://scontent.fcae1-1.fna.fbcdn.net/v/t39.84726-6/799855802_1517523777057771_5984663594485082688_n.jpg?stp=c0.43.261.261a_dst-jpg_p261x260_tt6&_nc_cat=103&_nc_map=urlgen_bucketless&ccb=1-7&_nc_sid=92e707&_nc_ohc=JVLWH-B64ysQ7kNvwFQrYsO&_nc_oc=AdosUXVnREEFwj93TstSqCZOKHlOWvtrzjEU9BzSt3pnPHqNVXGSBX9JPdMQJndUc8w&_nc_zt=14&_nc_ht=scontent.fcae1-1.fna&_nc_gid=X7W3zzFSqfJ869DMjA2Q-g&_nc_ss=73289&oh=00_AQIlVLDvne_1pEsqnQJRlzTCTQabDmnZRuMsSNKniOv7kQ&oe=6AB40256"
+    },
+    "customSubTitlesWithRenderingFlags": []
+  },
+  {
+    "facebookUrl": "https://www.facebook.com/marketplace/mumbai/search/?query=iphone&sortBy=creation_time_descend",
+    "id": "26344176071946490",
+    "itemUrl": "https://www.facebook.com/marketplace/item/26344176071946490/",
+    "listingAttributes": [
+      {
+        "attribute_name": "Condition",
+        "value": "used_good",
+        "label": "Used - Good"
+      }
+    ],
+    "condition": "Used - Good",
+    "timestamp": "2026-09-19T02:05:10.000Z",
+    "deliveryTypes": [
+      "IN_PERSON"
+    ],
+    "listingPhotos": [
+      {
+        "__typename": "CatalogMarketplaceEnhancementTransformedImage",
+        "accessibility_caption": "No photo description available.",
+        "image": {
+          "height": 960,
+          "width": 720,
+          "uri": "https://scontent-lga3-1.xx.fbcdn.net/v/t39.84726-6/814691876_1104618688769118_5921197063894145433_n.jpg?stp=dst-jpg_p720x720_tt6&_nc_cat=103&ccb=1-7&_nc_sid=92e707&_nc_ohc=Y7Tyha3yV8oQ7kNvwGthw5C&_nc_oc=AdrU0-YDAhOKwTt6T8bwu7tOHp2tmXFWziaL5H4AY9wtXyXvUDIlhoqlS8QIW4Do9Ro&_nc_zt=14&_nc_ht=scontent-lga3-1.xx&_nc_gid=vEaAuA0GvIbAo4Z-swI2WA&_nc_ss=73289&oh=00_AQLbsQOx7AnRycubP1tjJZIk0sFKaO6xKFvEwXm3q04z0Q&oe=6AB3F3C7"
+        },
+        "id": "1104618685435785"
+      },
+      {
+        "__typename": "ProductImage",
+        "accessibility_caption": "No photo description available.",
+        "image": {
+          "height": 960,
+          "width": 720,
+          "uri": "https://scontent-lga3-1.xx.fbcdn.net/v/t45.5328-4/812688177_924618883640720_7184210393877400244_n.jpg?stp=dst-jpg_p720x720_tt6&_nc_cat=111&ccb=1-7&_nc_sid=247b10&_nc_ohc=Bgh8OH_7gd0Q7kNvwFoOxB5&_nc_oc=AdpsyLNKjSRLRPBE9miDxo7suOYFo0zWrsGqWsSeeQq7nUBbYA-MuzL1WlRjidGiHiw&_nc_zt=23&_nc_ht=scontent-lga3-1.xx&_nc_gid=vEaAuA0GvIbAo4Z-swI2WA&_nc_ss=73289&oh=00_AQJ-9sUl8cm1PyM-CEV60XFSIEHxnPXau7kIps_xBt0Vuw&oe=6AB3F729"
+        },
+        "id": "924618880307387"
+      }
+    ],
+    "listingPrice": {
+      "formatted_amount_zeros_stripped": "\u20b946,000",
+      "amount_with_offset_in_currency": "47755",
+      "amount": "46000.00",
+      "currency": "INR"
+    },
+    "location": {
+      "latitude": 19.113464355469,
+      "longitude": 72.921752929688
+    },
+    "locationText": {
+      "text": "Mumbai, MH"
+    },
+    "listingTitle": "Apple iPhone 15 256 Gb with Charger and Box",
+    "description": {
+      "text": "White Apple iPhone 15 has a matte glass back and an aluminum frame. This smartphone has a dual-camera system on the rear. The front display includes a pill-shaped cutout at the top."
+    },
+    "isHidden": false,
+    "isLive": true,
+    "isPending": false,
+    "isSold": false,
+    "isViewerSeller": false,
+    "listingVideo": [],
+    "listingCategoryId": "1557869527812749",
+    "strikethroughPrice": null,
+    "primaryListingPhoto": {
+      "__typename": "CatalogMarketplaceEnhancementTransformedImage",
+      "id": "1104618685435785",
+      "photo_image_url": "https://scontent.fcae1-1.fna.fbcdn.net/v/t39.84726-6/814691876_1104618688769118_5921197063894145433_n.jpg?stp=c0.43.261.261a_dst-jpg_p261x260_tt6&_nc_cat=103&_nc_map=urlgen_bucketless&ccb=1-7&_nc_sid=92e707&_nc_ohc=Y7Tyha3yV8oQ7kNvwGw7dRm&_nc_oc=AdrCbQDcD2FGY2PdEUK6kIwWwgTLchhvVJt3KXUdNRf2f5n5jb85sAu9ogjGJ6SAe5g&_nc_zt=14&_nc_ht=scontent.fcae1-1.fna&_nc_gid=X7W3zzFSqfJ869DMjA2Q-g&_nc_ss=73289&oh=00_AQIt__vGWVsd3IqYQ-Amvx71Bo15orQsmGhwFAGL_xJX-Q&oe=6AB3F3C7"
+    },
+    "customSubTitlesWithRenderingFlags": []
+  }
+]

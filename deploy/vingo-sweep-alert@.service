@@ -1,0 +1,13 @@
+# Fires when the sweep fails. Wire this to Slack/PagerDuty/email.
+#   In vingo-sweep.service add:  OnFailure=vingo-sweep-alert@%n.service
+
+[Unit]
+Description=Alert on failure of %i
+
+[Service]
+Type=oneshot
+EnvironmentFile=/etc/vingo/vingo.env
+ExecStart=/bin/bash -c 'systemctl status %i --no-pager -l | tail -40 | \
+  curl -s -X POST -H "Content-Type: application/json" \
+    -d "{\"text\": \"Vingo sweep FAILED on $(hostname)\n\`\`\`$(cat)\`\`\`\"}" \
+    "$VINGO_ALERT_WEBHOOK" || true'

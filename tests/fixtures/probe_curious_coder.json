@@ -1,0 +1,746 @@
+[
+  {
+    "id": "1637054228007986",
+    "primary_listing_photo": {
+      "image": {
+        "uri": "https://scontent.fbgi2-1.fna.fbcdn.net/v/t39.84726-6/825340646_954097997744914_200432522651944548_n.jpg?stp=c0.87.526.526a_dst-jpg_p526x395_tt6&_nc_cat=105&_nc_map=urlgen_bucketless&ccb=1-7&_nc_sid=92e707&_nc_ohc=9I5j9aI5IzIQ7kNvwEfJLfm&_nc_oc=AdqvDFFHOXf5ZJZCgcVuw5H77R_b8YYqkwqgHO-nxLmCR4eLyhWGzPhb7eKqsMCRgho&_nc_zt=14&_nc_ht=scontent.fbgi2-1.fna&_nc_gid=B8ymjJQjaS49I8ueN9Xuhw&_nc_ss=7f289&oh=00_AQNUjiZ0OlUdo3kHAFi9nvovXiOcunnJvmeBjUXGq3XOyA&oe=6AC2CF4E"
+      },
+      "id": "954097994411581"
+    },
+    "creation_time": 1790418529,
+    "listing_price": {
+      "formatted_amount_zeros_stripped": "\u20b916,500",
+      "amount_with_offset_in_currency": "17091",
+      "amount": "16500.00",
+      "currency": "INR",
+      "amount_with_offset": "17091"
+    },
+    "strikethrough_price": null,
+    "location": {
+      "latitude": 12.961120605469,
+      "longitude": 77.568969726562
+    },
+    "is_hidden": false,
+    "is_live": true,
+    "is_pending": false,
+    "is_sold": false,
+    "is_viewer_seller": false,
+    "min_listing_price": null,
+    "max_listing_price": null,
+    "marketplace_listing_category_id": "1557869527812749",
+    "marketplace_listing_title": "Iphone 13 128gb Rea description",
+    "created_with_seller_app": false,
+    "custom_title": null,
+    "custom_sub_titles_with_rendering_flags": [],
+    "origin_group": null,
+    "listing_video": null,
+    "parent_listing": null,
+    "marketplace_listing_seller": null,
+    "delivery_types": [
+      "IN_PERSON"
+    ],
+    "primary_listing_photo_url": "https://scontent.fbgi2-1.fna.fbcdn.net/v/t39.84726-6/825340646_954097997744914_200432522651944548_n.jpg?stp=c0.87.526.526a_dst-jpg_p526x395_tt6&_nc_cat=105&_nc_map=urlgen_bucketless&ccb=1-7&_nc_sid=92e707&_nc_ohc=9I5j9aI5IzIQ7kNvwEfJLfm&_nc_oc=AdqvDFFHOXf5ZJZCgcVuw5H77R_b8YYqkwqgHO-nxLmCR4eLyhWGzPhb7eKqsMCRgho&_nc_zt=14&_nc_ht=scontent.fbgi2-1.fna&_nc_gid=B8ymjJQjaS49I8ueN9Xuhw&_nc_ss=7f289&oh=00_AQNUjiZ0OlUdo3kHAFi9nvovXiOcunnJvmeBjUXGq3XOyA&oe=6AC2CF4E",
+    "isBroadMatch": false,
+    "listingUrl": "https://www.facebook.com/marketplace/item/1637054228007986",
+    "inputUrl": "https://www.facebook.com/marketplace/106377336067638/search?query=iphone&exact=false",
+    "position": 1,
+    "primary_mp_ent": {
+      "id": "1637054228007986"
+    },
+    "shipping_profile": null,
+    "is_buy_now_enabled": false,
+    "is_shipping_offered": false,
+    "should_hide_pdp_shipping_content": true,
+    "has_free_shipping_discounts": false,
+    "formatted_shipping_price": null,
+    "delivery_data": {
+      "carrier": null,
+      "delivery_address": null
+    },
+    "formatted_shipping_price_list_price_only": [],
+    "estimated_delivery_window": null,
+    "if_viewer_is_buyer": {
+      "marketplace_pdp_integrity_banner_strings_rewrite": null,
+      "id": "1637054228007986"
+    },
+    "story": null,
+    "redacted_description": {
+      "text": "Good working condition phone and box available, battery health 80%\nNote:- on off button not working, front and back camera not working it has mother issue need to repair it or else have to use like this only , display changed and face I'd not Working"
+    },
+    "location_text": {
+      "text": "Bengaluru, KA"
+    },
+    "location_vanity_or_id": "bangalore",
+    "listing_inventory_type": "SINGLE_QUANTITY",
+    "base_marketplace_listing_title": "Iphone 13 128gb Rea description",
+    "inventory_count": null,
+    "shipping_label_rate_type": null,
+    "formattedShippingPriceListWithZipcode": [],
+    "comparable_price": null,
+    "comparable_price_type": null,
+    "discounts_text": null,
+    "marketplaceListingRenderableIfLoggedOut": {
+      "seo_virtual_category": {
+        "taxonomy_path": [
+          {
+            "name": "Electronics",
+            "seo_info": {
+              "seo_url": "electronics",
+              "id": "2458992307542385"
+            },
+            "id": "479353692612078"
+          },
+          {
+            "name": "Cell Phones",
+            "seo_info": {
+              "seo_url": "cell-phones",
+              "id": "3008197932555182"
+            },
+            "id": "938398819835981"
+          }
+        ],
+        "id": "938398819835981"
+      },
+      "marketplace_listing_category": {
+        "slug": "cell-phones",
+        "id": "1557869527812749"
+      },
+      "marketplace_listing_category_name": "Mobile phones",
+      "id": "1637054228007986"
+    },
+    "attribute_data": [
+      {
+        "attribute_name": "Condition",
+        "value": "used_good",
+        "label": "Used - Good"
+      }
+    ],
+    "legal_reporting_cta_type": null,
+    "legal_reporting_uri": null,
+    "messaging_enabled": true,
+    "listing_is_rejected": false,
+    "product_item": {
+      "id": "29330786013188873",
+      "boosted_marketplace_listing": null,
+      "promoted_listing": null
+    },
+    "seller_message_thread": null,
+    "is_checkout_enabled": false,
+    "is_draft": false,
+    "can_seller_edit": false,
+    "default_variant_listing": null,
+    "reportable_seller_type": null,
+    "reportable_ent_id": "29330786013188873",
+    "hidden_from_friends": "VISIBLE_TO_EVERYONE",
+    "can_share": true,
+    "share_uri": "https://www.facebook.com/marketplace/item/1637054228007986/",
+    "can_seller_change_availability": false,
+    "is_on_marketplace": true,
+    "messagingEnabled": true,
+    "has_children": false,
+    "cross_post_info": {
+      "all_listings": [
+        {
+          "is_on_marketplace": true,
+          "id": "1637054228007986"
+        }
+      ]
+    },
+    "active_order": null,
+    "rebuy_order_receipt": null,
+    "c2c_shipping_eligible": false,
+    "most_recent_active_order_as_buyer": null,
+    "order_summaries": [],
+    "is_seller_business_onboarded": false,
+    "is_purchase_protected": false,
+    "can_buyer_make_checkout_offer": false,
+    "is_cart_enabled": false,
+    "seller_cms": null,
+    "vacation_mode": null,
+    "all_message_threads": {
+      "is_empty": true
+    },
+    "should_show_txn_survey_on_mas": false,
+    "incentive_campaign_for_free_shipping": null,
+    "first_message_suggested_value": null,
+    "sweepstake_enabled": false,
+    "sweepstake_status": "INVALID",
+    "sweepstake_content": null,
+    "variant_group": null,
+    "item_location": {
+      "latitude": 12.961120605469,
+      "longitude": 77.568969726562
+    },
+    "is_multi_variant_listing": false,
+    "marketplace_hashtags": {
+      "nodes": []
+    },
+    "marketplace_bump_info": null,
+    "fi_enhanced_appeal_data": {
+      "use_fi_appeals": true,
+      "enforcement_instance_id": null
+    },
+    "listing_seller_notices": [],
+    "is_email_communication_enabled": false,
+    "shipping_offered": false,
+    "legal_disclosure_impressum_url": null,
+    "vehicle_seller_type": null,
+    "commerce_badges_info": {
+      "source_summary": null,
+      "badges": []
+    },
+    "if_should_show_recommended_listings": null,
+    "if_should_show_complementary_listings": null,
+    "creation_time_formatted": "2026-09-26T10:28:49.000Z",
+    "listing_photos": [
+      {
+        "accessibility_caption": "No photo description available.",
+        "image": {
+          "height": 960,
+          "width": 720,
+          "uri": "https://scontent.fesb5-1.fna.fbcdn.net/v/t39.84726-6/825340646_954097997744914_200432522651944548_n.jpg?stp=dst-jpg_p720x720_tt6&_nc_cat=105&_nc_map=urlgen_bucketless&ccb=1-7&_nc_sid=92e707&_nc_ohc=9I5j9aI5IzIQ7kNvwH9KE_6&_nc_oc=AdqZJqYCcwzQ0CpEF5PBfBRZ23wxiRRP9nFENBMqUWwIzIv3cGFqgqrqE-PtBm6_khY&_nc_zt=14&_nc_ht=scontent.fesb5-1.fna&_nc_gid=ykTEkWauhfnOpz5ZAL1e1w&_nc_ss=7f180&oh=00_AQMTpnbWeSM3V6C2f6hWeDwl3TLllFYcfNLq8m5C3EQviA&oe=6AC2CF4E"
+        },
+        "id": "954097994411581"
+      },
+      {
+        "accessibility_caption": "No photo description available.",
+        "image": {
+          "height": 960,
+          "width": 720,
+          "uri": "https://scontent.fesb5-1.fna.fbcdn.net/v/t45.5328-4/825284213_2369880143816009_2868791414672671138_n.jpg?stp=dst-jpg_p720x720_tt6&_nc_cat=105&_nc_map=urlgen_bucketless&ccb=1-7&_nc_sid=247b10&_nc_ohc=omar2kK27kMQ7kNvwEL2rXf&_nc_oc=AdqlLta1h9JA9sT_dbPyp9cIlI1orZ1fYK8tIO8vSwAufWKk2w_X4Dq-L5oa8ZRhTTM&_nc_zt=23&_nc_ht=scontent.fesb5-1.fna&_nc_gid=ykTEkWauhfnOpz5ZAL1e1w&_nc_ss=7f180&oh=00_AQM25FgDvJaEhxsftNtqrKAqD577p_MrGEpKEvmlBSyoRA&oe=6AC2D909"
+        },
+        "id": "2369880137149343"
+      },
+      {
+        "accessibility_caption": "No photo description available.",
+        "image": {
+          "height": 960,
+          "width": 720,
+          "uri": "https://scontent.fesb5-1.fna.fbcdn.net/v/t45.5328-4/825284536_1095472519540352_2714889040845790299_n.jpg?stp=dst-jpg_p720x720_tt6&_nc_cat=100&_nc_map=urlgen_bucketless&ccb=1-7&_nc_sid=247b10&_nc_ohc=9xvVedWhOGUQ7kNvwE_wkzC&_nc_oc=Adqzj5iLvWgoOVnIZFeJZrIsS2_ditt140jEJRMCLq9nFO4z9qh-8slJrlx8-FcAEic&_nc_zt=23&_nc_ht=scontent.fesb5-1.fna&_nc_gid=ykTEkWauhfnOpz5ZAL1e1w&_nc_ss=7f180&oh=00_AQMz2uewRYxOkJ-hLMC2kxyYrHWmD_AcuDmgENa88n06oQ&oe=6AC2EA53"
+        },
+        "id": "1095472516207019"
+      },
+      {
+        "accessibility_caption": "No photo description available.",
+        "image": {
+          "height": 960,
+          "width": 720,
+          "uri": "https://scontent.fesb5-1.fna.fbcdn.net/v/t45.5328-4/825284176_2188506938689470_6345055671516457566_n.jpg?stp=dst-jpg_p720x720_tt6&_nc_cat=110&_nc_map=urlgen_bucketless&ccb=1-7&_nc_sid=247b10&_nc_ohc=9xfsIulfBFwQ7kNvwGDcjCl&_nc_oc=AdpInKggi3vanA5aiGeiyU4CtnizqqnuZgCf5ttB7xFtujEzbyVSwlba7OSvCE8wSnc&_nc_zt=23&_nc_ht=scontent.fesb5-1.fna&_nc_gid=ykTEkWauhfnOpz5ZAL1e1w&_nc_ss=7f180&oh=00_AQOnL7MHV7aJMKb_CrRz8b_1f-_ov43ekrqgA5G0M20xZQ&oe=6AC2EDF2"
+        },
+        "id": "2188506935356137"
+      },
+      {
+        "accessibility_caption": "No photo description available.",
+        "image": {
+          "height": 960,
+          "width": 720,
+          "uri": "https://scontent.fesb5-1.fna.fbcdn.net/v/t45.5328-4/825285030_1556381672456774_3635424384863024330_n.jpg?stp=dst-jpg_p720x720_tt6&_nc_cat=108&_nc_map=urlgen_bucketless&ccb=1-7&_nc_sid=247b10&_nc_ohc=h_fCETJcLn8Q7kNvwEqoOmx&_nc_oc=AdqEFV7IJlnl-48cLSgwUa4Xg3DqBarm6jexhGt6DH4IdXf_Woc2LOnphsRX9xWIZEg&_nc_zt=23&_nc_ht=scontent.fesb5-1.fna&_nc_gid=ykTEkWauhfnOpz5ZAL1e1w&_nc_ss=7f180&oh=00_AQP0gxONtmSp9yc5vkFb8W3GoImfP7Bop2uxVhXKPyAF0g&oe=6AC2DF8E"
+        },
+        "id": "1556381662456775"
+      },
+      {
+        "accessibility_caption": "No photo description available.",
+        "image": {
+          "height": 960,
+          "width": 720,
+          "uri": "https://scontent.fesb5-1.fna.fbcdn.net/v/t45.5328-4/827749632_1479504920683199_5193494601188461858_n.jpg?stp=dst-jpg_p720x720_tt6&_nc_cat=107&_nc_map=urlgen_bucketless&ccb=1-7&_nc_sid=247b10&_nc_ohc=2L73v8usDA8Q7kNvwHrJE0-&_nc_oc=AdpYjfCO1AMFhui78MYxm3VWthVLvdUsd96lZbtDSM36vSdxKmFOyMw3wkFHWaj3SEc&_nc_zt=23&_nc_ht=scontent.fesb5-1.fna&_nc_gid=ykTEkWauhfnOpz5ZAL1e1w&_nc_ss=7f180&oh=00_AQOnT-F3ZlS6md2ZIyVSDPObnCzlzgwesoUX3Qr8wYkuKg&oe=6AC2CD1D"
+        },
+        "id": "1479504917349866"
+      },
+      {
+        "accessibility_caption": "No photo description available.",
+        "image": {
+          "height": 960,
+          "width": 720,
+          "uri": "https://scontent.fesb5-1.fna.fbcdn.net/v/t45.5328-4/825284335_1104096045820047_1291504147464866994_n.jpg?stp=dst-jpg_p720x720_tt6&_nc_cat=106&_nc_map=urlgen_bucketless&ccb=1-7&_nc_sid=247b10&_nc_ohc=HGDg7X72teIQ7kNvwFR219Z&_nc_oc=AdpSJxr-prp7ATUty_59BvxeF2qeakErnwnRREvPr9RKxAxVU-k3OdsDWINcwoH77v0&_nc_zt=23&_nc_ht=scontent.fesb5-1.fna&_nc_gid=ykTEkWauhfnOpz5ZAL1e1w&_nc_ss=7f180&oh=00_AQMFRzQKuqWM4chwVqgH0JUMetfZmvO-rNoaTxaHzPMDVQ&oe=6AC2D1BE"
+        },
+        "id": "1104096035820048"
+      }
+    ],
+    "pre_recorded_videos": [],
+    "apify_charge_info": {
+      "listing_item": true,
+      "listing_item_details": true
+    }
+  },
+  {
+    "id": "1800637251260742",
+    "primary_listing_photo": {
+      "image": {
+        "uri": "https://scontent.fbgi2-1.fna.fbcdn.net/v/t39.84726-6/825286315_852238897916106_377956893776102304_n.jpg?stp=c90.0.540.540a_dst-jpg_p180x540_tt6&_nc_cat=109&_nc_map=urlgen_bucketless&ccb=1-7&_nc_sid=92e707&_nc_ohc=cjr27AziuScQ7kNvwHgPbm5&_nc_oc=AdoKbSZxY_LiR3yAM1OSjb-QSR6ufMemYlBrOU1fQZ2ZNtdwqrPcLrZraCvM6r-nEwc&_nc_zt=14&_nc_ht=scontent.fbgi2-1.fna&_nc_gid=B8ymjJQjaS49I8ueN9Xuhw&_nc_ss=7f289&oh=00_AQM3WvyFPU8fOV_zFsOIEY0EnbBM1fIFe-0nzjHB86hLaw&oe=6AC2D207"
+      },
+      "id": "852238894582773"
+    },
+    "creation_time": 1790588474,
+    "listing_price": {
+      "formatted_amount_zeros_stripped": "\u20b935,000",
+      "amount_with_offset_in_currency": "36253",
+      "amount": "35000.00",
+      "currency": "INR",
+      "amount_with_offset": "36253"
+    },
+    "strikethrough_price": null,
+    "location": {
+      "latitude": 13.103942871094,
+      "longitude": 77.557983398438
+    },
+    "is_hidden": false,
+    "is_live": true,
+    "is_pending": false,
+    "is_sold": false,
+    "is_viewer_seller": false,
+    "min_listing_price": null,
+    "max_listing_price": null,
+    "marketplace_listing_category_id": "1557869527812749",
+    "marketplace_listing_title": "iphone 14 plus",
+    "created_with_seller_app": false,
+    "custom_title": null,
+    "custom_sub_titles_with_rendering_flags": [],
+    "origin_group": null,
+    "listing_video": null,
+    "parent_listing": null,
+    "marketplace_listing_seller": null,
+    "delivery_types": [
+      "IN_PERSON"
+    ],
+    "primary_listing_photo_url": "https://scontent.fbgi2-1.fna.fbcdn.net/v/t39.84726-6/825286315_852238897916106_377956893776102304_n.jpg?stp=c90.0.540.540a_dst-jpg_p180x540_tt6&_nc_cat=109&_nc_map=urlgen_bucketless&ccb=1-7&_nc_sid=92e707&_nc_ohc=cjr27AziuScQ7kNvwHgPbm5&_nc_oc=AdoKbSZxY_LiR3yAM1OSjb-QSR6ufMemYlBrOU1fQZ2ZNtdwqrPcLrZraCvM6r-nEwc&_nc_zt=14&_nc_ht=scontent.fbgi2-1.fna&_nc_gid=B8ymjJQjaS49I8ueN9Xuhw&_nc_ss=7f289&oh=00_AQM3WvyFPU8fOV_zFsOIEY0EnbBM1fIFe-0nzjHB86hLaw&oe=6AC2D207",
+    "isBroadMatch": false,
+    "listingUrl": "https://www.facebook.com/marketplace/item/1800637251260742",
+    "inputUrl": "https://www.facebook.com/marketplace/106377336067638/search?query=iphone&exact=false",
+    "position": 2,
+    "primary_mp_ent": {
+      "id": "1800637251260742"
+    },
+    "shipping_profile": null,
+    "is_buy_now_enabled": false,
+    "is_shipping_offered": false,
+    "should_hide_pdp_shipping_content": true,
+    "has_free_shipping_discounts": false,
+    "formatted_shipping_price": null,
+    "delivery_data": {
+      "carrier": null,
+      "delivery_address": null
+    },
+    "formatted_shipping_price_list_price_only": [],
+    "estimated_delivery_window": null,
+    "if_viewer_is_buyer": {
+      "marketplace_pdp_integrity_banner_strings_rewrite": null,
+      "id": "1800637251260742"
+    },
+    "story": null,
+    "redacted_description": {
+      "text": "I want to sell my iPhone, actually. I want to buy another phone. That\u2019s why selling. \ufffc everything is available. Will box charger."
+    },
+    "location_text": {
+      "text": "Bengaluru, KA"
+    },
+    "location_vanity_or_id": "122367937806277",
+    "listing_inventory_type": "SINGLE_QUANTITY",
+    "base_marketplace_listing_title": "iphone 14 plus",
+    "inventory_count": null,
+    "shipping_label_rate_type": null,
+    "formattedShippingPriceListWithZipcode": [],
+    "comparable_price": null,
+    "comparable_price_type": null,
+    "discounts_text": null,
+    "marketplaceListingRenderableIfLoggedOut": {
+      "seo_virtual_category": null,
+      "marketplace_listing_category": {
+        "slug": "cell-phones",
+        "id": "1557869527812749"
+      },
+      "marketplace_listing_category_name": "Mobile phones",
+      "id": "1800637251260742"
+    },
+    "attribute_data": [
+      {
+        "attribute_name": "Condition",
+        "value": "used_like_new",
+        "label": "Used \u2013 like new"
+      }
+    ],
+    "legal_reporting_cta_type": null,
+    "legal_reporting_uri": null,
+    "messaging_enabled": true,
+    "listing_is_rejected": false,
+    "product_item": {
+      "id": "38624013843879728",
+      "boosted_marketplace_listing": null,
+      "promoted_listing": null
+    },
+    "seller_message_thread": null,
+    "is_checkout_enabled": false,
+    "is_draft": false,
+    "can_seller_edit": false,
+    "default_variant_listing": null,
+    "reportable_seller_type": null,
+    "reportable_ent_id": "38624013843879728",
+    "hidden_from_friends": "VISIBLE_TO_EVERYONE",
+    "can_share": true,
+    "share_uri": "https://www.facebook.com/marketplace/item/1800637251260742/",
+    "can_seller_change_availability": false,
+    "is_on_marketplace": true,
+    "messagingEnabled": true,
+    "has_children": false,
+    "cross_post_info": {
+      "all_listings": [
+        {
+          "is_on_marketplace": true,
+          "id": "1800637251260742"
+        }
+      ]
+    },
+    "active_order": null,
+    "rebuy_order_receipt": null,
+    "c2c_shipping_eligible": false,
+    "most_recent_active_order_as_buyer": null,
+    "order_summaries": [],
+    "is_seller_business_onboarded": false,
+    "is_purchase_protected": false,
+    "can_buyer_make_checkout_offer": false,
+    "is_cart_enabled": false,
+    "seller_cms": null,
+    "vacation_mode": null,
+    "all_message_threads": {
+      "is_empty": true
+    },
+    "should_show_txn_survey_on_mas": false,
+    "incentive_campaign_for_free_shipping": null,
+    "first_message_suggested_value": null,
+    "sweepstake_enabled": false,
+    "sweepstake_status": "INVALID",
+    "sweepstake_content": null,
+    "variant_group": null,
+    "item_location": {
+      "latitude": 13.103942871094,
+      "longitude": 77.557983398438
+    },
+    "is_multi_variant_listing": false,
+    "marketplace_hashtags": {
+      "nodes": []
+    },
+    "marketplace_bump_info": null,
+    "fi_enhanced_appeal_data": {
+      "use_fi_appeals": true,
+      "enforcement_instance_id": null
+    },
+    "listing_seller_notices": [],
+    "is_email_communication_enabled": false,
+    "shipping_offered": false,
+    "legal_disclosure_impressum_url": null,
+    "vehicle_seller_type": null,
+    "commerce_badges_info": {
+      "source_summary": null,
+      "badges": []
+    },
+    "if_should_show_recommended_listings": null,
+    "if_should_show_complementary_listings": null,
+    "creation_time_formatted": "2026-09-28T09:41:14.000Z",
+    "listing_photos": [
+      {
+        "accessibility_caption": "No photo description available.",
+        "image": {
+          "height": 720,
+          "width": 960,
+          "uri": "https://scontent.fesb5-1.fna.fbcdn.net/v/t39.84726-6/825286315_852238897916106_377956893776102304_n.jpg?stp=dst-jpg_p720x720_tt6&_nc_cat=109&_nc_map=urlgen_bucketless&ccb=1-7&_nc_sid=92e707&_nc_ohc=cjr27AziuScQ7kNvwHBAXbf&_nc_oc=Adr4L3lDqdfhS7w7aRuCPu9zLRC-vdMIrSosf5yHuIhGgDJ-vqQImG3G5oFuHG64i_o&_nc_zt=14&_nc_ht=scontent.fesb5-1.fna&_nc_gid=ISUfTylgfL13WYl93UBo9Q&_nc_ss=7f180&oh=00_AQNLXu2srlggL731why4Cfeyygj7j_CBvrD1hJH2dv_amA&oe=6AC2D207"
+        },
+        "id": "852238894582773"
+      },
+      {
+        "accessibility_caption": "No photo description available.",
+        "image": {
+          "height": 720,
+          "width": 960,
+          "uri": "https://scontent.fesb5-1.fna.fbcdn.net/v/t45.5328-4/825272466_1126884619675868_1221280245201760643_n.jpg?stp=dst-jpg_p720x720_tt6&_nc_cat=104&_nc_map=urlgen_bucketless&ccb=1-7&_nc_sid=247b10&_nc_ohc=jEvlL5kN2KEQ7kNvwGTTyOS&_nc_oc=AdqGT_FGrHVo8oEdAErZmLHPSC6cwNnKZRD3rNyaiWdjhh0m36zAthTdSnu47rCI4NQ&_nc_zt=23&_nc_ht=scontent.fesb5-1.fna&_nc_gid=ISUfTylgfL13WYl93UBo9Q&_nc_ss=7f180&oh=00_AQO1JteXx3l_3UDxW70DIdTnomeydunYFmeYQ_OFPtmYQg&oe=6AC2CD7F"
+        },
+        "id": "1126884609675869"
+      },
+      {
+        "accessibility_caption": "No photo description available.",
+        "image": {
+          "height": 720,
+          "width": 960,
+          "uri": "https://scontent.fesb5-1.fna.fbcdn.net/v/t45.5328-4/825291704_2040761259928484_7098400982560492417_n.jpg?stp=dst-jpg_p720x720_tt6&_nc_cat=100&_nc_map=urlgen_bucketless&ccb=1-7&_nc_sid=247b10&_nc_ohc=eFrRQ7QI9k4Q7kNvwEvizFp&_nc_oc=AdrP2fbqssdXKZV5uIOXIaK9WVJ9lXzzd3sY7DpcXN1d4MOSCHM0o8T0DYPo5CZ_SZA&_nc_zt=23&_nc_ht=scontent.fesb5-1.fna&_nc_gid=ISUfTylgfL13WYl93UBo9Q&_nc_ss=7f180&oh=00_AQPcnVuvUbK2daCnC6P1dyitmhq23ouJoBtzk9v3m8nD9g&oe=6AC2D293"
+        },
+        "id": "2040761246595152"
+      },
+      {
+        "accessibility_caption": "No photo description available.",
+        "image": {
+          "height": 720,
+          "width": 960,
+          "uri": "https://scontent.fesb5-1.fna.fbcdn.net/v/t45.5328-4/825285504_1676224350529175_5152703151568002523_n.jpg?stp=dst-jpg_p720x720_tt6&_nc_cat=109&_nc_map=urlgen_bucketless&ccb=1-7&_nc_sid=247b10&_nc_ohc=D4w0rtwSs08Q7kNvwFqmYBM&_nc_oc=AdqzovYTi8UR2jzvNEkdpM3MqZObioTBYR6vptwkpeH51N8jUCoCWpGfFBk69adKAdA&_nc_zt=23&_nc_ht=scontent.fesb5-1.fna&_nc_gid=ISUfTylgfL13WYl93UBo9Q&_nc_ss=7f180&oh=00_AQMoDln4XZC0rWxGaa_Zqv5R1vreJ1FPzYG2epvoTltWUQ&oe=6AC2DEB7"
+        },
+        "id": "1676224347195842"
+      },
+      {
+        "accessibility_caption": "No photo description available.",
+        "image": {
+          "height": 960,
+          "width": 720,
+          "uri": "https://scontent.fesb5-1.fna.fbcdn.net/v/t45.5328-4/825290637_946391414684466_2362327960696059282_n.jpg?stp=dst-jpg_p720x720_tt6&_nc_cat=108&_nc_map=urlgen_bucketless&ccb=1-7&_nc_sid=247b10&_nc_ohc=R5wtGE1ce08Q7kNvwFhtK8l&_nc_oc=AdpHzzeNNYZ7K3xYoQ_4nh1YK_lOTBIR48xI-tqpYwFVkD7O4Et53R_3SNaf4sV9bPY&_nc_zt=23&_nc_ht=scontent.fesb5-1.fna&_nc_gid=ISUfTylgfL13WYl93UBo9Q&_nc_ss=7f180&oh=00_AQOV0GpIjYeyArjOhRLwq8vq-jrv0cgVBULfg3jSbNzqow&oe=6AC2CCE8"
+        },
+        "id": "946391411351133"
+      },
+      {
+        "accessibility_caption": "No photo description available.",
+        "image": {
+          "height": 960,
+          "width": 720,
+          "uri": "https://scontent.fesb5-1.fna.fbcdn.net/v/t45.5328-4/825274948_1798534977843792_6075907293722460147_n.jpg?stp=dst-jpg_p720x720_tt6&_nc_cat=106&_nc_map=urlgen_bucketless&ccb=1-7&_nc_sid=247b10&_nc_ohc=mVh0F3QBf1AQ7kNvwHOuZG6&_nc_oc=AdrAHVxfZLVR-ZUQTCUvoxrHbQEGi3WmG0uPvt84cVy3XSdP89TwLCYOThog_0d_RcM&_nc_zt=23&_nc_ht=scontent.fesb5-1.fna&_nc_gid=ISUfTylgfL13WYl93UBo9Q&_nc_ss=7f180&oh=00_AQPsS1LXFtovb9UyoRw2AxE8M_2DYeKjoCxIbC2B9aoxvg&oe=6AC2F10C"
+        },
+        "id": "1798534974510459"
+      },
+      {
+        "accessibility_caption": "No photo description available.",
+        "image": {
+          "height": 960,
+          "width": 720,
+          "uri": "https://scontent.fesb5-1.fna.fbcdn.net/v/t45.5328-4/825291601_1103676688915515_3191460656073591730_n.jpg?stp=dst-jpg_p720x720_tt6&_nc_cat=101&_nc_map=urlgen_bucketless&ccb=1-7&_nc_sid=247b10&_nc_ohc=F6KT9MNA4TcQ7kNvwH3XDmo&_nc_oc=AdoTYbl_7T31DFAn4GNoi_u-hyZSzZeZjJkhfEJRyRsOTcwtJd-tHCeKCcF3wK5cH3s&_nc_zt=23&_nc_ht=scontent.fesb5-1.fna&_nc_gid=ISUfTylgfL13WYl93UBo9Q&_nc_ss=7f180&oh=00_AQN1FSynQ6I03mhI6iA2VOOkuO0-be8ePbbL06AkaEd5Pw&oe=6AC2C711"
+        },
+        "id": "1103676675582183"
+      },
+      {
+        "accessibility_caption": "No photo description available.",
+        "image": {
+          "height": 960,
+          "width": 720,
+          "uri": "https://scontent.fesb5-1.fna.fbcdn.net/v/t45.5328-4/825284510_1400216585044226_9185546458347190962_n.jpg?stp=dst-jpg_p720x720_tt6&_nc_cat=100&_nc_map=urlgen_bucketless&ccb=1-7&_nc_sid=247b10&_nc_ohc=HXmrMeVP1QYQ7kNvwGHXBUT&_nc_oc=Adoou6uF8358UTujMrDX3oJtofVoMIq9xs-lguE7eKVX1Ul6y1woeOrTWMjegzMgzMc&_nc_zt=23&_nc_ht=scontent.fesb5-1.fna&_nc_gid=ISUfTylgfL13WYl93UBo9Q&_nc_ss=7f180&oh=00_AQNz9-RHdBhZvp7N3nREY12IiPutFVzuC179tXA7hK8SRA&oe=6AC2ECC9"
+        },
+        "id": "1400216575044227"
+      }
+    ],
+    "pre_recorded_videos": [],
+    "apify_charge_info": {
+      "listing_item": true,
+      "listing_item_details": true
+    }
+  },
+  {
+    "id": "1139915148463822",
+    "primary_listing_photo": {
+      "image": {
+        "uri": "https://scontent.fbgi2-1.fna.fbcdn.net/v/t39.84726-6/825329938_1712006889900730_6937615434396737806_n.jpg?stp=c0.204.526.526a_dst-jpg_p526x395_tt6&_nc_cat=104&_nc_map=urlgen_bucketless&ccb=1-7&_nc_sid=92e707&_nc_ohc=tJSfv96hqW8Q7kNvwGcq6uX&_nc_oc=AdrWyVDCE9fCEH69DJfpc57NadaIXnUiRm2NRFQgs4i9q_lLWfLyEGaEbe0LjBpTc-E&_nc_zt=14&_nc_ht=scontent.fbgi2-1.fna&_nc_gid=B8ymjJQjaS49I8ueN9Xuhw&_nc_ss=7f289&oh=00_AQNBLZ4__uTlwRBl3JBmB0DFP3-ZK6vzqlN1niy6aeHQWg&oe=6AC2C9CC"
+      },
+      "id": "1712006886567397"
+    },
+    "creation_time": 1790742041,
+    "listing_price": {
+      "formatted_amount_zeros_stripped": "\u20b918,000",
+      "amount_with_offset_in_currency": "18644",
+      "amount": "18000.00",
+      "currency": "INR",
+      "amount_with_offset": "18644"
+    },
+    "strikethrough_price": null,
+    "location": {
+      "latitude": 13.016052246094,
+      "longitude": 77.700805664062
+    },
+    "is_hidden": false,
+    "is_live": true,
+    "is_pending": false,
+    "is_sold": false,
+    "is_viewer_seller": false,
+    "min_listing_price": null,
+    "max_listing_price": null,
+    "marketplace_listing_category_id": "1557869527812749",
+    "marketplace_listing_title": "IPhone 13 pro",
+    "created_with_seller_app": false,
+    "custom_title": null,
+    "custom_sub_titles_with_rendering_flags": [],
+    "origin_group": null,
+    "listing_video": null,
+    "parent_listing": null,
+    "marketplace_listing_seller": null,
+    "delivery_types": [
+      "IN_PERSON"
+    ],
+    "primary_listing_photo_url": "https://scontent.fbgi2-1.fna.fbcdn.net/v/t39.84726-6/825329938_1712006889900730_6937615434396737806_n.jpg?stp=c0.204.526.526a_dst-jpg_p526x395_tt6&_nc_cat=104&_nc_map=urlgen_bucketless&ccb=1-7&_nc_sid=92e707&_nc_ohc=tJSfv96hqW8Q7kNvwGcq6uX&_nc_oc=AdrWyVDCE9fCEH69DJfpc57NadaIXnUiRm2NRFQgs4i9q_lLWfLyEGaEbe0LjBpTc-E&_nc_zt=14&_nc_ht=scontent.fbgi2-1.fna&_nc_gid=B8ymjJQjaS49I8ueN9Xuhw&_nc_ss=7f289&oh=00_AQNBLZ4__uTlwRBl3JBmB0DFP3-ZK6vzqlN1niy6aeHQWg&oe=6AC2C9CC",
+    "isBroadMatch": false,
+    "listingUrl": "https://www.facebook.com/marketplace/item/1139915148463822",
+    "inputUrl": "https://www.facebook.com/marketplace/106377336067638/search?query=iphone&exact=false",
+    "position": 3,
+    "primary_mp_ent": {
+      "id": "1139915148463822"
+    },
+    "shipping_profile": null,
+    "is_buy_now_enabled": false,
+    "is_shipping_offered": false,
+    "should_hide_pdp_shipping_content": true,
+    "has_free_shipping_discounts": false,
+    "formatted_shipping_price": null,
+    "delivery_data": {
+      "carrier": null,
+      "delivery_address": null
+    },
+    "formatted_shipping_price_list_price_only": [],
+    "estimated_delivery_window": null,
+    "if_viewer_is_buyer": {
+      "marketplace_pdp_integrity_banner_strings_rewrite": null,
+      "id": "1139915148463822"
+    },
+    "story": null,
+    "redacted_description": {
+      "text": "IPhone 13. Pro i cloud lock interested only call messages "
+    },
+    "location_text": {
+      "text": "Bengaluru, KA"
+    },
+    "location_vanity_or_id": "112933442065834",
+    "listing_inventory_type": "SINGLE_QUANTITY",
+    "base_marketplace_listing_title": "IPhone 13 pro",
+    "inventory_count": null,
+    "shipping_label_rate_type": null,
+    "formattedShippingPriceListWithZipcode": [],
+    "comparable_price": null,
+    "comparable_price_type": null,
+    "discounts_text": null,
+    "marketplaceListingRenderableIfLoggedOut": {
+      "seo_virtual_category": {
+        "taxonomy_path": [
+          {
+            "name": "Electronics",
+            "seo_info": {
+              "seo_url": "electronics",
+              "id": "2458992307542385"
+            },
+            "id": "479353692612078"
+          },
+          {
+            "name": "Cell Phone Accessories",
+            "seo_info": {
+              "seo_url": "cell-phone-accessories",
+              "id": "2557761380951489"
+            },
+            "id": "2573381536029742"
+          },
+          {
+            "name": "Cell Phone Cases",
+            "seo_info": {
+              "seo_url": "cell-phone-cases",
+              "id": "2516305771727405"
+            },
+            "id": "372992236696471"
+          }
+        ],
+        "id": "372992236696471"
+      },
+      "marketplace_listing_category": {
+        "slug": "cell-phones",
+        "id": "1557869527812749"
+      },
+      "marketplace_listing_category_name": "Mobile phones",
+      "id": "1139915148463822"
+    },
+    "attribute_data": [
+      {
+        "attribute_name": "Condition",
+        "value": "used_like_new",
+        "label": "Used - like new"
+      }
+    ],
+    "legal_reporting_cta_type": null,
+    "legal_reporting_uri": null,
+    "messaging_enabled": true,
+    "listing_is_rejected": false,
+    "product_item": {
+      "id": "28494099903592863",
+      "boosted_marketplace_listing": null,
+      "promoted_listing": null
+    },
+    "seller_message_thread": null,
+    "is_checkout_enabled": false,
+    "is_draft": false,
+    "can_seller_edit": false,
+    "default_variant_listing": null,
+    "reportable_seller_type": null,
+    "reportable_ent_id": "28494099903592863",
+    "hidden_from_friends": "VISIBLE_TO_EVERYONE",
+    "can_share": true,
+    "share_uri": "https://www.facebook.com/marketplace/item/1139915148463822/",
+    "can_seller_change_availability": false,
+    "is_on_marketplace": true,
+    "messagingEnabled": true,
+    "has_children": false,
+    "cross_post_info": {
+      "all_listings": [
+        {
+          "is_on_marketplace": true,
+          "id": "1139915148463822"
+        }
+      ]
+    },
+    "active_order": null,
+    "rebuy_order_receipt": null,
+    "c2c_shipping_eligible": false,
+    "most_recent_active_order_as_buyer": null,
+    "order_summaries": [],
+    "is_seller_business_onboarded": false,
+    "is_purchase_protected": false,
+    "can_buyer_make_checkout_offer": false,
+    "is_cart_enabled": false,
+    "seller_cms": null,
+    "vacation_mode": null,
+    "all_message_threads": {
+      "is_empty": true
+    },
+    "should_show_txn_survey_on_mas": false,
+    "incentive_campaign_for_free_shipping": null,
+    "first_message_suggested_value": null,
+    "sweepstake_enabled": false,
+    "sweepstake_status": "INVALID",
+    "sweepstake_content": null,
+    "variant_group": null,
+    "item_location": {
+      "latitude": 13.016052246094,
+      "longitude": 77.700805664062
+    },
+    "is_multi_variant_listing": false,
+    "marketplace_hashtags": {
+      "nodes": []
+    },
+    "marketplace_bump_info": null,
+    "fi_enhanced_appeal_data": {
+      "use_fi_appeals": true,
+      "enforcement_instance_id": null
+    },
+    "listing_seller_notices": [],
+    "is_email_communication_enabled": false,
+    "shipping_offered": false,
+    "legal_disclosure_impressum_url": null,
+    "vehicle_seller_type": null,
+    "commerce_badges_info": {
+      "source_summary": null,
+      "badges": []
+    },
+    "if_should_show_recommended_listings": null,
+    "if_should_show_complementary_listings": null,
+    "creation_time_formatted": "2026-09-30T04:20:41.000Z",
+    "listing_photos": [
+      {
+        "accessibility_caption": "No photo description available.",
+        "image": {
+          "height": 960,
+          "width": 540,
+          "uri": "https://scontent-iev1-1.xx.fbcdn.net/v/t39.84726-6/825329938_1712006889900730_6937615434396737806_n.jpg?stp=dst-jpg_s960x960_tt6&_nc_cat=104&ccb=1-7&_nc_sid=92e707&_nc_ohc=tJSfv96hqW8Q7kNvwGdyLJn&_nc_oc=Adq5npbDDoE_g4lsWRQhRdptfZDXK_n-aotuCaz3ROhy3uSnQvxyQX9UGKV9z7gUrUY&_nc_zt=14&_nc_ht=scontent-iev1-1.xx&_nc_gid=Ih7lhsUH4EewIbmeamYN1w&_nc_ss=7f180&oh=00_AQOn6unzg2pOuMXJYdUzw9O3YUZ8k5jj285YLsrUEDRuTw&oe=6AC2C9CC"
+        },
+        "id": "1712006886567397"
+      },
+      {
+        "accessibility_caption": "No photo description available.",
+        "image": {
+          "height": 960,
+          "width": 540,
+          "uri": "https://scontent-iev1-1.xx.fbcdn.net/v/t45.5328-4/825430398_964406076715292_6962434624789133345_n.jpg?stp=dst-jpg_s960x960_tt6&_nc_cat=107&ccb=1-7&_nc_sid=247b10&_nc_ohc=HLv-YFRP_GkQ7kNvwGx2Fy_&_nc_oc=AdppofJKD_dsKxaqBSIqOtKcdqJmM3yX8DX6CyaHetXkkmqOavbBGyvrSly8TZkWiGU&_nc_zt=23&_nc_ht=scontent-iev1-1.xx&_nc_gid=Ih7lhsUH4EewIbmeamYN1w&_nc_ss=7f180&oh=00_AQMArzVCyRzw7doizFUWh3PHUXwQOU5bN-MW8FbKBIpogQ&oe=6AC2BE1B"
+        },
+        "id": "964406070048626"
+      }
+    ],
+    "pre_recorded_videos": [],
+    "apify_charge_info": {
+      "listing_item": true,
+      "listing_item_details": true
+    }
+  }
+]

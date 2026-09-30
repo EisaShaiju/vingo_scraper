@@ -1,0 +1,52 @@
+# systemd service for the Vingo Marketplace sweep.
+# Preferred over cron: journald captures logs, no PATH surprises, and
+# OnFailure gives real alerting.
+#
+#   sudo cp deploy/vingo-sweep.* /etc/systemd/system/
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now vingo-sweep.timer
+
+[Unit]
+Description=Vingo Facebook Marketplace sweep
+Documentation=file:///opt/vingo/docs/automation.md
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=vingo
+Group=vingo
+WorkingDirectory=/opt/vingo
+
+# Secrets live here, root-owned, chmod 600. Never in the unit file.
+EnvironmentFile=/etc/vingo/vingo.env
+
+ExecStart=/opt/vingo/.venv/bin/vingo-sweep --per-cell 20
+
+# A sweep is ~25 Apify runs; give it room but never let it run forever.
+TimeoutStartSec=3600
+
+# Exit 75 (EX_TEMPFAIL) means "previous run still going" -- expected under
+# load, not a failure worth alerting on.
+SuccessExitStatus=0 75
+
+# Do not hammer Apify on repeated failure; the timer will come round again.
+Restart=no
+
+# --- hardening: this process needs the network and its own state dir, no more
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/vingo /var/log/vingo
+ProtectKernelTunables=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+LockPersonality=true
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=vingo-sweep
+
+[Install]
+WantedBy=multi-user.target

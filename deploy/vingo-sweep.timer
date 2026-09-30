@@ -1,0 +1,20 @@
+# Runs the sweep every 6 hours (4x/day).
+#
+# Frequent small sweeps beat one large daily run: Marketplace listings are
+# most valuable while fresh, and spreading the spend means a bad day costs a
+# quarter of the budget rather than all of it.
+
+[Unit]
+Description=Run Vingo Marketplace sweep every 6 hours
+Requires=vingo-sweep.service
+
+[Timer]
+OnCalendar=*-*-* 00,06,12,18:15:00
+# Avoid every deployment hitting Apify on the same second.
+RandomizedDelaySec=600
+# Catch up if the box was down at the scheduled time.
+Persistent=true
+Unit=vingo-sweep.service
+
+[Install]
+WantedBy=timers.target

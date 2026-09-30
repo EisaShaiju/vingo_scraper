@@ -1,0 +1,56 @@
+[
+  {
+    "listingId": "1409416141069171",
+    "title": "Fuel stroke offroad d612 red 5x5.5 R20xj10",
+    "price": 700,
+    "priceFormatted": "\\u20b9700",
+    "strikethroughPrice": null,
+    "url": "https://www.facebook.com/marketplace/item/1409416141069171",
+    "description": "No low baller or trade for iphone 16pro max",
+    "images": [
+      "https://scontent.fdel27-5.fna.fbcdn.net/v/t39.84726-6/756038588_1014537661385497_6625502653955466105_n.jpg?stp=c43.0.260.260a_dst-jpg_p261x260_tt6&_nc_cat=105&_nc_map=urlgen_bucketless&ccb=1-7&_nc_sid=92e707&_nc_ohc=m7G7rEGRMqUQ7kNvwGqRSec&_nc_oc=AdqnBb-cqJ-S5-n3m5jQDRbLX0QwH9ycH69AvAP6fsZDgT49bUtQOMuVZb5l7I33lbY&_nc_zt=14&_nc_ht=scontent.fdel27-5.fna&_nc_gid=JIHs4QX5Yzm92PUpFx4vhg&_nc_ss=72289&oh=00_AQMMJlQ6E7EuIL0msudoNta1Jz_xIy6twae87blgmUkG0g&oe=6AC2E74E"
+    ],
+    "primaryImage": "https://scontent.fdel27-5.fna.fbcdn.net/v/t39.84726-6/756038588_1014537661385497_6625502653955466105_n.jpg?stp=c43.0.260.260a_dst-jpg_p261x260_tt6&_nc_cat=105&_nc_map=urlgen_bucketless&ccb=1-7&_nc_sid=92e707&_nc_ohc=m7G7rEGRMqUQ7kNvwGqRSec&_nc_oc=AdqnBb-cqJ-S5-n3m5jQDRbLX0QwH9ycH69AvAP6fsZDgT49bUtQOMuVZb5l7I33lbY&_nc_zt=14&_nc_ht=scontent.fdel27-5.fna&_nc_gid=JIHs4QX5Yzm92PUpFx4vhg&_nc_ss=72289&oh=00_AQMMJlQ6E7EuIL0msudoNta1Jz_xIy6twae87blgmUkG0g&oe=6AC2E74E",
+    "videos": [],
+    "location": "Manteca, CA",
+    "city": "Manteca",
+    "state": "CA",
+    "latitude": null,
+    "longitude": null,
+    "deliveryTypes": [
+      "IN_PERSON"
+    ],
+    "shippingOffered": false,
+    "categoryId": "757715671026531",
+    "sellerName": null,
+    "sellerId": null,
+    "sellerRating": null,
+    "sellerRatingCount": null,
+    "status": "available",
+    "emails": [],
+    "phones": [],
+    "primaryEmail": null,
+    "primaryPhone": null,
+    "hasContact": false,
+    "success": true,
+    "sourceQuery": "https://www.facebook.com/marketplace/bengaluru/search?query=iphone&sortBy=best_match",
+    "source": "og_meta",
+    "detailEnriched": true,
+    "detailEnrichmentStatus": "ok"
+  },
+  {
+    "_summary": true,
+    "mode": "search",
+    "backend": "direct",
+    "jobs": 1,
+    "listingsPushed": 1,
+    "failedJobs": 0,
+    "timedOutJobs": 0,
+    "detailIncomplete": 0,
+    "partial": false,
+    "deduped": true,
+    "onlyNew": false,
+    "contactEnrichment": true,
+    "detailEnrichment": true
+  }
+]

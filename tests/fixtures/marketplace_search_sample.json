@@ -1,0 +1,87 @@
+{
+  "data": {
+    "marketplace_search": {
+      "feed_units": {
+        "edges": [
+          {
+            "node": {
+              "__typename": "MarketplaceFeedListingStoryObject",
+              "listing": {
+                "__typename": "GroupCommerceProductItem",
+                "id": "1122334455667788",
+                "marketplace_listing_title": "iPhone 13 128GB Midnight - excellent condition",
+                "listing_price": {
+                  "amount": "42000",
+                  "currency": "INR",
+                  "amount_with_offset": "4200000",
+                  "formatted_amount": "₹42,000"
+                },
+                "condition": "used_like_new",
+                "creation_time": 1725100000,
+                "location_vanity_or_city_and_state": "Bandra, Mumbai",
+                "marketplace_listing_seller": {
+                  "id": "998877665544",
+                  "name": "Rohit S."
+                },
+                "primary_listing_photo": {
+                  "image": {
+                    "uri": "https://scontent.example.com/iphone13_primary.jpg"
+                  }
+                },
+                "listing_photos": [
+                  { "image": { "uri": "https://scontent.example.com/iphone13_a.jpg" } },
+                  { "image": { "uri": "https://scontent.example.com/iphone13_b.jpg" } }
+                ]
+              }
+            }
+          },
+          {
+            "node": {
+              "__typename": "MarketplaceFeedListingStoryObject",
+              "listing": {
+                "__typename": "GroupCommerceProductItem",
+                "id": "2233445566778899",
+                "marketplace_listing_title": "Godrej 3-door almirah",
+                "listing_price": {
+                  "formatted_amount": "Rs. 8,500"
+                },
+                "creation_time": "1725200000",
+                "location_text": { "text": "Andheri West" },
+                "marketplace_listing_seller": {
+                  "id": "111222333444",
+                  "name": "Priya M."
+                },
+                "primary_listing_photo": {
+                  "image": { "uri": "https://scontent.example.com/almirah.jpg" }
+                }
+              }
+            }
+          },
+          {
+            "node": {
+              "__typename": "MarketplaceFeedListingStoryObject",
+              "listing": {
+                "__typename": "GroupCommerceProductItem",
+                "id": "3344556677889900",
+                "custom_title": "Free moving boxes - pickup only",
+                "listing_price": { "formatted_amount": "Free" },
+                "marketplace_listing_description": {
+                  "text": "About 15 sturdy cardboard boxes.   Must collect from Powai this weekend."
+                },
+                "creation_time": 1725300000,
+                "location_vanity_or_city_and_state": "Powai, Mumbai"
+              }
+            }
+          }
+        ],
+        "page_info": {
+          "has_next_page": true,
+          "end_cursor": "AQHRb2N1bWVudA=="
+        }
+      }
+    }
+  },
+  "extensions": {
+    "operationName": "CometMarketplaceSearchContentContainerQuery"
+  }
+}

@@ -314,3 +314,34 @@ def test_unfinished_run_reports_waiting_without_spending(client, auth, monkeypat
     assert body["waiting"] is True
     assert body["ran"] is False
     assert calls["ingest"] == 0   # must not start a second actor alongside it
+
+
+def test_finished_sequence_says_complete_not_switched_off(client, auth, monkeypatch):
+    """A sequence that ran to the end must not look like an intervention.
+
+    `claim_run` switches ingestion off as it hands out the last slot, so the
+    following tick finds the flag down. Reporting that as "switched off" reads
+    as somebody having killed the run.
+    """
+    patch_budget(monkeypatch, healthy_budget())
+    patch_store(monkeypatch, state=make_state(
+        is_active=False, runs_remaining=0, runs_completed=5,
+        stopped_reason="sequence complete",
+    ))
+
+    body = client.get("/api/cron/tick", headers=auth).json()
+
+    assert body["reason"] == "sequence complete"
+    assert body["complete"] is True
+
+
+def test_operator_stop_is_reported_as_such(client, auth, monkeypatch):
+    patch_budget(monkeypatch, healthy_budget())
+    patch_store(monkeypatch, state=make_state(
+        is_active=False, stopped_reason="stopped by operator",
+    ))
+
+    body = client.get("/api/cron/tick", headers=auth).json()
+
+    assert body["reason"] == "stopped by operator"
+    assert body["complete"] is False

@@ -658,8 +658,18 @@ async def _run_tick(*, grid: bool) -> dict:
 
     state = await config_store.get_state()
     if not state.is_active:
-        return {"ran": False, "reason": "ingestion is switched off",
-                **state.to_dict()}
+        # Distinguish "it finished" from "someone killed it". `claim_run`
+        # switches ingestion off as it hands out the LAST slot, so the next
+        # tick finds the flag already down -- reporting that as "switched off"
+        # reads as an outside intervention and sent us hunting for one.
+        finished = (state.stopped_reason or "").startswith("sequence complete")
+        return {
+            "ran": False,
+            "reason": "sequence complete" if finished
+                      else (state.stopped_reason or "ingestion is switched off"),
+            "complete": finished,
+            **state.to_dict(),
+        }
 
     budget = await get_budget()
     if (blocked := budget.blocked_reason()):

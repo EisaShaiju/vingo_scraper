@@ -107,8 +107,13 @@ def patch_store(monkeypatch, *, state, claimed="unset"):
 def patch_budget(monkeypatch, budget):
     async def get_budget():
         return budget
+
+    async def reconcile_costs(limit=6):
+        return 0
+
     monkeypatch.setattr("vingo_scraper.apify.budget.get_budget", get_budget)
     monkeypatch.setattr("vingo_scraper.apify.budget.invalidate_cache", lambda: None)
+    monkeypatch.setattr("vingo_scraper.apify.budget.reconcile_costs", reconcile_costs)
 
 
 # --------------------------------------------------------------------------

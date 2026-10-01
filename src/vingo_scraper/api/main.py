@@ -633,8 +633,16 @@ async def _run_tick(*, grid: bool) -> dict:
     `grid=True` walks the automation cells (console); `grid=False` runs the
     single configured query (Vercel Cron, external pinger).
     """
-    from vingo_scraper.apify.budget import get_budget, invalidate_cache
+    from vingo_scraper.apify.budget import (
+        get_budget,
+        invalidate_cache,
+        reconcile_costs,
+    )
     from vingo_scraper.db import config_store
+
+    # Charges post after a run finishes, so what the previous tick recorded was
+    # incomplete. Correct it before reading the budget off those rows.
+    await reconcile_costs()
 
     # A run already in flight is collected first, and costs nothing new. This
     # runs even when ingestion has since been switched off: the money is

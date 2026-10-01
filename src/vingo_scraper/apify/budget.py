@@ -143,6 +143,66 @@ async def daily_spend_usd() -> float:
         return 0.0
 
 
+async def reconcile_costs(limit: int = 6) -> int:
+    """Re-read recent runs from Apify and correct what they actually charged.
+
+    Charges do not settle when a run finishes -- they post afterwards. Reading
+    at collection time catches only `apify-actor-start`, which is why runs were
+    recording $0.00005 against a real charge of $0.01155: 0.4% of the truth,
+    and `scrape_run.cost_usd` is what the daily figure is summed from.
+
+    There is no moment during a tick at which the real number is available, so
+    it is backfilled on the next one. One cheap API call per unsettled run,
+    bounded by `limit`. The monthly cap is unaffected either way -- that reads
+    Apify's own accounting directly, which is the point of doing it that way.
+
+    Returns the number of rows corrected.
+    """
+    from apify_client import ApifyClientAsync
+    from sqlalchemy import desc, select
+
+    from vingo_scraper.db import models
+    from vingo_scraper.db.session import session_scope
+
+    # Only runs recent enough to still be settling, and cheap enough to look
+    # wrong. An actor-start-only reading is under a cent by definition.
+    cutoff = datetime.now(UTC) - timedelta(hours=6)
+    fixed = 0
+    try:
+        client = ApifyClientAsync(token=settings.apify_api_token)
+        async with session_scope() as s:
+            rows = (await s.scalars(
+                select(models.ScrapeRun)
+                .where(models.ScrapeRun.started_at >= cutoff)
+                .where(models.ScrapeRun.run_id.isnot(None))
+                .order_by(desc(models.ScrapeRun.started_at))
+                .limit(limit)
+            )).all()
+
+            for row in rows:
+                if (row.cost_usd or 0.0) > 0.001:
+                    continue  # already settled into something plausible
+                run = await client.run(row.run_id).get()
+                if not run:
+                    continue
+                usage = run.get("eventUsage") if isinstance(run, dict) else None
+                if not isinstance(usage, dict):
+                    continue
+                total = sum(
+                    float((v or {}).get("eventTotalUsd", 0.0) or 0.0)
+                    for v in usage.values() if isinstance(v, dict)
+                )
+                if total and abs(total - (row.cost_usd or 0.0)) > 1e-6:
+                    log.info("budget.cost_reconciled", run_id=row.run_id,
+                             was=row.cost_usd, now=total)
+                    row.cost_usd = total
+                    fixed += 1
+    except Exception as exc:
+        # Reporting accuracy is not worth failing a tick over.
+        log.warning("budget.reconcile_failed", error=str(exc)[:200])
+    return fixed
+
+
 async def get_budget() -> BudgetStatus:
     daily = await daily_spend_usd()
     try:

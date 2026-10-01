@@ -66,12 +66,46 @@ def test_build_cells_is_full_cross_product():
     assert ("pune", "c") in cells
 
 
-def test_estimated_cost_halves_without_details():
+def test_estimated_cost_drops_without_details():
+    """Details are the expensive half, whichever actor is configured."""
     with_d = sw.estimated_cell_cost(100, True)
     without = sw.estimated_cell_cost(100, False)
-    assert with_d == pytest.approx(1.24)
-    assert without == pytest.approx(0.62)
-    assert with_d == pytest.approx(without * 2)
+    listing, detail = sw.actor_pricing()
+    assert with_d == pytest.approx(100 * (listing + detail))
+    assert without == pytest.approx(100 * listing)
+    assert without < with_d
+
+
+def test_cost_estimate_follows_the_configured_actor():
+    """A pricing constant that does not move with the actor is a money bug.
+
+    A single global kept the legacy actor's $0.0062 after the switch to
+    curious_coder, so the console quoted $0.0620 for a run that really cost
+    about $0.015 -- high enough to make the budget look nearly spent.
+    """
+    assert sw.estimated_cell_cost(
+        100, True, actor_id="curious_coder/facebook-marketplace"
+    ) == pytest.approx(0.15)
+    assert sw.estimated_cell_cost(
+        100, True, actor_id="apify/facebook-marketplace-scraper"
+    ) == pytest.approx(1.24)
+
+
+def test_unknown_actor_estimates_high_not_low():
+    """An unknown actor must over-estimate: stop early, never overspend."""
+    unknown = sw.estimated_cell_cost(100, True, actor_id="someone/brand-new")
+    known = sw.estimated_cell_cost(
+        100, True, actor_id="curious_coder/facebook-marketplace"
+    )
+    assert unknown > known
+
+
+def test_automation_grid_starts_in_bengaluru():
+    """The spec says Bengaluru first; INDIA_CITIES is ordered Mumbai-first."""
+    cells = sw.automation_cells()
+    assert cells, "automation grid must not be empty"
+    assert {c for c, _ in cells} == {"bangalore"}
+    assert len(cells) < len(sw.build_cells())
 
 
 # --------------------------------------------------------------------------
@@ -113,8 +147,10 @@ async def test_existing_spend_counts_against_cap(monkeypatch):
     This is why spend is read from the database rather than tracked in memory:
     four cron runs a day must share one budget.
     """
+    # Headroom deliberately smaller than any one cell can cost, so the
+    # assertion holds whatever the configured actor charges.
     async def _spend(_since):
-        return 24.0
+        return 24.99
     monkeypatch.setattr(sw, "spend_since", _spend)
     ing = fake_ingest()
     monkeypatch.setattr(sw, "ingest", ing)

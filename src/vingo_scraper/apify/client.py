@@ -185,7 +185,7 @@ async def run_actor(
     result.run_id = _attr(run, "id")
     result.status = str(_attr(run, "status") or "UNKNOWN")
     result.dataset_id = _attr(run, "default_dataset_id", "defaultDatasetId")
-    result.cost_usd = _attr(run, "usage_total_usd", "usageTotalUsd")
+    result.cost_usd = _run_charge_usd(run)
     result.finished_at = datetime.now(UTC)
 
     if not result.succeeded:
@@ -216,6 +216,46 @@ async def fetch_dataset(
         if isinstance(item, dict):
             items.append(item)
     return items
+
+
+def _run_charge_usd(run: Any) -> float | None:
+    """What the run actually COST us, not what it used.
+
+    `usageTotalUsd` is platform usage -- compute units, storage, transfer. On a
+    pay-per-EVENT actor that is close to nothing: it read $0.0001 for a run that
+    charged about $0.015. Recording it as the cost made `scrape_run.cost_usd`
+    report roughly 1% of real spend, which quietly disarmed the daily cap built
+    on top of those rows.
+
+    The charge lives in `chargedEventCounts` priced by `pricingInfo`. Apify also
+    exposes a pre-totalled field on newer clients; prefer it when present, fall
+    back to multiplying it out, and only then to usage.
+    """
+    total = _attr(run, "charged_total_usd", "chargedTotalUsd")
+    if total is not None:
+        return float(total)
+
+    counts = _attr(run, "charged_event_counts", "chargedEventCounts") or {}
+    pricing = _attr(run, "pricing_info", "pricingInfo") or {}
+    per_event = (
+        pricing.get("pricingPerEvent", {}).get("actorChargeEvents", {})
+        if isinstance(pricing, dict)
+        else {}
+    )
+
+    if isinstance(counts, dict) and per_event:
+        charged = 0.0
+        for event, count in counts.items():
+            price = per_event.get(event, {})
+            if isinstance(price, dict):
+                charged += float(price.get("eventPriceUsd", 0.0) or 0.0) * int(count)
+        if charged:
+            return charged
+
+    # Rental / compute-priced actors genuinely bill on usage, so this is the
+    # right answer there rather than a failure.
+    usage = _attr(run, "usage_total_usd", "usageTotalUsd")
+    return float(usage) if usage is not None else None
 
 
 def _attr(obj: Any, *names: str) -> Any:

@@ -276,6 +276,18 @@ class SystemConfig(Base):
     location: Mapped[str] = mapped_column(String(64), default="bengaluru")
     max_pages: Mapped[int] = mapped_column(Integer, default=1)
 
+    # Automation grid state. These five lived in a module-level object until
+    # Vercel made it obvious that per-instance memory is not shared state:
+    # the console alternated between two self-consistent views depending on
+    # which lambda answered the poll. In the table there is only one view.
+    cursor: Mapped[int] = mapped_column(Integer, default=0)
+    per_cell: Mapped[int] = mapped_column(Integer, default=10)
+    # Defaults FALSE: the old dataclass defaulted True, so a cold instance
+    # quoted twice the per-run cost of a warm one.
+    include_details: Mapped[bool] = mapped_column(Boolean, default=False)
+    next_run_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    city: Mapped[str] = mapped_column(String(64), default="bangalore")
+
     sequence_started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     last_run_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     last_status: Mapped[str | None] = mapped_column(Text)

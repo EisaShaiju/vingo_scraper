@@ -33,8 +33,30 @@ log = structlog.get_logger(__name__)
 # What one listing costs us, measured from Apify's billing API. Used only to
 # predict whether the *next* cell would breach the cap; actual spend always
 # comes from the database.
-COST_PER_LISTING_USD = 0.0062
-COST_PER_DETAIL_USD = 0.0062
+#
+# Keyed by actor id for the same reason `apify/client.py` keys its input
+# vocabulary: we have already swapped actors twice. A single global constant
+# kept the LEGACY actor's $0.0062 after the switch to curious_coder, so the
+# console quoted $0.0620 for a run that really costs ~$0.015 -- 8x high, and
+# high enough to make the budget look nearly spent when it was not.
+ACTOR_PRICING: dict[str, tuple[float, float]] = {
+    # actor id -> (per listing, per listing-details)
+    "curious_coder/facebook-marketplace": (0.0005, 0.0010),
+    "apify/facebook-marketplace-scraper": (0.0062, 0.0062),
+}
+# Used when the configured actor is not in the table. The dearest known price,
+# on purpose: an unknown actor should over-estimate and stop early rather than
+# under-estimate and overspend.
+FALLBACK_PRICING = (0.0062, 0.0062)
+
+
+def actor_pricing(actor_id: str | None = None) -> tuple[float, float]:
+    """(listing, listing-details) price for an actor, defaulting to config."""
+    return ACTOR_PRICING.get(actor_id or settings.apify_actor_id, FALLBACK_PRICING)
+
+
+# Kept as module attributes because older call sites and docs refer to them.
+COST_PER_LISTING_USD, COST_PER_DETAIL_USD = actor_pricing()
 
 
 @dataclass
@@ -130,9 +152,24 @@ def build_cells(
     return [(c, k) for c in cities for k in categories]
 
 
-def estimated_cell_cost(per_cell: int, include_details: bool) -> float:
-    per_item = COST_PER_LISTING_USD + (COST_PER_DETAIL_USD if include_details else 0.0)
-    return per_cell * per_item
+def automation_cells(city: str | None = None) -> list[tuple[str, str]]:
+    """The grid the console's Automation panel walks: one city, every category.
+
+    Deliberately narrower than `build_cells()`. The client spec says start with
+    Bengaluru, and `INDIA_CITIES` is ordered Mumbai-first, so the full grid both
+    opened in the wrong city and spread a 3-run demo across three different
+    ones. Five cells means a short sequence visibly covers a city.
+
+    The full 25-cell grid is still what `run_sweep` uses for supply measurement.
+    """
+    return build_cells(cities=[city or INDIA_CITIES["bengaluru"]])
+
+
+def estimated_cell_cost(
+    per_cell: int, include_details: bool, actor_id: str | None = None
+) -> float:
+    listing, detail = actor_pricing(actor_id)
+    return per_cell * (listing + (detail if include_details else 0.0))
 
 
 async def run_sweep(

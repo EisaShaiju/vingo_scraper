@@ -38,11 +38,10 @@ STATIC = Path(__file__).parent / "static"
 @asynccontextmanager
 async def _lifespan(_app: FastAPI):
     yield
-    # Never leave a background loop spending money after the app exits.
-    from vingo_scraper.api import scheduler
-
-    if scheduler.state.running:
-        await scheduler.stop()
+    # Nothing to tear down: automation state lives in `system_config`, and
+    # ticks are driven by HTTP requests rather than a background loop. An
+    # in-process loop was the original design and it does not survive
+    # serverless -- see docs/automation.md.
 
 
 app = FastAPI(
@@ -58,10 +57,14 @@ class DemoStartRequest(BaseModel):
     max_pages: int = 1
 
 
-class SchedulerRequest(BaseModel):
+class AutomationRequest(BaseModel):
     interval_s: int = 180
     per_cell: int = 10
-    include_details: bool = True
+    # Defaults off. Details double the per-listing charge, so the expensive
+    # option should be the one you have to ask for.
+    include_details: bool = False
+    runs: int = 3
+    city: str | None = None
 
 
 class IngestRequest(BaseModel):
@@ -432,42 +435,85 @@ async def review(listing_id: str, action: str = "approve") -> dict:
 
 
 # --------------------------------------------------------------------------
-# scheduler -- automation, visible live in the console
+# automation -- the grid walk, state in Postgres
+#
+# This used to be an in-process scheduler with a module-level state object and
+# an asyncio loop. Neither works on Vercel: every lambda instance gets its own
+# copy of the object (so polling alternated between two self-consistent views),
+# and a background task does not survive the response that created it.
+#
+# Both symptoms are silent -- no error, just a UI that flickers and a sequence
+# that stalls after one run. State now lives in `system_config`; ticks are
+# driven by HTTP, either from the open console or an external pinger.
 # --------------------------------------------------------------------------
 
-@app.get("/api/scheduler")
-async def scheduler_status() -> dict:
-    from vingo_scraper.api import scheduler
+@app.get("/api/automation")
+async def automation_status() -> dict:
+    from vingo_scraper.db import config_store
 
-    return await scheduler.snapshot()
+    try:
+        snap = await config_store.automation_snapshot()
+        snap["history"] = await config_store.recent_ticks()
+        return snap
+    except Exception as exc:
+        # A read must degrade, not 500 -- the console polls this every 5s.
+        log.warning("automation.snapshot_failed", error=str(exc)[:200])
+        return {"running": False, "error": f"{type(exc).__name__}", "history": []}
 
 
-@app.post("/api/scheduler/start")
-async def scheduler_start(req: SchedulerRequest) -> dict:
-    from vingo_scraper.api import scheduler
+@app.post("/api/automation/start")
+async def automation_start(
+    req: AutomationRequest,
+    authorization: str | None = Header(None),
+    x_demo_token: str | None = Header(None),
+) -> dict:
+    _require_secret(authorization, x_demo_token)
+
     from vingo_scraper.apify.budget import get_budget
+    from vingo_scraper.db import config_store
 
-    # Refuse to start something that cannot afford its first tick.
+    # Refuse to arm something that cannot afford its first tick.
     budget = await get_budget()
     if (blocked := budget.blocked_reason()):
         raise HTTPException(402, blocked)
 
-    out = await scheduler.start(
-        interval_s=req.interval_s,
+    await config_store.start_automation(
+        runs=req.runs,
+        interval_seconds=req.interval_s,
         per_cell=req.per_cell,
         include_details=req.include_details,
+        city=req.city,
     )
-    if not out.get("ok"):
-        raise HTTPException(409, out.get("error", "could not start"))
-    return await scheduler.snapshot()
+    return await config_store.automation_snapshot()
 
 
-@app.post("/api/scheduler/stop")
-async def scheduler_stop() -> dict:
-    from vingo_scraper.api import scheduler
+@app.post("/api/automation/stop")
+async def automation_stop() -> dict:
+    """Deliberately UNAUTHENTICATED.
 
-    await scheduler.stop()
-    return await scheduler.snapshot()
+    Starting spends money, so it needs the secret. Stopping only ever spends
+    less, and a kill switch you can fail to authenticate to is not a kill
+    switch. The worst an anonymous caller can do here is end a demo early;
+    the worst a gated stop can do is leave an actor running while someone
+    hunts for a token.
+    """
+    from vingo_scraper.db import config_store
+
+    await config_store.stop_sequence()
+    return await config_store.automation_snapshot()
+
+
+@app.post("/api/automation/tick")
+async def automation_tick(
+    authorization: str | None = Header(None),
+    x_demo_token: str | None = Header(None),
+) -> dict:
+    """One automation step, driven by whoever is watching.
+
+    Same body as `/api/cron/tick` -- one ordering of the guards, not two.
+    """
+    _require_secret(authorization, x_demo_token)
+    return await _run_tick(grid=True)
 
 
 @app.get("/api/budget")
@@ -571,23 +617,22 @@ async def demo_toggle(
     return (await config_store.toggle()).to_dict()
 
 
-@app.get("/api/cron/tick")
-@app.post("/api/cron/tick")
-async def cron_tick(
-    authorization: str | None = Header(None),
-    x_demo_token: str | None = Header(None),
-) -> dict:
-    """One scheduled ingestion step. Wired to Vercel Cron.
+async def _run_tick(*, grid: bool) -> dict:
+    """One scheduled ingestion step. The only place a tick is defined.
 
     Order matters and is deliberate:
-      1. authenticate
+      1. (the caller authenticates)
       2. check the kill switch      <- no spend if off
       3. check the budget           <- no spend if capped
       4. claim a run from the sequence
       5. only then call Apify
-    """
-    _require_secret(authorization, x_demo_token)
 
+    A switch checked after the spend is not a switch. `tests/test_demo_control`
+    asserts Apify is called zero times when the flag is off.
+
+    `grid=True` walks the automation cells (console); `grid=False` runs the
+    single configured query (Vercel Cron, external pinger).
+    """
     from vingo_scraper.apify.budget import get_budget, invalidate_cache
     from vingo_scraper.db import config_store
 
@@ -607,21 +652,34 @@ async def cron_tick(
                 **(await config_store.get_state()).to_dict()}
 
     from vingo_scraper.apify.runner import ingest
+    from vingo_scraper.config import CATEGORIES
+    from vingo_scraper.pipeline.sweep import automation_cells
+
+    if grid:
+        cells = automation_cells(claimed.city)
+        city, category = cells[claimed.cursor % len(cells)]
+        query = CATEGORIES.get(category, {}).get("query", category)
+        max_items, details = claimed.per_cell, claimed.include_details
+    else:
+        city, category = claimed.location, claimed.search_query
+        query = claimed.search_query
+        max_items, details = claimed.max_pages * 25, True
 
     try:
         result = await ingest(
-            search_query=claimed.search_query,
-            location=claimed.location,
-            max_items=claimed.max_pages * 25,
-            include_details=True,
+            search_query=query,
+            location=city,
+            max_items=max_items,
+            include_details=details,
         )
         await config_store.record_result(
             "failed: " + result.error if result.error else "ok"
         )
-        invalidate_cache()
+        invalidate_cache()  # that run just spent; re-read before the next
         return {
             "ran": True,
             "run": claimed.runs_completed,
+            "cell": f"{city} / {category}",
             "listings": len(result.listings),
             "created": result.created,
             "updated": result.updated,
@@ -631,9 +689,26 @@ async def cron_tick(
             "runs_remaining": claimed.runs_remaining,
         }
     except Exception as exc:
+        # One dead cell must not stop the sequence -- record it and let the
+        # next tick try a different one.
         await config_store.record_result(f"error: {type(exc).__name__}")
-        log.exception("cron.tick_failed")
-        raise HTTPException(500, f"{type(exc).__name__}: {exc}") from exc
+        log.exception("tick.failed", cell=f"{city} / {category}")
+        return {
+            "ran": False, "cell": f"{city} / {category}",
+            "error": f"{type(exc).__name__}: {exc}",
+            "runs_remaining": claimed.runs_remaining,
+        }
+
+
+@app.get("/api/cron/tick")
+@app.post("/api/cron/tick")
+async def cron_tick(
+    authorization: str | None = Header(None),
+    x_demo_token: str | None = Header(None),
+) -> dict:
+    """Wired to Vercel Cron, and to any external pinger."""
+    _require_secret(authorization, x_demo_token)
+    return await _run_tick(grid=False)
 
 
 @app.get("/api/health")

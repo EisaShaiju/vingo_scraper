@@ -11,7 +11,7 @@ only a kill switch if it is checked before the money is spent, not after.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 import structlog
 from sqlalchemy import select
@@ -37,6 +37,11 @@ class DemoState:
     last_run_at: datetime | None
     last_status: str | None
     stopped_reason: str | None
+    cursor: int = 0
+    per_cell: int = 10
+    include_details: bool = False
+    next_run_at: datetime | None = None
+    city: str = "bangalore"
 
     def to_dict(self) -> dict:
         return {
@@ -51,6 +56,11 @@ class DemoState:
             "last_run_at": _iso(self.last_run_at),
             "last_status": self.last_status,
             "stopped_reason": self.stopped_reason,
+            "cursor": self.cursor,
+            "per_cell": self.per_cell,
+            "include_details": self.include_details,
+            "next_run_at": _iso(self.next_run_at),
+            "city": self.city,
         }
 
 
@@ -71,14 +81,26 @@ def _to_state(row: models.SystemConfig) -> DemoState:
         last_run_at=row.last_run_at,
         last_status=row.last_status,
         stopped_reason=row.stopped_reason,
+        cursor=row.cursor,
+        per_cell=row.per_cell,
+        include_details=row.include_details,
+        next_run_at=row.next_run_at,
+        city=row.city,
     )
 
 
-async def _row(session) -> models.SystemConfig:
-    """Fetch the single config row, creating it if a fresh database lacks it."""
-    row = await session.scalar(
-        select(models.SystemConfig).where(models.SystemConfig.id == CONFIG_ID)
-    )
+async def _row(session, *, lock: bool = False) -> models.SystemConfig:
+    """Fetch the single config row, creating it if a fresh database lacks it.
+
+    `lock=True` takes `SELECT ... FOR UPDATE`. Anything that decrements
+    `runs_remaining` must use it: Postgres defaults to READ COMMITTED, so two
+    concurrent claims would both read the same value, both decrement from it,
+    and both spend. That is one claimed slot billed twice.
+    """
+    stmt = select(models.SystemConfig).where(models.SystemConfig.id == CONFIG_ID)
+    if lock:
+        stmt = stmt.with_for_update()
+    row = await session.scalar(stmt)
     if row is None:
         # Default OFF. A new database must never start ingesting on its own.
         row = models.SystemConfig(id=CONFIG_ID, is_ingestion_active=False)
@@ -169,7 +191,7 @@ async def claim_run() -> DemoState | None:
     costs one slot rather than looping forever on the same one.
     """
     async with session_scope() as s:
-        row = await _row(s)
+        row = await _row(s, lock=True)
         if not row.is_ingestion_active:
             return None
         if row.runs_remaining <= 0:
@@ -178,20 +200,158 @@ async def claim_run() -> DemoState | None:
             row.last_status = "complete"
             return None
 
+        now = datetime.now(UTC)
         row.runs_remaining -= 1
         row.runs_completed += 1
-        row.last_run_at = datetime.now(UTC)
+        row.last_run_at = now
         row.last_status = "running"
+
+        # The caller runs the cell this state names; the cursor moves on now so
+        # a crash mid-run does not repeat the same cell forever.
+        claimed = _to_state(row)
+        row.cursor = row.cursor + 1
+        row.next_run_at = now + timedelta(seconds=row.interval_seconds)
 
         # Last one: switch off now so nothing can slip through after it.
         if row.runs_remaining == 0:
             row.is_ingestion_active = False
             row.stopped_reason = "sequence complete"
+            row.next_run_at = None
 
-        return _to_state(row)
+        return claimed
 
 
 async def record_result(status: str) -> None:
     async with session_scope() as s:
         row = await _row(s)
         row.last_status = status
+
+
+# --------------------------------------------------------------------------
+# Automation -- the console's grid walk, same table, same kill switch
+# --------------------------------------------------------------------------
+
+# One tick must finish inside Vercel's 60s function ceiling. A measured ingest
+# is Apify ~21s + ~60 images ~33s + persist ~8s, so 10 listings sits right on
+# the limit and 8 leaves margin. Exceeding it does not fail loudly -- the
+# function is simply cut off mid-rehost.
+MAX_PER_CELL_SERVERLESS = 8
+
+
+async def start_automation(
+    *,
+    runs: int = 3,
+    interval_seconds: int = 180,
+    per_cell: int = 10,
+    include_details: bool = False,
+    city: str | None = None,
+) -> DemoState:
+    """Arm the grid walk. Bounded exactly like `start_sequence`."""
+    runs = max(1, min(runs, 10))
+    now = datetime.now(UTC)
+    async with session_scope() as s:
+        row = await _row(s, lock=True)
+        row.is_ingestion_active = True
+        row.runs_remaining = runs
+        row.runs_completed = 0
+        row.interval_seconds = max(60, interval_seconds)
+        row.per_cell = max(1, min(per_cell, MAX_PER_CELL_SERVERLESS))
+        row.include_details = include_details
+        row.cursor = 0
+        if city:
+            row.city = city
+        row.sequence_started_at = now
+        # Due immediately: the first tick should not wait out a full interval.
+        row.next_run_at = now
+        row.stopped_reason = None
+        row.last_status = "armed"
+        log.info("automation.started", runs=runs, per_cell=row.per_cell,
+                 details=row.include_details, city=row.city,
+                 interval=row.interval_seconds)
+        return _to_state(row)
+
+
+async def automation_snapshot() -> dict:
+    """Everything the console's Automation panel renders, read from Postgres.
+
+    Replaces the old `api/scheduler.snapshot()`, which read a module-level
+    object and therefore returned a different answer per lambda instance.
+    """
+    from vingo_scraper.apify.budget import get_budget
+    from vingo_scraper.pipeline.sweep import automation_cells, estimated_cell_cost
+
+    state = await get_state()
+    budget = await get_budget()
+
+    cells = automation_cells(state.city)
+    idx = state.cursor % len(cells) if cells else 0
+    nxt = cells[idx] if cells else ("-", "-")
+    est = estimated_cell_cost(state.per_cell, state.include_details)
+
+    # Two caps, two numbers, never crossed. The panel previously showed the
+    # MONTHLY Apify total against the DAILY cap, which read $1.56 of $2.00 on a
+    # day that had actually spent $0.0001.
+    spend_today = budget.daily_used_usd
+    cap = budget.daily_cap_usd
+
+    return {
+        "running": state.is_active,
+        "interval_s": state.interval_seconds,
+        "per_cell": state.per_cell,
+        "include_details": state.include_details,
+        "ticks": state.runs_completed,
+        "runs_remaining": state.runs_remaining,
+        "cells_total": len(cells),
+        "cursor": idx,
+        "next_cell": f"{nxt[0]} / {nxt[1]}",
+        "city": state.city,
+        "started_at": _iso(state.sequence_started_at),
+        "next_run_at": _iso(state.next_run_at),
+        "last_run_at": _iso(state.last_run_at),
+        "last_status": state.last_status,
+        "stopped_reason": state.stopped_reason,
+        "spend_today_usd": round(spend_today, 4),
+        "daily_cap_usd": cap,
+        "budget_left_usd": round(max(cap - spend_today, 0), 4),
+        "est_tick_usd": round(est, 4),
+        "ticks_affordable": int(max(cap - spend_today, 0) / est) if est else 0,
+        "projected_daily_usd": round(est * (86400 / max(state.interval_seconds, 1)), 2),
+        "budget": budget.to_dict(),
+    }
+
+
+async def recent_ticks(limit: int = 12) -> list[dict]:
+    """Tick history, from `scrape_run` rather than an in-memory deque."""
+    from sqlalchemy import desc
+
+    async with session_scope() as s:
+        rows = (
+            await s.scalars(
+                select(models.ScrapeRun)
+                .order_by(desc(models.ScrapeRun.started_at))
+                .limit(limit)
+            )
+        ).all()
+    return [
+        {
+            "at": _iso(r.started_at),
+            # `run_input` is the actor payload, whose key names differ per
+            # actor -- hence the spelling tuples rather than direct access.
+            "city": _from_input(r.run_input, "location", "city"),
+            "category": _from_input(r.run_input, "searchKeyword", "query", "search"),
+            "listings": r.items_returned or 0,
+            "created": r.items_ingested or 0,
+            "images": r.images_stored or 0,
+            "cost_usd": float(r.cost_usd or 0.0),
+            "error": r.error,
+        }
+        for r in rows
+    ]
+
+
+def _from_input(run_input: dict | None, *names: str) -> str:
+    for name in names:
+        value = (run_input or {}).get(name)
+        if value:
+            return str(value)
+    return "-"

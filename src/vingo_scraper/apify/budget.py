@@ -161,6 +161,7 @@ async def reconcile_costs(limit: int = 6) -> int:
     from apify_client import ApifyClientAsync
     from sqlalchemy import desc, select
 
+    from vingo_scraper.apify.client import _run_charge_usd
     from vingo_scraper.db import models
     from vingo_scraper.db.session import session_scope
 
@@ -185,13 +186,10 @@ async def reconcile_costs(limit: int = 6) -> int:
                 run = await client.run(row.run_id).get()
                 if not run:
                     continue
-                usage = run.get("eventUsage") if isinstance(run, dict) else None
-                if not isinstance(usage, dict):
-                    continue
-                total = sum(
-                    float((v or {}).get("eventTotalUsd", 0.0) or 0.0)
-                    for v in usage.values() if isinstance(v, dict)
-                )
+                # Reuse the reader that copes with both the typed model and a
+                # plain dict -- the client has shipped both, and a bare
+                # `run.get(...)` here fails silently against the typed one.
+                total = _run_charge_usd(run) or 0.0
                 if total and abs(total - (row.cost_usd or 0.0)) > 1e-6:
                     log.info("budget.cost_reconciled", run_id=row.run_id,
                              was=row.cost_usd, now=total)

@@ -263,11 +263,12 @@ async def upsert_image(
 async def create_scrape_run(
     session: AsyncSession, *, actor_id: str, run_input: dict,
     run_id: str | None = None, status: str = "RUNNING",
-    started_at: datetime | None = None,
+    started_at: datetime | None = None, trigger: str = "manual",
 ) -> models.ScrapeRun:
     row = models.ScrapeRun(
         actor_id=actor_id, run_id=run_id, run_input=run_input,
         status=status, started_at=started_at or datetime.now(UTC),
+        trigger=trigger,
     )
     session.add(row)
     await session.flush()

@@ -93,6 +93,10 @@ class ScrapeRun(Base):
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=_uuid)
     actor_id: Mapped[str] = mapped_column(String(255))
     run_id: Mapped[str | None] = mapped_column(String(64), index=True)
+    # What started it: manual | automation | cron. The console's automation
+    # feed filters on this -- without it a manual run shows up among the
+    # category ticks and reads as something automation scraped.
+    trigger: Mapped[str] = mapped_column(String(16), default="manual", index=True)
     run_input: Mapped[dict] = mapped_column(JSONB, default=dict)
     status: Mapped[str] = mapped_column(String(32))
     items_returned: Mapped[int] = mapped_column(Integer, default=0)

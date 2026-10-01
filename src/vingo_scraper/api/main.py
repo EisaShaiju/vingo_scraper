@@ -63,13 +63,18 @@ class AutomationRequest(BaseModel):
     # Defaults off. Details double the per-listing charge, so the expensive
     # option should be the one you have to ask for.
     include_details: bool = False
-    runs: int = 3
+    # 5 = one full sweep of the Bengaluru category grid.
+    runs: int = 5
     city: str | None = None
+    # Deliberately open on category 1 rather than continuing the rotation.
+    restart: bool = False
 
 
 class IngestRequest(BaseModel):
     query: str = "iphone"
-    location: str = "mumbai"
+    # Bengaluru first, per the client spec. This defaulted to Mumbai long
+    # after that decision was made.
+    location: str = "bangalore"
     max_items: int = 10
     dry_run: bool = False
 
@@ -483,6 +488,7 @@ async def automation_start(
         per_cell=req.per_cell,
         include_details=req.include_details,
         city=req.city,
+        restart=req.restart,
     )
     return await config_store.automation_snapshot()
 
@@ -732,7 +738,7 @@ async def _collect_pending(pending: tuple[str, str, dict]) -> dict:
                 "reason": "actor still running"}
 
     try:
-        result = await ingest_collected(run, location=city)
+        result = await ingest_collected(run, location=city, trigger="automation")
         await config_store.clear_pending(
             "failed: " + result.error if result.error else "ok"
         )

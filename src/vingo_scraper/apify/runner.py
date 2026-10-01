@@ -137,7 +137,9 @@ async def ingest(
     return result
 
 
-async def ingest_collected(run, *, location: str) -> IngestResult:
+async def ingest_collected(
+    run, *, location: str, trigger: str = "automation"
+) -> IngestResult:
     """Parse, rehost and persist a run that has already finished.
 
     The second half of `ingest()`, callable on its own so a serverless tick can
@@ -163,11 +165,11 @@ async def ingest_collected(run, *, location: str) -> IngestResult:
     result.listings, result.images_stored, result.images_failed = await rehost_all(
         result.listings, store=SupabaseStore()
     )
-    result.created, result.updated = await _persist(result, run)
+    result.created, result.updated = await _persist(result, run, trigger=trigger)
     return result
 
 
-async def _persist(result: IngestResult, run) -> tuple[int, int]:
+async def _persist(result: IngestResult, run, *, trigger: str = "manual") -> tuple[int, int]:
     from vingo_scraper.db import repository as repo
     from vingo_scraper.db.session import session_scope
 
@@ -180,6 +182,7 @@ async def _persist(result: IngestResult, run) -> tuple[int, int]:
             run_id=run.run_id,
             status=run.status,
             started_at=run.started_at,
+            trigger=trigger,
         )
 
         for listing in result.listings:

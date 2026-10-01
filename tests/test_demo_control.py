@@ -273,7 +273,7 @@ def test_pending_run_is_collected_before_anything_else(client, auth, monkeypatch
         return ActorRun(run_id=run_id, actor_id="a", status="SUCCEEDED",
                         run_input={}, cost_usd=0.0115)
 
-    async def fake_ingest_collected(run, *, location):
+    async def fake_ingest_collected(run, *, location, trigger="automation"):
         from vingo_scraper.apify.runner import IngestResult
         r = IngestResult()
         r.created = 23

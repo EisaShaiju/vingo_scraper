@@ -299,8 +299,16 @@ async def start_automation(
     per_cell: int = 10,
     include_details: bool = False,
     city: str | None = None,
+    restart: bool = False,
 ) -> DemoState:
-    """Arm the grid walk. Bounded exactly like `start_sequence`."""
+    """Arm the grid walk. Bounded exactly like `start_sequence`.
+
+    The cursor is NOT reset. It used to be, which meant every Start began at
+    mobile phones and a 3-run sequence covered phones/electronics/furniture
+    while vehicles and appliances were never scraped at all. Successive
+    sequences now continue the rotation and wrap, so the whole catalogue gets
+    covered. Pass `restart=True` to deliberately open a demo on category 1.
+    """
     runs = max(1, min(runs, 10))
     now = datetime.now(UTC)
     async with session_scope() as s:
@@ -311,7 +319,8 @@ async def start_automation(
         row.interval_seconds = max(60, interval_seconds)
         row.per_cell = max(1, min(per_cell, MAX_PER_CELL_SERVERLESS))
         row.include_details = include_details
-        row.cursor = 0
+        if restart:
+            row.cursor = 0
         if city:
             row.city = city
         row.sequence_started_at = now
@@ -336,19 +345,24 @@ async def automation_snapshot() -> dict:
 
     state = await get_state()
     budget = await get_budget()
+    pending = await get_pending()
 
     cells = automation_cells(state.city)
     idx = state.cursor % len(cells) if cells else 0
     nxt = cells[idx] if cells else ("-", "-")
     est = estimated_cell_cost(state.per_cell, state.include_details)
 
+    # The cell being scraped RIGHT NOW is the pending one; `cursor` has already
+    # moved on to what comes next. Conflating the two is what made the panel
+    # impossible to read during a demo.
+    current = pending[1] if pending else None
+    done = state.runs_completed % len(cells) if cells else 0
+
     # Two caps, two numbers, never crossed. The panel previously showed the
     # MONTHLY Apify total against the DAILY cap, which read $1.56 of $2.00 on a
     # day that had actually spent $0.0001.
     spend_today = budget.daily_used_usd
     cap = budget.daily_cap_usd
-
-    pending = await get_pending()
 
     return {
         "running": state.is_active,
@@ -365,7 +379,12 @@ async def automation_snapshot() -> dict:
         "cells_total": len(cells),
         "cursor": idx,
         "next_cell": f"{nxt[0]} / {nxt[1]}",
+        "current_cell": current,
         "city": state.city,
+        # The whole rotation, in order, so the console renders the strip
+        # instead of re-deriving the category list in JavaScript.
+        "cells": [{"city": c, "category": k} for c, k in cells],
+        "cycle_position": done,
         "started_at": _iso(state.sequence_started_at),
         "next_run_at": _iso(state.next_run_at),
         "last_run_at": _iso(state.last_run_at),
@@ -381,18 +400,21 @@ async def automation_snapshot() -> dict:
     }
 
 
-async def recent_ticks(limit: int = 12) -> list[dict]:
-    """Tick history, from `scrape_run` rather than an in-memory deque."""
+async def recent_ticks(limit: int = 12, trigger: str = "automation") -> list[dict]:
+    """Tick history, from `scrape_run` rather than an in-memory deque.
+
+    Filtered to automation runs. Unfiltered, a manual "Today's update" appeared
+    among the category cells -- a `bangalore / iphone` row between
+    `bangalore / electronics` and `bangalore / furniture`, which reads as
+    something the automation scraped.
+    """
     from sqlalchemy import desc
 
     async with session_scope() as s:
-        rows = (
-            await s.scalars(
-                select(models.ScrapeRun)
-                .order_by(desc(models.ScrapeRun.started_at))
-                .limit(limit)
-            )
-        ).all()
+        stmt = select(models.ScrapeRun).order_by(desc(models.ScrapeRun.started_at))
+        if trigger:
+            stmt = stmt.where(models.ScrapeRun.trigger == trigger)
+        rows = (await s.scalars(stmt.limit(limit))).all()
     return [
         {
             "at": _iso(r.started_at),

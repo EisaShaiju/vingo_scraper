@@ -132,6 +132,27 @@
   .run{display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid #F1F5F9}
   .run:last-child{border:none}
   .run .id{font-family:ui-monospace,monospace;color:var(--muted);font-size:11px}
+  /* ---------- category rotation strip ---------- */
+  .rot{display:flex;align-items:center;gap:14px;flex-wrap:wrap;
+       padding:14px 19px;border-bottom:1px solid var(--line);background:#FBFDFF}
+  .rot-city{font-size:12px;font-weight:800;text-transform:uppercase;
+            letter-spacing:.6px;color:var(--brand-dark);background:var(--brand-soft);
+            padding:6px 12px;border-radius:999px;white-space:nowrap}
+  .rot-cells{display:flex;align-items:center;gap:6px;flex-wrap:wrap;flex:1}
+  .rc{display:flex;align-items:center;gap:7px;font-size:12.5px;padding:6px 11px;
+      border-radius:999px;border:1px solid var(--line);background:var(--card);
+      color:var(--muted);white-space:nowrap}
+  .rc .mk{width:16px;height:16px;border-radius:50%;flex-shrink:0;
+          display:flex;align-items:center;justify-content:center;
+          font-size:10px;font-weight:800;background:#E2E8F0;color:#94A3B8}
+  .rc.done{color:var(--ok);border-color:#A7F3D0;background:var(--ok-soft)}
+  .rc.done .mk{background:var(--ok);color:#fff}
+  .rc.now{color:var(--brand-dark);border-color:var(--brand);background:var(--brand-soft);
+          font-weight:800;box-shadow:0 0 0 3px rgba(79,70,229,.12)}
+  .rc.now .mk{background:var(--brand);color:#fff;animation:p 1.3s ease-in-out infinite}
+  @keyframes p{0%,100%{opacity:1}50%{opacity:.35}}
+  .rot-now{font-size:12.5px;font-weight:700;color:var(--ink);white-space:nowrap}
+  .rot-now .q{color:var(--muted);font-weight:600}
   /* ---------- automation panel ---------- */
   .auto{border:1px solid var(--line);border-radius:var(--radius);background:var(--card);
         overflow:hidden;margin-bottom:20px}
@@ -256,9 +277,10 @@
       <div class="field">
         <label>City</label>
         <select id="loc">
+          <!-- Bengaluru first, per the client spec. -->
+          <option value="bangalore" selected>Bengaluru</option>
           <option value="mumbai">Mumbai</option>
           <option value="delhi">Delhi</option>
-          <option value="bangalore">Bengaluru</option>
           <option value="hyderabad">Hyderabad</option>
           <option value="pune">Pune</option>
         </select>
@@ -282,6 +304,7 @@
       <h2>Automation</h2>
       <span class="n" id="a-state" style="font-size:12px;color:var(--muted);margin-left:auto">idle</span>
     </div>
+    <div class="rot" id="a-rot"></div>
     <div class="auto-body" id="a-metrics"></div>
     <div id="a-warn"></div>
     <div class="auto-ctl">
@@ -303,7 +326,8 @@
       </div>
       <div class="field">
         <label>Runs</label>
-        <input id="a-runs" type="number" value="3" min="1" max="10" style="min-width:70px">
+        <!-- 5 = one full sweep of the category grid. -->
+        <input id="a-runs" type="number" value="5" min="1" max="10" style="min-width:70px">
       </div>
       <div class="field">
         <label>Detail fetch</label>
@@ -312,6 +336,10 @@
           <option value="true">On — 2x cost</option>
         </select>
       </div>
+      <label style="display:flex;align-items:center;gap:6px;font-size:12px;
+                    color:var(--muted);font-weight:600;white-space:nowrap">
+        <input type="checkbox" id="a-restart"> Restart at category 1
+      </label>
       <button class="btn-sm" id="a-start">Start automation</button>
       <button class="btn-sm stop" id="a-stop" disabled>Stop</button>
     </div>
@@ -768,6 +796,29 @@ async function loadAutomation(){
   applyGuards();
   nextRunAt = d.next_run_at;
 
+  // The rotation, made visible. `cycle_position` is how far into the current
+  // cycle we are; `current_cell` is what is being scraped right now, which is
+  // NOT `cursor` -- the cursor has already advanced to what comes next.
+  const cells = d.cells || [];
+  const cityLabel = (d.city === 'bangalore') ? 'Bengaluru' : (d.city || '');
+  const nice = s => String(s).replace(/_/g, ' ');
+  $('#a-rot').innerHTML = cells.length ? `
+    <span class="rot-city">${cityLabel}</span>
+    <span class="rot-cells">${cells.map((c, i) => {
+      const isNow = d.current_cell
+        ? d.current_cell === `${c.city} / ${c.category}`
+        : (d.running && i === d.cursor);
+      const isDone = !isNow && i < d.cycle_position;
+      return `<span class="rc ${isNow ? 'now' : isDone ? 'done' : ''}">
+                <span class="mk">${isDone ? '\u2713' : i + 1}</span>${nice(c.category)}
+              </span>`;
+    }).join('')}</span>
+    ${d.current_cell
+      ? `<span class="rot-now">Scraping now <span class="q">${nice(d.current_cell)}</span></span>`
+      : d.running
+        ? `<span class="rot-now">Next <span class="q">${nice(d.next_cell)}</span></span>`
+        : ''}` : '';
+
   const pct = d.daily_cap_usd ? Math.min(100, 100 * d.spend_today_usd / d.daily_cap_usd) : 0;
   const cls = pct > 90 ? 'err' : pct > 60 ? 'warn' : '';
 
@@ -775,9 +826,9 @@ async function loadAutomation(){
     <div class="am"><span class="k">Runs completed</span><span class="v">${d.ticks}</span></div>
     <div class="am"><span class="k">Next run in</span>
       <span class="v" id="a-count">${d.running ? fmtLeft(d.next_run_at) : '—'}</span></div>
-    <div class="am"><span class="k">Grid position</span>
-      <span class="v small">${d.cursor + 1} / ${d.cells_total}<br>
-      <span style="color:var(--muted);font-weight:600">${d.next_cell}</span></span></div>
+    <div class="am"><span class="k">${d.current_cell ? 'Scraping now' : 'Next up'}</span>
+      <span class="v small">${nice((d.current_cell || d.next_cell || '').split(' / ')[1] || '-')}<br>
+      <span style="color:var(--muted);font-weight:600">step ${d.cycle_position + 1} of ${d.cells_total}</span></span></div>
     <div class="am"><span class="k">Spend today</span>
       <span class="v ${cls}">$${d.spend_today_usd.toFixed(4)}</span>
       <div class="bar"><i class="${cls}" style="width:${pct}%"></i></div>
@@ -858,7 +909,8 @@ $('#a-start').onclick = async () => {
         interval_s: parseInt($('#a-int').value),
         per_cell: parseInt($('#a-per').value) || 10,
         include_details: $('#a-det').value === 'true',
-        runs: parseInt($('#a-runs') ? $('#a-runs').value : 3) || 3,
+        runs: parseInt($('#a-runs') ? $('#a-runs').value : 5) || 5,
+        restart: $('#a-restart') ? $('#a-restart').checked : false,
       })
     });
     if(!r.ok){

@@ -222,3 +222,74 @@ def test_read_degrades_instead_of_500(client, monkeypatch):
     r = client.get("/api/automation")
     assert r.status_code == 200
     assert r.json()["running"] is False
+
+
+# --------------------------------------------------------------------------
+# strict round-robin across the five Bengaluru categories
+# --------------------------------------------------------------------------
+
+def test_grid_order_is_the_configured_categories():
+    """cat 1 -> 2 -> 3 -> 4 -> 5, Bengaluru throughout, then wrap."""
+    from vingo_scraper.config import CATEGORIES
+    from vingo_scraper.pipeline.sweep import automation_cells
+
+    cells = automation_cells()
+    assert [k for _, k in cells] == list(CATEGORIES.keys())
+    assert {c for c, _ in cells} == {"bangalore"}
+
+
+def test_cursor_wraps_to_the_first_category():
+    """A sixth run returns to category 1 rather than running off the end."""
+    from vingo_scraper.pipeline.sweep import automation_cells
+
+    cells = automation_cells()
+    assert cells[5 % len(cells)] == cells[0]
+    assert cells[7 % len(cells)] == cells[2]
+
+
+def test_start_does_not_reset_the_cursor():
+    """The bug: every Start restarted at mobile phones.
+
+    A 3-run sequence then covered phones/electronics/furniture and vehicles
+    and appliances were never scraped at all, however many demos were run.
+    """
+    import inspect
+
+    from vingo_scraper.db import config_store
+
+    src = inspect.getsource(config_store.start_automation)
+    assert "row.cursor = 0" in src, "the restart path should still exist"
+    # ...but only under the explicit opt-in.
+    reset_line = src.index("row.cursor = 0")
+    guard = src.rindex("if restart:", 0, reset_line)
+    assert guard < reset_line
+    assert "restart" in inspect.signature(config_store.start_automation).parameters
+
+
+def test_snapshot_exposes_the_whole_rotation(client, stubbed):
+    """The console renders the strip from this, rather than re-deriving it."""
+    d = client.get("/api/automation").json()
+    assert [c["category"] for c in d["cells"]] == [
+        "mobile_phones", "electronics", "furniture", "vehicles", "appliances"
+    ]
+    assert all(c["city"] == "bangalore" for c in d["cells"])
+    assert "cycle_position" in d
+    assert "current_cell" in d
+
+
+def test_current_cell_is_the_pending_one_not_the_cursor(client, monkeypatch, stubbed):
+    """`cursor` has already advanced past what is being scraped right now.
+
+    Showing the cursor as "current" named the NEXT category while the previous
+    one was still running -- the thing that made the panel unreadable.
+    """
+    # The fixture has cursor=1, so the cell IN FLIGHT is index 0: `claim_run`
+    # captures the cell it is about to run and only then advances the cursor.
+    async def pending():
+        return ("run-1", "bangalore / mobile_phones", {})
+
+    monkeypatch.setattr("vingo_scraper.db.config_store.get_pending", pending)
+    d = client.get("/api/automation").json()
+    assert d["current_cell"] == "bangalore / mobile_phones"
+    assert d["next_cell"] == "bangalore / electronics"
+    assert d["next_cell"] != d["current_cell"]

@@ -25,7 +25,8 @@ from vingo_scraper.config import settings
 
 log = structlog.get_logger(__name__)
 
-_CACHE: tuple[datetime, float] | None = None
+# (fetched_at, monthly_used_usd, plan_limit_usd)
+_CACHE: tuple[datetime, float, float | None] | None = None
 _CACHE_TTL_S = 20
 
 
@@ -102,7 +103,9 @@ def _fetch_apify_usage() -> tuple[float, float | None]:
     global _CACHE
     now = datetime.now(UTC)
     if _CACHE and (now - _CACHE[0]).total_seconds() < _CACHE_TTL_S:
-        return _CACHE[1], None
+        # Return the cached LIMIT too. Dropping it made the console's
+        # "free tier $X/mo" figure appear and vanish between polls.
+        return _CACHE[1], _CACHE[2]
 
     req = urllib.request.Request(
         "https://api.apify.com/v2/users/me/limits",
@@ -112,9 +115,10 @@ def _fetch_apify_usage() -> tuple[float, float | None]:
         data = json.load(resp)["data"]
 
     used = float(data.get("current", {}).get("monthlyUsageUsd", 0.0) or 0.0)
-    limit = data.get("limits", {}).get("maxMonthlyUsageUsd")
-    _CACHE = (now, used)
-    return used, (float(limit) if limit is not None else None)
+    raw_limit = data.get("limits", {}).get("maxMonthlyUsageUsd")
+    limit = float(raw_limit) if raw_limit is not None else None
+    _CACHE = (now, used, limit)
+    return used, limit
 
 
 async def daily_spend_usd() -> float:

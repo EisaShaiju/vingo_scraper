@@ -31,16 +31,17 @@ class Settings(BaseSettings):
     apify_max_items_hard_cap: int = 2_000
     # Second, independent guard: Apify enforces this server-side, so even a
     # runaway Actor cannot spend past it.
-    apify_max_charge_usd: float = 0.50
+    apify_max_charge_usd: float = 1.00
     apify_timeout_s: int = 900
     # Ceiling on TOTAL Apify spend per UTC day, checked against actual
     # recorded spend in `scrape_run` before each cell. This is the guard
     # that makes unattended scheduling safe on a per-result-billed API.
-    # HARD ceiling on total Apify spend, checked against Apify's own
-    # monthly usage figure. Set well under the free tier so there is
-    # headroom for other experiments.
-    total_spend_cap_usd: float = 1.00
-    daily_spend_cap_usd: float = 0.50
+    # HARD ceiling on total Apify spend, checked against Apify's own monthly
+    # usage figure. Account hard limit is $9; capping at $7 leaves a buffer
+    # so Apify's own wall is never hit mid-run (which fails the run rather
+    # than declining it cleanly).
+    total_spend_cap_usd: float = 7.00
+    daily_spend_cap_usd: float = 2.00
 
     # --- Supabase Postgres ---------------------------------------------
     # TWO urls on purpose, and they are not interchangeable:

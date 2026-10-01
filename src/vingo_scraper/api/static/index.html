@@ -776,6 +776,9 @@ function demoToken(){
 }
 
 let tickInFlight = false;
+// Set false once this tab is known not to hold a valid token, so it stops
+// firing ticks that can only 401.
+let driving = true;
 
 async function loadAutomation(){
   let d;
@@ -873,6 +876,7 @@ async function loadAutomation(){
   // A run already in flight is collected as soon as it finishes -- the money
   // is spent either way, so there is nothing to gain by waiting out the
   // interval before picking it up.
+  if(!driving) return;
   if(d.pending && !tickInFlight){ fireTick(); return; }
   if(d.running && d.next_run_at && !tickInFlight){
     if(Date.now() >= new Date(d.next_run_at).getTime()) fireTick();
@@ -887,9 +891,14 @@ async function fireTick(){
       method:'POST', headers:{'X-Demo-Token': demoToken()}
     });
     if(r.status === 401){
+      // Stop driving from this tab -- but do NOT stop the sequence. A tab that
+      // cannot authenticate is not a reason to kill a run someone else armed,
+      // and this previously killed sequences the moment an unauthenticated
+      // console was left open anywhere.
       sessionStorage.removeItem('demoToken');
-      alert('Demo token rejected. Automation stopped driving from this tab.');
-      await fetch('/api/automation/stop', {method:'POST'});
+      driving = false;
+      $('#a-state').textContent =
+        'automation is running, but this tab cannot drive it - reload and enter the demo token';
     }
   } catch(e){
     // Network blip: leave it armed, the next poll retries.
@@ -901,6 +910,7 @@ async function fireTick(){
 
 $('#a-start').onclick = async () => {
   $('#a-start').disabled = true;
+  driving = true;
   try{
     const r = await fetch('/api/automation/start', {
       method:'POST',

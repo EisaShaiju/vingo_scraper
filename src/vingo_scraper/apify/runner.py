@@ -137,6 +137,36 @@ async def ingest(
     return result
 
 
+async def ingest_collected(run, *, location: str) -> IngestResult:
+    """Parse, rehost and persist a run that has already finished.
+
+    The second half of `ingest()`, callable on its own so a serverless tick can
+    start the Actor in one request and do this work in a later one. The Actor's
+    runtime varies by 4x between identical runs, which is enough to overrun a
+    60s function ceiling when the two are done together.
+    """
+    result = IngestResult()
+    result.run_id = run.run_id
+    result.cost_usd = run.cost_usd
+    result.items_returned = len(run.items)
+    result.listings = parse_payloads(run.items, city=location)
+
+    log.info("ingest.parsed", items=result.items_returned,
+             listings=len(result.listings))
+    if not result.listings:
+        return result
+
+    from vingo_scraper.media.storage import SupabaseStore
+
+    # Rehost BEFORE persisting -- see the module docstring. Facebook's URLs
+    # expire, so a later batch job would find them already dead.
+    result.listings, result.images_stored, result.images_failed = await rehost_all(
+        result.listings, store=SupabaseStore()
+    )
+    result.created, result.updated = await _persist(result, run)
+    return result
+
+
 async def _persist(result: IngestResult, run) -> tuple[int, int]:
     from vingo_scraper.db import repository as repo
     from vingo_scraper.db.session import session_scope

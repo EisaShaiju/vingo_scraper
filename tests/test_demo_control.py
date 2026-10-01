@@ -63,6 +63,17 @@ def patch_store(monkeypatch, *, state, claimed="unset"):
     async def get_state():
         return state
 
+    async def get_pending():
+        # No run in flight. A tick that finds one collects it and spends
+        # nothing new, which is a different path from the one under test.
+        return None
+
+    async def set_pending(run_id, cell, run_input=None):
+        return None
+
+    async def clear_pending(status=None):
+        return None
+
     async def claim_run():
         calls["claim"] += 1
         return state if claimed == "unset" else claimed
@@ -76,18 +87,20 @@ def patch_store(monkeypatch, *, state, claimed="unset"):
 
     for name, fn in [("get_state", get_state), ("claim_run", claim_run),
                      ("stop_sequence", stop_sequence),
-                     ("record_result", record_result)]:
+                     ("record_result", record_result),
+                     ("get_pending", get_pending), ("set_pending", set_pending),
+                     ("clear_pending", clear_pending)]:
         monkeypatch.setattr(f"vingo_scraper.db.config_store.{name}", fn)
 
-    async def fake_ingest(**kwargs):
+    async def fake_start_run(*a, **kw):
+        # `ingest` counts SPEND. Starting the Actor is the moment money is
+        # committed, so that is what this counter now tracks.
         calls["ingest"] += 1
-        from vingo_scraper.apify.runner import IngestResult
-        r = IngestResult()
-        r.created = 1
-        r.cost_usd = 0.01
-        return r
+        from vingo_scraper.apify.client import ActorRun
+        return ActorRun(run_id="run-1", actor_id="test/actor",
+                        status="RUNNING", run_input={})
 
-    monkeypatch.setattr("vingo_scraper.apify.runner.ingest", fake_ingest)
+    monkeypatch.setattr("vingo_scraper.apify.client.start_run", fake_start_run)
     return calls
 
 
@@ -166,7 +179,9 @@ def test_tick_runs_when_active_and_funded(client, auth, monkeypatch):
 
     body = client.get("/api/cron/tick", headers=auth).json()
 
-    assert body["ran"] is True
+    # The Actor is started here and collected by a later tick: waiting for it
+    # inline overran Vercel's 60s ceiling whenever Apify was slow.
+    assert body["started"] is True
     assert body["runs_remaining"] == 2
     assert calls["ingest"] == 1
 
@@ -224,3 +239,73 @@ async def test_store_clamps_and_counts_down():
 
     # After the final claim the switch must be off, not merely at zero.
     assert config_store.CONFIG_ID == 1
+
+
+# --------------------------------------------------------------------------
+# two-phase tick: start the Actor in one request, collect it in a later one
+# --------------------------------------------------------------------------
+
+def test_pending_run_is_collected_before_anything_else(client, auth, monkeypatch):
+    """A run already in flight is picked up first, and costs nothing new.
+
+    This runs even when ingestion has since been switched off: the money is
+    already spent, and discarding the data would not refund it.
+    """
+    patch_budget(monkeypatch, healthy_budget())
+    calls = patch_store(monkeypatch, state=make_state(is_active=False))
+
+    async def get_pending():
+        return ("run-9", "bangalore / electronics", {})
+
+    async def clear_pending(status=None):
+        return None
+
+    collected = {"n": 0}
+
+    async def fake_collect(run_id, **kw):
+        collected["n"] += 1
+        from vingo_scraper.apify.client import ActorRun
+        return ActorRun(run_id=run_id, actor_id="a", status="SUCCEEDED",
+                        run_input={}, cost_usd=0.0115)
+
+    async def fake_ingest_collected(run, *, location):
+        from vingo_scraper.apify.runner import IngestResult
+        r = IngestResult()
+        r.created = 23
+        r.cost_usd = run.cost_usd
+        return r
+
+    monkeypatch.setattr("vingo_scraper.db.config_store.get_pending", get_pending)
+    monkeypatch.setattr("vingo_scraper.db.config_store.clear_pending", clear_pending)
+    monkeypatch.setattr("vingo_scraper.apify.client.collect_run", fake_collect)
+    monkeypatch.setattr(
+        "vingo_scraper.apify.runner.ingest_collected", fake_ingest_collected
+    )
+
+    body = client.get("/api/cron/tick", headers=auth).json()
+
+    assert body["ran"] is True
+    assert body["created"] == 23
+    assert collected["n"] == 1
+    assert calls["ingest"] == 0   # no NEW actor started
+    assert calls["claim"] == 0    # and no slot consumed
+
+
+def test_unfinished_run_reports_waiting_without_spending(client, auth, monkeypatch):
+    patch_budget(monkeypatch, healthy_budget())
+    calls = patch_store(monkeypatch, state=make_state(is_active=True, runs_remaining=3))
+
+    async def get_pending():
+        return ("run-9", "bangalore / electronics", {})
+
+    async def still_running(run_id, **kw):
+        return None
+
+    monkeypatch.setattr("vingo_scraper.db.config_store.get_pending", get_pending)
+    monkeypatch.setattr("vingo_scraper.apify.client.collect_run", still_running)
+
+    body = client.get("/api/cron/tick", headers=auth).json()
+
+    assert body["waiting"] is True
+    assert body["ran"] is False
+    assert calls["ingest"] == 0   # must not start a second actor alongside it

@@ -64,6 +64,9 @@ def stubbed(monkeypatch):
     async def recent_ticks(limit=12):
         return []
 
+    async def get_pending():
+        return None
+
     async def get_budget():
         return BudgetStatus(
             monthly_used_usd=1.5861, total_cap_usd=7.0,
@@ -73,6 +76,7 @@ def stubbed(monkeypatch):
     monkeypatch.setattr("vingo_scraper.db.config_store.get_state", get_state)
     monkeypatch.setattr("vingo_scraper.db.config_store.stop_sequence", stop_sequence)
     monkeypatch.setattr("vingo_scraper.db.config_store.recent_ticks", recent_ticks)
+    monkeypatch.setattr("vingo_scraper.db.config_store.get_pending", get_pending)
     monkeypatch.setattr("vingo_scraper.apify.budget.get_budget", get_budget)
     return row
 
@@ -113,8 +117,16 @@ def test_snapshot_survives_a_cold_module(client, stubbed, monkeypatch):
     async def recent_ticks(limit=12):
         return []
 
+    async def get_pending():
+        return None
+
     monkeypatch.setattr(reloaded, "get_state", get_state)
     monkeypatch.setattr(reloaded, "recent_ticks", recent_ticks)
+
+    async def no_pending():
+        return None
+
+    monkeypatch.setattr(reloaded, "get_pending", no_pending)
 
     after = client.get("/api/automation").json()
     assert after == before

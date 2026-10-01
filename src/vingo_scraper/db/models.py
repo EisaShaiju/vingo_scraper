@@ -288,6 +288,16 @@ class SystemConfig(Base):
     next_run_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     city: Mapped[str] = mapped_column(String(64), default="bangalore")
 
+    # An Apify run started by one tick and collected by a later one. The
+    # Actor's runtime swings 10.8s-47.1s for identical work, which overruns a
+    # 60s function ceiling when the wait happens inside the request.
+    pending_run_id: Mapped[str | None] = mapped_column(String(64))
+    pending_started_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True)
+    )
+    pending_cell: Mapped[str | None] = mapped_column(String(128))
+    pending_input: Mapped[dict | None] = mapped_column(JSONB)
+
     sequence_started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     last_run_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     last_status: Mapped[str | None] = mapped_column(Text)

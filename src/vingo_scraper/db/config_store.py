@@ -228,6 +228,60 @@ async def record_result(status: str) -> None:
 
 
 # --------------------------------------------------------------------------
+# In-flight Apify run, handed from one tick to the next
+# --------------------------------------------------------------------------
+
+# A run that has not finished within this long is treated as lost rather than
+# polled forever. Apify's own run timeout is longer, so this only trips when
+# something has genuinely gone wrong.
+PENDING_TIMEOUT_S = 600
+
+
+async def set_pending(run_id: str, cell: str, run_input: dict | None = None) -> None:
+    async with session_scope() as s:
+        row = await _row(s, lock=True)
+        row.pending_run_id = run_id
+        row.pending_started_at = datetime.now(UTC)
+        row.pending_cell = cell
+        row.pending_input = run_input or {}
+        row.last_status = f"running {cell}"
+
+
+async def clear_pending(status: str | None = None) -> None:
+    async with session_scope() as s:
+        row = await _row(s, lock=True)
+        row.pending_run_id = None
+        row.pending_started_at = None
+        row.pending_cell = None
+        row.pending_input = None
+        if status:
+            row.last_status = status
+
+
+async def get_pending() -> tuple[str, str, dict] | None:
+    """(run_id, cell, run_input) for an in-flight run, or None.
+
+    Returns None once the run is older than `PENDING_TIMEOUT_S`, and clears it,
+    so a run that never reports back cannot wedge the sequence permanently.
+    """
+    async with session_scope() as s:
+        row = await _row(s)
+        if not row.pending_run_id:
+            return None
+        started = row.pending_started_at
+        if started and (datetime.now(UTC) - started).total_seconds() > PENDING_TIMEOUT_S:
+            log.warning("automation.pending_abandoned", run_id=row.pending_run_id,
+                        cell=row.pending_cell)
+            row.pending_run_id = None
+            row.pending_started_at = None
+            row.pending_cell = None
+            row.pending_input = None
+            row.last_status = "abandoned a run that never reported back"
+            return None
+        return row.pending_run_id, row.pending_cell or "-", row.pending_input or {}
+
+
+# --------------------------------------------------------------------------
 # Automation -- the console's grid walk, same table, same kill switch
 # --------------------------------------------------------------------------
 
@@ -294,8 +348,15 @@ async def automation_snapshot() -> dict:
     spend_today = budget.daily_used_usd
     cap = budget.daily_cap_usd
 
+    pending = await get_pending()
+
     return {
         "running": state.is_active,
+        # An in-flight Actor run. The console polls back quickly while this is
+        # set rather than waiting out the full interval, since the run is
+        # typically done within 10-50s.
+        "pending": bool(pending),
+        "pending_cell": pending[1] if pending else None,
         "interval_s": state.interval_seconds,
         "per_cell": state.per_cell,
         "include_details": state.include_details,

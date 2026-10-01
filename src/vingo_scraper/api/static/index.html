@@ -754,15 +754,17 @@ async function loadAutomation(){
   try { d = await (await fetch('/api/automation')).json(); } catch { return; }
   if(d.error && !('running' in d)) return;
 
-  $('#a-dot').className = 'dot-live' + (d.running ? ' on' : '');
-  $('#a-state').textContent = d.running
-    ? `running · every ${Math.round(d.interval_s/60)} min · next ${d.next_cell}`
-       + ` · ${d.runs_remaining} left · ticks while this page is open`
-    : (d.stopped_reason || 'idle');
+  $('#a-dot').className = 'dot-live' + ((d.running || d.pending) ? ' on' : '');
+  $('#a-state').textContent = d.pending
+    ? `scraping ${d.pending_cell} · collecting when the actor finishes`
+    : d.running
+      ? `running · every ${Math.round(d.interval_s/60)} min · next ${d.next_cell}`
+        + ` · ${d.runs_remaining} left · ticks while this page is open`
+      : (d.stopped_reason || 'idle');
   $('#a-start').dataset.running = d.running ? '1' : '0';
   // Stop stays clickable whenever a sequence is armed. It is the kill switch;
   // it must never be the control that is greyed out when you need it.
-  $('#a-stop').disabled = !d.running;
+  $('#a-stop').disabled = !(d.running || d.pending);
   applyGuards();
   nextRunAt = d.next_run_at;
 
@@ -817,6 +819,10 @@ async function loadAutomation(){
   // Drive the schedule from here. The server is stateless between requests on
   // Vercel, so something outside it has to notice a tick is due -- that is
   // this page, or an external pinger hitting the same endpoint.
+  // A run already in flight is collected as soon as it finishes -- the money
+  // is spent either way, so there is nothing to gain by waiting out the
+  // interval before picking it up.
+  if(d.pending && !tickInFlight){ fireTick(); return; }
   if(d.running && d.next_run_at && !tickInFlight){
     if(Date.now() >= new Date(d.next_run_at).getTime()) fireTick();
   }

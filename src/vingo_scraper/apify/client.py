@@ -239,6 +239,110 @@ async def run_actor(
     return result
 
 
+async def start_run(
+    search_query: str | None,
+    location: str,
+    max_items: int = 100,
+    *,
+    category: str | None = None,
+    include_details: bool = True,
+    client: ApifyClientAsync | None = None,
+) -> ActorRun:
+    """Start the Actor and return immediately, without waiting for it.
+
+    `run_actor()` blocks until the Actor finishes, and the Actor's own runtime
+    is neither ours nor predictable -- measured between 10.8s and 47.1s for
+    identical work. Inside a serverless function with a 60s ceiling that makes
+    every tick a coin flip: a 47s run plus ~13s of ingest overruns and the
+    function is killed after Apify has already charged us.
+
+    So the wait happens BETWEEN requests instead of inside one. This starts the
+    run; `collect_run()` picks it up once it has finished.
+    """
+    if not settings.apify_api_token and client is None:
+        raise ApifyRunError(
+            "VINGO_APIFY_API_TOKEN is not set -- copy .env.example to .env"
+        )
+
+    max_items = _clamp(max_items)
+    actor_id = settings.apify_actor_id
+    run_input = build_run_input(
+        search_query, location, max_items,
+        category=category, include_details=include_details,
+    )
+    client = client or ApifyClientAsync(token=settings.apify_api_token)
+
+    log.info("apify.run.start_async", actor=actor_id, location=location,
+             query=search_query or category, limit=max_items)
+
+    try:
+        run = await client.actor(actor_id).start(
+            run_input=run_input,
+            max_items=billed_item_ceiling(max_items, actor_id),
+            max_total_charge_usd=Decimal(str(settings.apify_max_charge_usd)),
+            timeout=timedelta(seconds=settings.apify_timeout_s),
+        )
+    except Exception as exc:
+        raise ApifyRunError(f"{type(exc).__name__}: {exc}") from exc
+
+    if run is None:
+        raise ApifyRunError("Apify start returned None")
+
+    return ActorRun(
+        run_id=_attr(run, "id"),
+        actor_id=actor_id,
+        status=str(_attr(run, "status") or "RUNNING"),
+        run_input=run_input,
+        started_at=datetime.now(UTC),
+    )
+
+
+async def collect_run(
+    run_id: str,
+    *,
+    run_input: dict[str, Any] | None = None,
+    client: ApifyClientAsync | None = None,
+) -> ActorRun | None:
+    """Pick up a run started earlier. `None` means it is still going.
+
+    Pairs with `start_run()`. Raises `ApifyRunError` if the run finished in a
+    state other than success, so a dead run ends the wait rather than being
+    polled forever.
+    """
+    client = client or ApifyClientAsync(token=settings.apify_api_token)
+    run = await client.run(run_id).get()
+    if run is None:
+        raise ApifyRunError(f"run {run_id} not found")
+
+    status = str(_attr(run, "status") or "UNKNOWN")
+    if status in ("READY", "RUNNING"):
+        return None
+
+    result = ActorRun(
+        run_id=run_id,
+        actor_id=str(_attr(run, "act_id", "actId") or settings.apify_actor_id),
+        status=status,
+        run_input=run_input or {},
+        dataset_id=_attr(run, "default_dataset_id", "defaultDatasetId"),
+        # The run is already finished here, so charges have settled -- this is
+        # the read `run_actor()` has to re-fetch to get right.
+        cost_usd=_run_charge_usd(run),
+        started_at=_attr(run, "started_at", "startedAt"),
+        finished_at=datetime.now(UTC),
+    )
+
+    if not result.succeeded:
+        result.error = f"run status={status}"
+        raise ApifyRunError(f"Apify run {run_id} finished with status {status}")
+    if not result.dataset_id:
+        raise ApifyRunError(f"run {run_id} succeeded but exposed no dataset")
+
+    result.items = await fetch_dataset(client, result.dataset_id)
+    log.info("apify.run.collected", run_id=run_id, items=len(result.items),
+             cost_usd=result.cost_usd)
+    return result
+
+
 async def fetch_dataset(
     client: ApifyClientAsync, dataset_id: str
 ) -> list[dict[str, Any]]:

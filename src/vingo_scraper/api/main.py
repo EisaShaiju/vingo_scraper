@@ -636,6 +636,12 @@ async def _run_tick(*, grid: bool) -> dict:
     from vingo_scraper.apify.budget import get_budget, invalidate_cache
     from vingo_scraper.db import config_store
 
+    # A run already in flight is collected first, and costs nothing new. This
+    # runs even when ingestion has since been switched off: the money is
+    # already spent, and throwing the data away would not refund it.
+    if (pending := await config_store.get_pending()) is not None:
+        return await _collect_pending(pending)
+
     state = await config_store.get_state()
     if not state.is_active:
         return {"ran": False, "reason": "ingestion is switched off",
@@ -651,7 +657,7 @@ async def _run_tick(*, grid: bool) -> dict:
         return {"ran": False, "reason": "sequence complete",
                 **(await config_store.get_state()).to_dict()}
 
-    from vingo_scraper.apify.runner import ingest
+    from vingo_scraper.apify.client import start_run
     from vingo_scraper.config import CATEGORIES
     from vingo_scraper.pipeline.sweep import automation_cells
 
@@ -665,39 +671,76 @@ async def _run_tick(*, grid: bool) -> dict:
         query = claimed.search_query
         max_items, details = claimed.max_pages * 25, True
 
+    cell = f"{city} / {category}"
     try:
-        result = await ingest(
-            search_query=query,
-            location=city,
-            max_items=max_items,
-            include_details=details,
+        run = await start_run(
+            query, city, max_items, include_details=details
         )
-        await config_store.record_result(
-            "failed: " + result.error if result.error else "ok"
-        )
-        invalidate_cache()  # that run just spent; re-read before the next
+        await config_store.set_pending(run.run_id, cell, run.run_input)
+        invalidate_cache()  # that run will spend; re-read before the next
         return {
-            "ran": True,
-            "run": claimed.runs_completed,
-            "cell": f"{city} / {category}",
-            "listings": len(result.listings),
-            "created": result.created,
-            "updated": result.updated,
-            "images_stored": result.images_stored,
-            "cost_usd": result.cost_usd,
-            "error": result.error,
+            "ran": False, "started": True, "cell": cell,
+            "run_id": run.run_id, "run": claimed.runs_completed,
+            "reason": "actor started; a later tick collects it",
             "runs_remaining": claimed.runs_remaining,
         }
     except Exception as exc:
         # One dead cell must not stop the sequence -- record it and let the
         # next tick try a different one.
         await config_store.record_result(f"error: {type(exc).__name__}")
-        log.exception("tick.failed", cell=f"{city} / {category}")
+        log.exception("tick.start_failed", cell=cell)
         return {
-            "ran": False, "cell": f"{city} / {category}",
+            "ran": False, "cell": cell,
             "error": f"{type(exc).__name__}: {exc}",
             "runs_remaining": claimed.runs_remaining,
         }
+
+
+async def _collect_pending(pending: tuple[str, str, dict]) -> dict:
+    """Second half of a tick: pick up a finished run and ingest it.
+
+    Separated from starting it because the Actor's runtime is not ours and not
+    predictable -- 10.8s to 47.1s measured on identical work. Waiting for it
+    inside the request made every tick a gamble against the 60s ceiling, and
+    losing meant the function died *after* Apify had charged us.
+    """
+    from vingo_scraper.apify.client import collect_run
+    from vingo_scraper.apify.runner import ingest_collected
+    from vingo_scraper.db import config_store
+
+    run_id, cell, run_input = pending
+    city = cell.split(" / ")[0]
+
+    try:
+        run = await collect_run(run_id, run_input=run_input)
+    except Exception as exc:
+        await config_store.clear_pending(f"failed: {type(exc).__name__}")
+        log.warning("tick.collect_failed", run_id=run_id, cell=cell,
+                    error=str(exc)[:200])
+        return {"ran": False, "cell": cell, "error": f"{type(exc).__name__}: {exc}"}
+
+    if run is None:
+        return {"ran": False, "waiting": True, "cell": cell, "run_id": run_id,
+                "reason": "actor still running"}
+
+    try:
+        result = await ingest_collected(run, location=city)
+        await config_store.clear_pending(
+            "failed: " + result.error if result.error else "ok"
+        )
+        return {
+            "ran": True, "cell": cell, "run_id": run_id,
+            "listings": len(result.listings),
+            "created": result.created,
+            "updated": result.updated,
+            "images_stored": result.images_stored,
+            "cost_usd": result.cost_usd,
+            "error": result.error,
+        }
+    except Exception as exc:
+        await config_store.clear_pending(f"error: {type(exc).__name__}")
+        log.exception("tick.ingest_failed", run_id=run_id, cell=cell)
+        return {"ran": False, "cell": cell, "error": f"{type(exc).__name__}: {exc}"}
 
 
 @app.get("/api/cron/tick")

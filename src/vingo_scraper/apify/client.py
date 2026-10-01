@@ -114,6 +114,26 @@ def build_run_input(
     }
 
 
+def billed_item_ceiling(max_items: int, actor_id: str | None = None) -> int:
+    """How many items we are paying for, which is what we should accept back.
+
+    Apify's run-level `max_items` truncates the DATASET without reducing the
+    CHARGE. On curious_coder volume is bought by the page (~24 listings), so
+    asking for 8 bills a full page and then throws 15 paid listings away.
+    Measured: charged for 23, returned 8, $0.0115 for what we costed at $0.004.
+
+    So the Apify-level clamp is raised to the page capacity. It stays as a
+    backstop against an Actor running away, but it no longer discards data we
+    have already bought. The ceiling that actually bounds spend is
+    `max_total_charge_usd`, enforced server-side by Apify.
+    """
+    actor_id = actor_id or settings.apify_actor_id
+    if actor_id.startswith(CURIOUS_CODER):
+        pages = max(1, min((max_items + 24) // 25, 3))
+        return pages * 25
+    return max_items
+
+
 def _clamp(max_items: int) -> int:
     """Apply the hard ceiling.
 
@@ -163,9 +183,11 @@ async def run_actor(
     try:
         run = await client.actor(actor_id).call(
             run_input=run_input,
-            # Belt and braces against the Actor overshooting our limit: these
-            # are enforced by Apify itself, not by the Actor's own code.
-            max_items=max_items,
+            # Enforced by Apify itself, not the Actor's own code. `max_items`
+            # is a backstop only -- it truncates the dataset without reducing
+            # the bill, so it is set to what we are paying for rather than to
+            # what we asked for. `max_total_charge_usd` is the real ceiling.
+            max_items=billed_item_ceiling(max_items, actor_id),
             max_total_charge_usd=Decimal(str(settings.apify_max_charge_usd)),
             run_timeout=timedelta(seconds=settings.apify_timeout_s),
         )
@@ -185,7 +207,9 @@ async def run_actor(
     result.run_id = _attr(run, "id")
     result.status = str(_attr(run, "status") or "UNKNOWN")
     result.dataset_id = _attr(run, "default_dataset_id", "defaultDatasetId")
-    result.cost_usd = _run_charge_usd(run)
+    # Charges post AFTER the run finishes. Re-read it, or we record only
+    # the events that had settled by the time `.call()` returned.
+    result.cost_usd = _run_charge_usd(await _settled_run(client, run, result.run_id))
     result.finished_at = datetime.now(UTC)
 
     if not result.succeeded:
@@ -219,21 +243,29 @@ async def fetch_dataset(
 
 
 def _run_charge_usd(run: Any) -> float | None:
-    """What the run actually COST us, not what it used.
+    """What the run actually COST us.
 
-    `usageTotalUsd` is platform usage -- compute units, storage, transfer. On a
-    pay-per-EVENT actor that is close to nothing: it read $0.0001 for a run that
-    charged about $0.015. Recording it as the cost made `scrape_run.cost_usd`
-    report roughly 1% of real spend, which quietly disarmed the daily cap built
-    on top of those rows.
+    **The charge settles after the run finishes.** Reading the object the
+    instant `.call()` returns gives only the events posted so far. Measured on
+    a real run: `apify-actor-start` alone at $0.00005, on a run that went on to
+    charge $0.01155. Recording that made `scrape_run.cost_usd` report 0.4% of
+    real spend, and the daily cap is built on those rows. Callers must re-read
+    the run first -- see `_settled_run`.
 
-    The charge lives in `chargedEventCounts` priced by `pricingInfo`. Apify also
-    exposes a pre-totalled field on newer clients; prefer it when present, fall
-    back to multiplying it out, and only then to usage.
+    `eventUsage` carries a settled per-event total and is the authority.
+    Falling back: multiply `chargedEventCounts` by `pricingInfo`, then
+    `usageTotalUsd` -- which on a pay-per-event actor converges to the same
+    figure once settled, and is genuinely correct for compute-priced actors.
     """
-    total = _attr(run, "charged_total_usd", "chargedTotalUsd")
-    if total is not None:
-        return float(total)
+    usage = _attr(run, "event_usage", "eventUsage")
+    if isinstance(usage, dict) and usage:
+        total = sum(
+            float((v or {}).get("eventTotalUsd", 0.0) or 0.0)
+            for v in usage.values()
+            if isinstance(v, dict)
+        )
+        if total:
+            return total
 
     counts = _attr(run, "charged_event_counts", "chargedEventCounts") or {}
     pricing = _attr(run, "pricing_info", "pricingInfo") or {}
@@ -242,7 +274,6 @@ def _run_charge_usd(run: Any) -> float | None:
         if isinstance(pricing, dict)
         else {}
     )
-
     if isinstance(counts, dict) and per_event:
         charged = 0.0
         for event, count in counts.items():
@@ -252,10 +283,28 @@ def _run_charge_usd(run: Any) -> float | None:
         if charged:
             return charged
 
-    # Rental / compute-priced actors genuinely bill on usage, so this is the
-    # right answer there rather than a failure.
-    usage = _attr(run, "usage_total_usd", "usageTotalUsd")
-    return float(usage) if usage is not None else None
+    total = _attr(run, "usage_total_usd", "usageTotalUsd")
+    return float(total) if total is not None else None
+
+
+async def _settled_run(
+    client: ApifyClientAsync, run: Any, run_id: str | None
+) -> Any:
+    """Re-read the run so its charges have posted.
+
+    One cheap API call, and the difference between recording $0.00005 and
+    $0.01155 for the same run. Failing here is not worth losing the run over --
+    fall back to the object already in hand.
+    """
+    if not run_id:
+        return run
+    try:
+        fresh = await client.run(run_id).get()
+        return fresh or run
+    except Exception as exc:  # noqa: BLE001 -- cost accuracy is not worth a raise
+        log.warning("apify.charge.refetch_failed", run_id=run_id,
+                    error=str(exc)[:200])
+        return run
 
 
 def _attr(obj: Any, *names: str) -> Any:

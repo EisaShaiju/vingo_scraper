@@ -94,15 +94,30 @@ def test_billed_ceiling_matches_what_a_page_costs():
     """
     from vingo_scraper.apify.client import CURIOUS_CODER, billed_item_ceiling
 
-    assert billed_item_ceiling(8, CURIOUS_CODER) == 25     # one page, 8 asked
-    assert billed_item_ceiling(26, CURIOUS_CODER) == 50    # spills to two
+    kw = {"accept_full_page": True}
+    assert billed_item_ceiling(8, CURIOUS_CODER, **kw) == 25   # one page, 8 asked
+    assert billed_item_ceiling(26, CURIOUS_CODER, **kw) == 50  # spills to two
     # Never below what was asked for.
     for asked in (1, 5, 8, 20, 24, 25, 40):
-        assert billed_item_ceiling(asked, CURIOUS_CODER) >= asked
+        assert billed_item_ceiling(asked, CURIOUS_CODER, **kw) >= asked
+
+
+def test_full_page_is_off_by_default():
+    """Ingesting a whole page measured 60.5s against Vercel's 60s ceiling.
+
+    Paying for listings we drop is wasteful; being killed mid-ingest is
+    broken, and broken is worse. Opt in where there is no function timeout.
+    """
+    from vingo_scraper.apify.client import CURIOUS_CODER, billed_item_ceiling
+
+    assert billed_item_ceiling(8, CURIOUS_CODER) == 8
+    assert billed_item_ceiling(8, CURIOUS_CODER, accept_full_page=False) == 8
 
 
 def test_legacy_actor_keeps_its_native_limit():
     """The legacy actor bounds volume with `resultsLimit`, so leave it alone."""
     from vingo_scraper.apify.client import billed_item_ceiling
 
-    assert billed_item_ceiling(8, "apify/facebook-marketplace-scraper") == 8
+    assert billed_item_ceiling(
+        8, "apify/facebook-marketplace-scraper", accept_full_page=True
+    ) == 8

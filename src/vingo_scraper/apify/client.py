@@ -114,21 +114,29 @@ def build_run_input(
     }
 
 
-def billed_item_ceiling(max_items: int, actor_id: str | None = None) -> int:
-    """How many items we are paying for, which is what we should accept back.
+def billed_item_ceiling(
+    max_items: int, actor_id: str | None = None, *, accept_full_page: bool | None = None
+) -> int:
+    """How many items to accept back, given how many we are paying for.
 
     Apify's run-level `max_items` truncates the DATASET without reducing the
     CHARGE. On curious_coder volume is bought by the page (~24 listings), so
-    asking for 8 bills a full page and then throws 15 paid listings away.
-    Measured: charged for 23, returned 8, $0.0115 for what we costed at $0.004.
+    asking for 8 bills a full page and throws 15 paid listings away. Measured:
+    charged for 23, returned 8 -- $0.0115 for what we had costed at $0.004.
 
-    So the Apify-level clamp is raised to the page capacity. It stays as a
-    backstop against an Actor running away, but it no longer discards data we
-    have already bought. The ceiling that actually bounds spend is
-    `max_total_charge_usd`, enforced server-side by Apify.
+    Taking the whole page is therefore free data. It is off by default anyway,
+    because ingesting 23 listings measured 60.5s against Vercel's 60s
+    `maxDuration` and the function was killed mid-run. Paying for listings we
+    drop is wasteful; timing out is broken, and broken is worse.
+
+    Turn `apify_accept_full_page` on where no function timeout applies.
+    Either way the real spend ceiling is `max_total_charge_usd`, enforced
+    server-side by Apify.
     """
     actor_id = actor_id or settings.apify_actor_id
-    if actor_id.startswith(CURIOUS_CODER):
+    if accept_full_page is None:
+        accept_full_page = settings.apify_accept_full_page
+    if accept_full_page and actor_id.startswith(CURIOUS_CODER):
         pages = max(1, min((max_items + 24) // 25, 3))
         return pages * 25
     return max_items

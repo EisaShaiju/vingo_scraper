@@ -33,6 +33,18 @@ class Settings(BaseSettings):
     # runaway Actor cannot spend past it.
     apify_max_charge_usd: float = 1.00
     apify_timeout_s: int = 900
+
+    # Volume on curious_coder is bought by the PAGE (~24 listings, ~$0.012).
+    # Asking for fewer bills the whole page anyway and discards the rest, so
+    # taking the full page is strictly more data for the same money --
+    # *if* there is time to ingest it.
+    #
+    # There is not, on Vercel: `maxDuration` is 60s on the Hobby plan and a
+    # full page measured 60.5s, so the function was cut off mid-ingest.
+    # Default OFF for that reason. Turn it ON wherever there is no function
+    # timeout -- the VM, or Vercel Pro's 300s -- and each tick keeps roughly
+    # three times the listings at identical cost.
+    apify_accept_full_page: bool = False
     # Ceiling on TOTAL Apify spend per UTC day, checked against actual
     # recorded spend in `scrape_run` before each cell. This is the guard
     # that makes unattended scheduling safe on a per-result-billed API.

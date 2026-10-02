@@ -784,3 +784,67 @@ def test_22_a_real_listing_survives_the_whole_pre_persist_pipeline():
     assert summary["flagged"] == 1
     # Flagged, never dropped -- the reject rate has to stay measurable.
     assert len(items) == 2
+
+
+def test_23_photo_gate_is_skipped_when_photos_were_not_requested():
+    """The gate flagged 24 of 24 on the first real VM run.
+
+    Not 24 bad listings -- `include_details: false` makes the Actor return only
+    the primary photo, so "fewer than 2 photos" was measuring our own cost
+    setting. Penalising a listing for data we chose not to buy is a broken
+    signal, so photos leave the score entirely in that case.
+    """
+    from vingo_scraper.pipeline.quality import assess
+
+    one_photo = _real_listing()
+    one_photo.images = one_photo.images[:1]
+
+    cheap = assess(one_photo, photos_known=False)
+    full = assess(one_photo, photos_known=True)
+
+    assert cheap.passed is True
+    assert not any("photo" in r for r in cheap.reasons)
+    assert full.passed is False
+    assert any("photo" in r for r in full.reasons)
+    # Rescaled, so a cheap run stays comparable with a detailed one.
+    assert cheap.score > full.score
+
+
+def test_24_score_stays_on_a_0_100_scale_either_way():
+    from vingo_scraper.pipeline.quality import assess
+
+    # Real prose, not "x" * 200 -- a run of identical characters correctly
+    # trips the spam pattern, which would be the fixture failing, not the gate.
+    rich = _real_listing(
+        description=(
+            "iPhone 13 128GB in midnight black, bought January 2024 from an "
+            "authorised Apple reseller. Battery health is 92 percent and the "
+            "screen has no scratches whatsoever. Comes with the original box, "
+            "charging cable and the purchase bill. Selling only because I am "
+            "relocating to Dubai next month and cannot carry it."
+        ),
+        attributes={"brand": "Apple", "model": "13", "storage": "128GB"},
+    )
+    for photos_known in (True, False):
+        rep = assess(rich, photos_known=photos_known)
+        assert 0 <= rep.score <= 100
+
+    # A strong listing scores high whichever signals were observable, and the
+    # two stay within a few points of each other. That closeness IS the point
+    # of rescaling: a cheap run and a detailed one have to remain comparable,
+    # which they were not before -- photos-off capped every listing at 60.
+    cheap = assess(rich, photos_known=False).score
+    full = assess(rich, photos_known=True).score
+    assert cheap >= 90 and full >= 90
+    assert abs(cheap - full) <= 10
+
+
+def test_25_runner_tells_the_gate_what_the_actor_was_asked_for():
+    """The wiring, not just the gate: a cheap run must set photos_known=False."""
+    import inspect
+
+    from vingo_scraper.apify import runner
+
+    src = inspect.getsource(runner.ingest_collected)
+    assert "getListingDetails" in src
+    assert "photos_known=photos_known" in src

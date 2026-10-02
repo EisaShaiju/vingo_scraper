@@ -171,7 +171,13 @@ async def ingest_collected(
     # 2. Quality gate. Runs BEFORE any image is fetched, which is the point:
     #    a low-effort listing costs no bandwidth and no storage. Nothing is
     #    discarded -- rows land flagged, and the reject rate stays measurable.
-    result.listings, quality_summary = assess_all(result.listings)
+    # The Actor only returns every photo when details were requested, so a
+    # cheap run yields exactly one image per listing. Telling the gate that
+    # stops it reading our own cost setting as seller laziness.
+    photos_known = bool((run.run_input or {}).get("getListingDetails"))
+    result.listings, quality_summary = assess_all(
+        result.listings, photos_known=photos_known
+    )
     result.quality_flagged = quality_summary["flagged"]
 
     # 3. Duplicates. Checked before rehosting, so a listing we already hold

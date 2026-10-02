@@ -81,11 +81,18 @@ def _looks_like_spam(text: str) -> bool:
     return any(p.search(text) for p in SPAM_PATTERNS)
 
 
-def assess(listing) -> QualityReport:
+def assess(listing, *, photos_known: bool = True) -> QualityReport:
     """Score 0-100 from photo count, description richness, and attributes.
 
     Takes the parsed `Listing`, so it runs on the dataset before any image is
     downloaded.
+
+    `photos_known=False` when the run did not request listing details: the
+    Actor then returns only the primary image, so every listing looks like a
+    one-photo listing. Scoring that as low effort measures OUR cost setting
+    rather than the seller's -- it flagged 24 of 24 on the first real VM run.
+    Photos leave the score entirely in that case, and the result is rescaled
+    over what was actually observable so runs stay comparable.
     """
     rep = QualityReport()
     photos = len(getattr(listing, "images", []) or [])
@@ -93,18 +100,24 @@ def assess(listing) -> QualityReport:
     attributes = getattr(listing, "attributes", {}) or {}
     price_minor = getattr(listing, "price_minor", None)
 
+    earned = 0
+    possible = 0
+
     # --- photos: 40 points, the strongest single signal of effort ---------
-    if photos >= 5:
-        rep.score += 40
-    elif photos >= 3:
-        rep.score += 32
-    elif photos >= MIN_PHOTOS:
-        rep.score += 22
-    else:
-        rep.reasons.append(f"only {photos} photo(s), want >= {MIN_PHOTOS}")
-        rep.passed = False
+    if photos_known:
+        possible += 40
+        if photos >= 5:
+            earned += 40
+        elif photos >= 3:
+            earned += 32
+        elif photos >= MIN_PHOTOS:
+            earned += 22
+        else:
+            rep.reasons.append(f"only {photos} photo(s), want >= {MIN_PHOTOS}")
+            rep.passed = False
 
     # --- description: 35 points -------------------------------------------
+    possible += 35
     if len(description) < MIN_DESCRIPTION_CHARS:
         rep.reasons.append(
             f"description {len(description)} chars, want >= {MIN_DESCRIPTION_CHARS}"
@@ -113,35 +126,39 @@ def assess(listing) -> QualityReport:
     elif _looks_like_spam(description):
         rep.reasons.append("description matches a spam pattern")
         rep.passed = False
-        rep.score += 5
+        earned += 5
     else:
-        rep.score += 15
+        earned += 15
         if len(description) >= 60:
-            rep.score += 10
+            earned += 10
         if len(description) >= 160:
-            rep.score += 10
+            earned += 10
 
     # --- price sanity: 15 points ------------------------------------------
+    possible += 15
     if _price_is_placeholder(price_minor):
         rep.reasons.append(f"placeholder price ({(price_minor or 0) // 100})")
         rep.passed = False
     elif price_minor is None:
         rep.reasons.append("no price could be read")
     else:
-        rep.score += 15
+        earned += 15
 
     # --- structured attributes: 10 points ---------------------------------
+    possible += 10
     if attributes:
-        rep.score += min(10, 3 * len(attributes))
+        earned += min(10, 3 * len(attributes))
 
-    rep.score = max(0, min(100, rep.score))
+    # Rescale over what was observable. Without this a photo-less run caps
+    # every listing at 60 and scores stop comparing across run settings.
+    rep.score = max(0, min(100, round(100 * earned / possible))) if possible else 0
     if not rep.passed:
         log.info("quality.flagged", fb_id=getattr(listing, "fb_listing_id", None),
                  score=rep.score, reasons=rep.reasons)
     return rep
 
 
-def assess_all(listings) -> tuple[list, dict]:
+def assess_all(listings, *, photos_known: bool = True) -> tuple[list, dict]:
     """Attach a report to every listing; return (listings, summary).
 
     Nothing is dropped here -- see the module docstring. The summary is what
@@ -149,7 +166,7 @@ def assess_all(listings) -> tuple[list, dict]:
     """
     flagged = 0
     for item in listings:
-        report = assess(item)
+        report = assess(item, photos_known=photos_known)
         # Carried on the parsed object so `_persist` can write it without
         # re-deriving, and so the console can show why something was flagged.
         item.quality = report

@@ -107,29 +107,37 @@ def test_snapshot_survives_a_cold_module(client, stubbed, monkeypatch):
     before = client.get("/api/automation").json()
 
     import importlib
+    import sys
 
-    import vingo_scraper.db.config_store as cs
-    reloaded = importlib.reload(cs)
+    # Import a SEPARATE copy rather than reloading the live module.
+    # `importlib.reload` rebinds classes inside the module that every other
+    # test already holds references to -- including `IngestionBusy`, whose
+    # identity an `except` clause depends on. The original is restored.
+    name = "vingo_scraper.db.config_store"
+    original = sys.modules[name]
+    try:
+        del sys.modules[name]
+        reloaded = importlib.import_module(name)
+        sys.modules[name] = reloaded
 
-    async def get_state():
-        return stubbed["state"]
+        async def get_state():
+            return stubbed["state"]
 
-    async def recent_ticks(limit=12):
-        return []
+        async def recent_ticks(limit=12):
+            return []
 
-    async def get_pending():
-        return None
+        async def no_pending():
+            return None
 
-    monkeypatch.setattr(reloaded, "get_state", get_state)
-    monkeypatch.setattr(reloaded, "recent_ticks", recent_ticks)
+        monkeypatch.setattr(reloaded, "get_state", get_state)
+        monkeypatch.setattr(reloaded, "recent_ticks", recent_ticks)
 
-    async def no_pending():
-        return None
+        monkeypatch.setattr(reloaded, "get_pending", no_pending)
 
-    monkeypatch.setattr(reloaded, "get_pending", no_pending)
-
-    after = client.get("/api/automation").json()
-    assert after == before
+        after = client.get("/api/automation").json()
+        assert after == before
+    finally:
+        sys.modules[name] = original
 
 
 def test_module_holds_no_automation_state():

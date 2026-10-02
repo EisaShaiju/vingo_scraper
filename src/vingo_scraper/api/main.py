@@ -238,6 +238,12 @@ async def _listings(limit: int, since_run: str | None) -> dict:
 @app.get("/api/listings/{listing_id}")
 async def listing_detail(listing_id: str) -> dict:
     """Every Phase 1 field for one listing, for the detailed view."""
+    return await _listing(listing_id)
+
+
+async def _listing(listing_id: str) -> dict:
+    """Split from the handler the same way `_stats` and `_listings` are, so
+    the payload shape can be asserted without standing up a database."""
     async with session_scope() as s:
         row = await s.get(models.Listing, listing_id)
         if row is None:

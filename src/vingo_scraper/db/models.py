@@ -63,7 +63,10 @@ class Seller(Base):
     __tablename__ = "seller"
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=_uuid)
-    fb_seller_id: Mapped[str] = mapped_column(String(64), unique=True, index=True)
+    # 255, not 64: a `pfbid` is ~73 characters and overflowed the original
+    # column, killing the first run that ever returned seller identity.
+    # Facebook documents no upper bound, so this is headroom, not a known fit.
+    fb_seller_id: Mapped[str] = mapped_column(String(255), unique=True, index=True)
     name: Mapped[str | None] = mapped_column(String(255))
     profile_url: Mapped[str | None] = mapped_column(Text)
 

@@ -851,3 +851,18 @@ def test_25_runner_tells_the_gate_what_the_actor_was_asked_for():
     src = inspect.getsource(runner.ingest_collected)
     assert "getListingDetails" in src
     assert "details_known=details_known" in src
+
+
+def test_26_seller_id_column_fits_a_real_pfbid():
+    """A pfbid is ~73 chars and overflowed String(64) on the first run that
+    actually returned a seller -- after Apify had been charged for the page.
+
+    The length is asserted against a real captured value rather than a round
+    number, because the round number is what was wrong.
+    """
+    from vingo_scraper.db import models
+
+    real = "pfbid02nMjZE2MMvAAXtfBad9Hm6PLTiCcTweTfeb3xp1jzN2QMP4VWRPoXLeZ52fgnXjbSl"
+    assert len(real) > 64
+    column = models.Seller.__table__.c.fb_seller_id
+    assert column.type.length >= len(real)

@@ -671,3 +671,52 @@ def test_20_repeated_polling_does_not_multiply_budget_reads(client, h):
     # Snapshot reads must not trigger a reconciliation pass each poll --
     # that is one Apify API call per 5 seconds, per open tab.
     assert h.reconcile_calls == 0
+
+
+# --------------------------------------------------------------------------
+# engine shape -- the Supabase workarounds must not follow us onto the VM
+# --------------------------------------------------------------------------
+
+def test_pooler_detection_distinguishes_supavisor_from_plain_postgres():
+    """Both workarounds are correct through a pooler and wrong without one."""
+    from vingo_scraper.db.session import is_pooled
+
+    assert is_pooled("postgresql+psycopg://u:p@aws-0-x.pooler.supabase.com:6543/postgres")
+    assert is_pooled("postgresql+psycopg://u:p@host:6543/db")
+    # The VM: Postgres on localhost, no pooler in front of it.
+    assert not is_pooled("postgresql+psycopg://comet:p@127.0.0.1:5432/comet")
+
+
+def test_local_engine_pools_and_keeps_prepared_statements():
+    """NullPool would reconnect per request; disabling prepares is free loss."""
+    from sqlalchemy.pool import NullPool
+
+    from vingo_scraper.db.session import build_engine, engine_options
+
+    connect_args, kwargs = engine_options(
+        "postgresql+psycopg://comet:p@127.0.0.1:5432/comet"
+    )
+    assert "prepare_threshold" not in connect_args
+    assert kwargs["pool_size"] == 5
+    assert kwargs["pool_pre_ping"] is True
+
+    engine = build_engine("postgresql+psycopg://comet:p@127.0.0.1:5432/comet")
+    assert not isinstance(engine.pool, NullPool)
+
+
+def test_pooled_engine_keeps_both_workarounds():
+    """Supavisor still needs them -- do not "simplify" this away."""
+    from sqlalchemy.pool import NullPool
+
+    from vingo_scraper.db.session import build_engine, engine_options
+
+    connect_args, kwargs = engine_options(
+        "postgresql+psycopg://u:p@aws-0.pooler.supabase.com:6543/postgres"
+    )
+    # None DISABLES prepared statements; 0 would prepare immediately.
+    assert connect_args["prepare_threshold"] is None
+    assert kwargs["poolclass"] is NullPool
+    assert "pool_size" not in kwargs
+
+    engine = build_engine("postgresql+psycopg://u:p@host:6543/postgres")
+    assert isinstance(engine.pool, NullPool)

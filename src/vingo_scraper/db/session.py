@@ -41,42 +41,72 @@ def ensure_compatible_event_loop() -> None:
         asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
 
 
-def build_engine(url: str | None = None, *, echo: bool = False) -> AsyncEngine:
-    """Create an engine configured for Supabase's transaction pooler.
+def is_pooled(url: str) -> bool:
+    """Is this URL pointing at a connection pooler rather than Postgres?
 
-    Two non-obvious choices, both required:
+    Both of the workarounds below are correct through Supavisor and wrong
+    against a plain server, so the engine has to know which it is talking to.
+    """
+    return ":6543" in url or "pooler." in url
+
+
+def build_engine(url: str | None = None, *, echo: bool = False) -> AsyncEngine:
+    """Build the engine, configured for whichever side of a pooler we are on.
+
+    **Through a pooler** (Supabase/Supavisor), two workarounds are required:
 
     1. `prepare_threshold=None` DISABLES psycopg3's prepared statements.
        Supavisor multiplexes connections, so a statement prepared on one
        backend is absent on the next. psycopg prepares automatically after a
-       few executions of the same query, which means the failure appears only
-       once a query gets hot -- passing tests, then intermittent
-       `prepared statement "_pg3_N" does not exist` under load.
-       Note `None` disables; `0` means "prepare immediately" and is the exact
-       opposite of what we want.
+       few executions, so the failure appears only once a query gets hot --
+       passing tests, then intermittent `prepared statement "_pg3_N" does not
+       exist` under load. `None` disables; `0` means "prepare immediately",
+       the exact opposite.
+    2. `NullPool`, because the pooler already is the pool. Layering
+       SQLAlchemy's pool on top holds server-side connections open and burns
+       the connection budget for no benefit.
 
-    2. `NullPool` because Supavisor is already the pool. Layering SQLAlchemy's
-       pool on top holds server-side connections open and burns the project's
-       connection budget for no benefit.
+    **Against Postgres directly** (the VM), both are actively harmful. There
+    is no pooler to confuse, so prepared statements are free speed; and
+    `NullPool` would open a fresh TCP connection and re-authenticate for every
+    single request in a long-running process. A real pool is the whole point
+    of having the database on localhost.
     """
     url = url or settings.database_url
     if not url:
         raise RuntimeError(
-            "VINGO_DATABASE_URL is not set -- copy .env.example to .env"
+            "VINGO_DATABASE_URL is not set -- see docs/vm-deployment.md"
         )
 
-    return create_async_engine(
-        url,
-        echo=echo,
-        poolclass=NullPool,
-        connect_args={
-            "prepare_threshold": None,
-            # Fail fast rather than hanging the console for 30s when the
-            # database is unreachable -- the UI has to learn quickly so it
-            # can disable the controls that would spend money.
-            "connect_timeout": 5,
-        },
-    )
+    connect_args, kwargs = engine_options(url)
+    return create_async_engine(url, echo=echo, connect_args=connect_args, **kwargs)
+
+
+def engine_options(url: str) -> tuple[dict, dict]:
+    """(connect_args, create_async_engine kwargs) for this URL.
+
+    Split out so the choice is assertable directly. SQLAlchemy does not expose
+    `connect_args` back off a built engine, and a test that reaches into its
+    internals to check would break on an upgrade while proving little.
+    """
+    # Fail fast rather than hanging the console for 30s when the database is
+    # unreachable: the UI has to learn quickly so it can disable the controls
+    # that would spend money.
+    connect_args: dict = {"connect_timeout": 5}
+    kwargs: dict = {}
+
+    if is_pooled(url):
+        connect_args["prepare_threshold"] = None
+        kwargs["poolclass"] = NullPool
+    else:
+        kwargs.update(
+            pool_size=5,
+            max_overflow=5,
+            # Recycle before anything upstream decides a connection is idle.
+            pool_recycle=1800,
+            pool_pre_ping=True,
+        )
+    return connect_args, kwargs
 
 
 def get_sessionmaker() -> async_sessionmaker[AsyncSession]:

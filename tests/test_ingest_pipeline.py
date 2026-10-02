@@ -61,9 +61,10 @@ def _patch(monkeypatch, store, items=ITEMS, persisted=None):
 
     monkeypatch.setattr(runner, "run_actor", fake_run_actor)
     monkeypatch.setattr(runner, "_persist", fake_persist)
-    monkeypatch.setattr(
-        "vingo_scraper.media.storage.SupabaseStore", lambda *a, **k: store
-    )
+    # Backend selection goes through one function now, so the pipeline never
+    # branches on which store it is writing to -- that is what made swapping
+    # Supabase for GCS a config change rather than a rewrite.
+    monkeypatch.setattr("vingo_scraper.media.storage.get_store", lambda: store)
     return fake
 
 

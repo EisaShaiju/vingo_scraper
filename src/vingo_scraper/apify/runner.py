@@ -32,6 +32,9 @@ class IngestResult:
     cost_usd: float | None = None
     run_id: str | None = None
     error: str | None = None
+    # Listings already in the database, skipped before any image was fetched.
+    skipped_duplicates: int = 0
+    quality_flagged: int = 0
 
     def summary(self) -> str:
         lines = [
@@ -113,12 +116,12 @@ async def ingest(
         await emit("dry_run", message="skipped rehost + persistence")
         return result
 
-    from vingo_scraper.media.storage import SupabaseStore
+    from vingo_scraper.media.storage import get_store
 
     total_images = sum(len(x.images) for x in result.listings)
     await emit("rehost:start", total=total_images)
 
-    store = SupabaseStore()
+    store = get_store()
     result.listings, result.images_stored, result.images_failed = await rehost_all(
         result.listings, store=store
     )
@@ -147,6 +150,10 @@ async def ingest_collected(
     runtime varies by 4x between identical runs, which is enough to overrun a
     60s function ceiling when the two are done together.
     """
+    from vingo_scraper.extract.description import extract_all
+    from vingo_scraper.media.storage import get_store
+    from vingo_scraper.pipeline.quality import assess_all
+
     result = IngestResult()
     result.run_id = run.run_id
     result.cost_usd = run.cost_usd
@@ -158,15 +165,95 @@ async def ingest_collected(
     if not result.listings:
         return result
 
-    from vingo_scraper.media.storage import SupabaseStore
+    # 1. Structured facts out of freeform description text.
+    extract_all(result.listings)
 
-    # Rehost BEFORE persisting -- see the module docstring. Facebook's URLs
-    # expire, so a later batch job would find them already dead.
+    # 2. Quality gate. Runs BEFORE any image is fetched, which is the point:
+    #    a low-effort listing costs no bandwidth and no storage. Nothing is
+    #    discarded -- rows land flagged, and the reject rate stays measurable.
+    result.listings, quality_summary = assess_all(result.listings)
+    result.quality_flagged = quality_summary["flagged"]
+
+    # 3. Duplicates. Checked before rehosting, so a listing we already hold
+    #    costs zero image downloads on a re-scrape -- only `last_seen_at`
+    #    moves. This does NOT save Apify spend: the Actor charges when it
+    #    scrapes, long before any id reaches us. `onlyNewListings` on the
+    #    Actor is what avoids the charge; this avoids the work.
+    fresh, known = await _split_known(result.listings)
+    result.skipped_duplicates = len(known)
+    if known:
+        await _touch_last_seen(known)
+        log.info("ingest.duplicates_skipped", count=len(known),
+                 saved_images=sum(len(x.images) for x in known))
+
+    if not fresh:
+        result.listings = []
+        return result
+
+    # 4. Rehost BEFORE persisting -- see the module docstring. Facebook's URLs
+    #    expire, so a later batch job would find them already dead.
+    result.listings = fresh
     result.listings, result.images_stored, result.images_failed = await rehost_all(
-        result.listings, store=SupabaseStore()
+        result.listings, store=get_store()
     )
     result.created, result.updated = await _persist(result, run, trigger=trigger)
     return result
+
+
+async def _split_known(listings) -> tuple[list, list]:
+    """(not yet in the database, already there). One query, not N."""
+    from sqlalchemy import select
+
+    from vingo_scraper.db import models
+    from vingo_scraper.db.session import session_scope
+
+    ids = [x.fb_listing_id for x in listings if x.fb_listing_id]
+    if not ids:
+        return list(listings), []
+    try:
+        async with session_scope() as s:
+            rows = await s.scalars(
+                select(models.Listing.fb_listing_id).where(
+                    models.Listing.fb_listing_id.in_(ids)
+                )
+            )
+            known_ids = set(rows.all())
+    except Exception as exc:
+        # A dedup check that cannot run must not drop listings on the floor.
+        # Treat everything as fresh: re-ingesting is wasteful, losing data is
+        # worse, and the upsert is idempotent anyway.
+        log.warning("ingest.dedup_check_failed", error=str(exc)[:160])
+        return list(listings), []
+
+    fresh = [x for x in listings if x.fb_listing_id not in known_ids]
+    known = [x for x in listings if x.fb_listing_id in known_ids]
+    return fresh, known
+
+
+async def _touch_last_seen(listings) -> None:
+    """Mark known listings as seen again, without touching anything else.
+
+    Deliberately narrow: `review_status`, `first_seen_at` and images stay as
+    they are. Re-observing a listing is not a reason to undo a human's review
+    decision or re-date its discovery.
+    """
+    from datetime import UTC, datetime
+
+    from sqlalchemy import update
+
+    from vingo_scraper.db import models
+    from vingo_scraper.db.session import session_scope
+
+    ids = [x.fb_listing_id for x in listings]
+    try:
+        async with session_scope() as s:
+            await s.execute(
+                update(models.Listing)
+                .where(models.Listing.fb_listing_id.in_(ids))
+                .values(last_seen_at=datetime.now(UTC))
+            )
+    except Exception as exc:
+        log.warning("ingest.touch_failed", error=str(exc)[:160])
 
 
 async def _persist(result: IngestResult, run, *, trigger: str = "manual") -> tuple[int, int]:

@@ -9,6 +9,7 @@ the spend is not a kill switch.
 
 from __future__ import annotations
 
+from contextlib import asynccontextmanager
 from dataclasses import replace
 
 import pytest
@@ -74,6 +75,16 @@ def patch_store(monkeypatch, *, state, claimed="unset"):
     async def clear_pending(status=None):
         return None
 
+    @asynccontextmanager
+    async def ingestion_lock(holder):
+        # Uncontended by default. The lock's real behaviour under contention
+        # is exercised against a live Postgres in test_platform_smoothness.
+        calls["lock"] = calls.get("lock", 0) + 1
+        yield
+
+    async def get_filters():
+        return {}
+
     async def claim_run():
         calls["claim"] += 1
         return state if claimed == "unset" else claimed
@@ -89,7 +100,9 @@ def patch_store(monkeypatch, *, state, claimed="unset"):
                      ("stop_sequence", stop_sequence),
                      ("record_result", record_result),
                      ("get_pending", get_pending), ("set_pending", set_pending),
-                     ("clear_pending", clear_pending)]:
+                     ("clear_pending", clear_pending),
+                     ("ingestion_lock", ingestion_lock),
+                     ("get_filters", get_filters)]:
         monkeypatch.setattr(f"vingo_scraper.db.config_store.{name}", fn)
 
     async def fake_start_run(*a, **kw):
@@ -264,6 +277,16 @@ def test_pending_run_is_collected_before_anything_else(client, auth, monkeypatch
 
     async def clear_pending(status=None):
         return None
+
+    @asynccontextmanager
+    async def ingestion_lock(holder):
+        # Uncontended by default. The lock's real behaviour under contention
+        # is exercised against a live Postgres in test_platform_smoothness.
+        calls["lock"] = calls.get("lock", 0) + 1
+        yield
+
+    async def get_filters():
+        return {}
 
     collected = {"n": 0}
 

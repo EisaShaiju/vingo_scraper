@@ -145,6 +145,16 @@ class Listing(Base):
     fb_category_id: Mapped[str | None] = mapped_column(String(64))
     attributes: Mapped[dict] = mapped_column(JSONB, default=dict)
 
+    # Scored by `pipeline.quality` BEFORE images are fetched, so a low-effort
+    # listing costs no bandwidth. Flagged, never auto-discarded -- the reject
+    # rate is what tells us whether the thresholds are set right.
+    quality_score: Mapped[int] = mapped_column(Integer, default=0, index=True)
+    quality_flags: Mapped[list] = mapped_column(JSONB, default=list)
+
+    # Specs / condition nuances / sale reason pulled out of freeform text by
+    # `extract.description`. Sparse by nature: most sellers write very little.
+    description_facts: Mapped[dict] = mapped_column(JSONB, default=dict)
+
     # Spec: daily runs must track sold status.
     is_sold: Mapped[bool] = mapped_column(Boolean, default=False)
     is_pending: Mapped[bool] = mapped_column(Boolean, default=False)
@@ -301,6 +311,25 @@ class SystemConfig(Base):
     )
     pending_cell: Mapped[str | None] = mapped_column(String(128))
     pending_input: Mapped[dict | None] = mapped_column(JSONB)
+
+    # Who currently holds ingestion: 'automation' | 'manual' | None. The real
+    # mutual exclusion is a Postgres advisory lock, which dies with its
+    # session and therefore cannot deadlock. These columns exist so a 409 can
+    # name the holder, and so an orphaned lock is visible rather than silent.
+    lock_holder: Mapped[str | None] = mapped_column(String(16))
+    lock_acquired_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+    # Manual run state. In the table for the same reason automation's is: an
+    # Apify run has to outlive the request that started it.
+    manual_run_id: Mapped[str | None] = mapped_column(String(64))
+    manual_status: Mapped[str | None] = mapped_column(String(64))
+    manual_started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    manual_input: Mapped[dict | None] = mapped_column(JSONB)
+
+    # Marketplace filters, shared by both runners. Stored rather than passed
+    # per call so a sequence keeps the filters it was armed with across ticks
+    # and restarts.
+    filters: Mapped[dict] = mapped_column(JSONB, default=dict)
 
     sequence_started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     last_run_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))

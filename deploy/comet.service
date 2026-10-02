@@ -1,0 +1,51 @@
+[Unit]
+Description=Comet ingestion console and API
+After=network-online.target postgresql.service
+Wants=network-online.target
+Requires=postgresql.service
+
+[Service]
+Type=exec
+User=comet
+Group=comet
+WorkingDirectory=/opt/comet
+
+# Secrets live here, 0600 root-owned. Never in the unit file -- systemd units
+# are world-readable and end up in support pastes.
+EnvironmentFile=/etc/comet.env
+
+# Bind to localhost only. /api/automation/start spends money; reaching it
+# should require the IAP tunnel or a reverse proxy that authenticates, never
+# an open port on a public IP.
+ExecStart=/opt/comet/.venv/bin/uvicorn vingo_scraper.api.main:app \
+    --host 127.0.0.1 --port 8000 --workers 1
+
+# One worker on purpose. The Postgres advisory lock serialises ingestion
+# across processes correctly, but a single worker makes the common case
+# obvious rather than merely safe, and this is not a throughput problem --
+# it spends most of its life waiting on Apify.
+
+Restart=on-failure
+RestartSec=5
+# A crash loop should be loud, not silent: give up after 5 failures in 10
+# minutes so systemctl status shows a dead unit instead of hiding it.
+StartLimitBurst=5
+StartLimitIntervalSec=600
+
+# Hardening. The app needs the network, its venv, and nothing else.
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/comet
+ProtectKernelTunables=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+LockPersonality=true
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=comet
+
+[Install]
+WantedBy=multi-user.target

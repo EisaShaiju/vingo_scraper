@@ -8,7 +8,7 @@ greenlet==3.5.6
 alembic==1.20.0
 psycopg==3.3.5
 psycopg-binary==3.3.5
-supabase==2.31.0
+google-cloud-storage==2.19.0
 httpx==0.28.1
 structlog==26.1.0
 tenacity==9.1.4

@@ -70,6 +70,58 @@ class ActorRun:
 # Actors does not move a single call site.
 CURIOUS_CODER = "curious_coder/facebook-marketplace"
 
+# Marketplace filters, verified against the LIVE build's input schema
+# (`GET /v2/actor-builds/{id}` -> inputSchema), not the Actor's prose docs --
+# those have been wrong before on this very Actor.
+#
+# Note what is NOT here: there is no `categoryIds` parameter. Category is
+# expressed through `urls` or `searchKeyword`, so asking for one by id is not
+# a thing the Actor can do.
+FILTER_KEYS: dict[str, type | tuple] = {
+    "sortBy": str,          # '' | creation_time_descend | price_ascend
+                            # | price_descend | distance_ascend
+    "minPrice": int,
+    "maxPrice": int,
+    "daysSinceListed": str,  # '' | '1' | '7' | '30'
+    "condition": list,
+    "availability": str,     # '' | in_stock | out_of_stock
+    "deliveryMethod": str,   # '' | local_pickup | shipping
+    "radiusKm": int,
+    "strictFiltering": bool,
+}
+
+SORT_NEWEST = "creation_time_descend"
+
+# Freshness defaults. The spec wants new inventory, and the default Marketplace
+# ordering is relevance -- which surfaces stale listings that have been sitting
+# for months. Sorting alone is not enough, so the window is bounded too.
+DEFAULT_FILTERS: dict[str, object] = {
+    "sortBy": SORT_NEWEST,
+    "daysSinceListed": "7",
+}
+
+
+def merge_filters(overrides: dict | None = None) -> dict:
+    """Defaults plus caller overrides, dropping anything the Actor rejects.
+
+    Unknown keys are discarded rather than passed through: Apify fails a run
+    outright on an unrecognised input field, and losing a run to a typo in a
+    filter name costs the full page charge.
+    """
+    out = dict(DEFAULT_FILTERS)
+    for key, value in (overrides or {}).items():
+        if key not in FILTER_KEYS:
+            log.warning("apify.filter_ignored", key=key,
+                        known=sorted(FILTER_KEYS))
+            continue
+        if value in (None, "", []):
+            # Explicitly clearing a default (e.g. daysSinceListed='') is
+            # meaningful, so keep the key with its empty value.
+            out[key] = value if key in DEFAULT_FILTERS else None
+            continue
+        out[key] = value
+    return {k: v for k, v in out.items() if v is not None}
+
 
 def build_run_input(
     search_query: str | None,
@@ -79,8 +131,15 @@ def build_run_input(
     category: str | None = None,
     include_details: bool = True,
     actor_id: str | None = None,
+    filters: dict | None = None,
 ) -> dict[str, Any]:
-    """Translate our parameters into the configured Actor's input schema."""
+    """Translate our parameters into the configured Actor's input schema.
+
+    `filters` are Marketplace-level narrowings (sort, price band, recency).
+    They go through `merge_filters`, so both the manual panel and the
+    automation loop produce identical input for identical intent -- there is
+    one builder, not two.
+    """
     actor_id = actor_id or settings.apify_actor_id
 
     if actor_id.startswith(CURIOUS_CODER):
@@ -88,7 +147,7 @@ def build_run_input(
         # `max_items` instead would truncate the dataset while the Actor kept
         # scraping and billing -- measured once at 24 charged for 3 returned.
         pages = max(1, min((max_items + 24) // 25, 3))
-        return {
+        payload = {
             "searchKeyword": search_query or category or "",
             "location": location,
             "maxPagesPerUrl": pages,
@@ -96,6 +155,8 @@ def build_run_input(
             "getListingDetails": include_details,
             "getAllListingPhotos": True,
         }
+        payload.update(merge_filters(filters))
+        return payload
 
     # apify/facebook-marketplace-scraper and compatible.
     if category:
@@ -247,6 +308,7 @@ async def start_run(
     category: str | None = None,
     include_details: bool = True,
     client: ApifyClientAsync | None = None,
+    filters: dict | None = None,
 ) -> ActorRun:
     """Start the Actor and return immediately, without waiting for it.
 
@@ -268,7 +330,7 @@ async def start_run(
     actor_id = settings.apify_actor_id
     run_input = build_run_input(
         search_query, location, max_items,
-        category=category, include_details=include_details,
+        category=category, include_details=include_details, filters=filters,
     )
     client = client or ApifyClientAsync(token=settings.apify_api_token)
 

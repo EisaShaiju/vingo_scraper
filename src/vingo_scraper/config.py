@@ -55,18 +55,30 @@ class Settings(BaseSettings):
     total_spend_cap_usd: float = 7.00
     daily_spend_cap_usd: float = 2.00
 
-    # --- Supabase Postgres ---------------------------------------------
-    # TWO urls on purpose, and they are not interchangeable:
-    #   runtime   -> transaction pooler :6543 (IPv4, NO prepared statements)
-    #   migrations-> session/direct     :5432 (IPv6-only without the add-on)
-    # See docs/supabase.md before changing either.
+    # --- Postgres --------------------------------------------------------
+    # ONE url on the VM. The old Supabase deployment needed two -- pooler
+    # :6543 for runtime (no prepared statements) and :5432 for Alembic --
+    # because Supavisor cannot handle prepared statements. Local Postgres has
+    # no pooler, so `database_migration_url` is only read if explicitly set.
     database_url: str = ""
     database_migration_url: str = ""
 
-    # --- Supabase Storage ----------------------------------------------
+    # --- object storage --------------------------------------------------
+    # "gcs" on the VM, "memory" in tests. Selected in one place
+    # (`media.storage.get_store`) so the rehost pipeline never branches.
+    storage_backend: str = "gcs"
+
+    # Google Cloud Storage. Authentication is Application Default Credentials
+    # from the VM's attached service account -- there is no key file, and
+    # there should never be one.
+    gcs_bucket: str = "vingo-comet-media-as1"
+    # Set when the bucket serves through a CDN or custom domain; otherwise the
+    # standard storage.googleapis.com path is built.
+    gcs_public_base: str = ""
+
+    # Legacy Supabase storage. Retained only so an old deployment can still
+    # read; nothing new is written here.
     supabase_url: str = ""
-    # Service-role key: bypasses RLS. Server-side only, never in a client
-    # bundle. Lives in .env, which is gitignored.
     supabase_service_key: str = ""
     storage_bucket: str = "listing-images"
 

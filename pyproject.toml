@@ -5,7 +5,7 @@ description = "Facebook Marketplace ingestion for Vingo"
 requires-python = ">=3.11"
 dependencies = [
     "apify-client>=1.8",
-    "supabase>=2.10",
+    "google-cloud-storage>=2.18",
     "pydantic>=2.9",
     "pydantic-settings>=2.6",
     "sqlalchemy[asyncio]>=2.0",

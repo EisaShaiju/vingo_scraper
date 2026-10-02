@@ -1,31 +1,30 @@
-"""Demo console: one page showing the whole ingest flow.
+"""Ingestion console and API.
 
-    click "Run today's update"
-      -> Apify actor runs
-      -> listings parsed
-      -> images rehosted off Facebook's CDN into Supabase
-      -> rows upserted
-      -> table refreshes from the database
+Two runners, one pipeline:
 
-Everything the page shows is read back out of Supabase, not from the in-memory
-job. That is the point of the demo: the table proves the database actually
-changed, rather than echoing what the pipeline claimed.
+  * automation -- a round-robin over the Bengaluru category grid
+  * manual     -- a single operator-chosen query
+
+Both go through the SAME two-phase Apify path (`start_run` then `collect_run`)
+and the SAME Postgres mutex, because two runners starting Actors at once is
+not a correctness curiosity -- it is paying twice.
+
+Everything the page shows is read back out of the database, not from an
+in-process object. That is deliberate and was learned the hard way: in-memory
+state does not error under concurrency, it just disagrees with itself.
 """
 
 from __future__ import annotations
 
-import asyncio
-import json
 from contextlib import asynccontextmanager
 from pathlib import Path
 
 import structlog
 from fastapi import FastAPI, Header, HTTPException
-from fastapi.responses import FileResponse, StreamingResponse
+from fastapi.responses import FileResponse
 from pydantic import BaseModel
 from sqlalchemy import func, select
 
-from vingo_scraper.api.jobs import Job, registry
 from vingo_scraper.config import settings
 from vingo_scraper.db import models
 from vingo_scraper.db.session import session_scope
@@ -77,6 +76,25 @@ class IngestRequest(BaseModel):
     location: str = "bangalore"
     max_items: int = 10
     dry_run: bool = False
+    # Optional category; when set it supplies the search term, so the manual
+    # panel and the automation grid can run the identical query.
+    category: str | None = None
+    include_details: bool = False
+    # Marketplace filters. Validated against the Actor's real schema in
+    # `client.merge_filters` -- unknown keys are dropped rather than sent,
+    # because Apify fails the whole run on an unrecognised input field.
+    min_price: int | None = None
+    max_price: int | None = None
+    sort_by: str | None = None
+    days_since_listed: str | None = None
+
+    def to_filters(self) -> dict:
+        return {
+            "minPrice": self.min_price,
+            "maxPrice": self.max_price,
+            "sortBy": self.sort_by,
+            "daysSinceListed": self.days_since_listed,
+        }
 
 
 # --------------------------------------------------------------------------
@@ -314,107 +332,131 @@ async def _runs(limit: int) -> dict:
 
 
 # --------------------------------------------------------------------------
-# the run
+# manual ingestion
+#
+# Rebuilt onto the SAME two-phase runner automation uses. The previous version
+# failed on serverless for three independent reasons, all invisible: it called
+# the blocking `ingest()` (Actor runtime 10.8-47.1s against a 60s ceiling), it
+# backgrounded the work with `asyncio.create_task` (which does not survive the
+# response), and it streamed progress from an in-memory registry (so the SSE
+# request landed on a lambda that had never heard of the job).
+#
+# Automation worked only because it had already been rebuilt this way.
 # --------------------------------------------------------------------------
 
-async def _run_job(job: Job, req: IngestRequest) -> None:
-    from vingo_scraper.apify.runner import ingest
-
-    job.status = "running"
-    await job.emit("job:start", {
-        "query": req.query, "location": req.location,
-        "max_items": req.max_items, "dry_run": req.dry_run,
-    })
-    try:
-        result = await ingest(
-            search_query=req.query,
-            location=req.location,
-            max_items=req.max_items,
-            dry_run=req.dry_run,
-            on_event=lambda stage, payload: job.emit(stage, payload),
-        )
-        job.result = {
-            "items_returned": result.items_returned,
-            "listings": len(result.listings),
-            "created": result.created,
-            "updated": result.updated,
-            "images_stored": result.images_stored,
-            "images_failed": result.images_failed,
-            "cost_usd": result.cost_usd,
-            "run_id": result.run_id,
-            "error": result.error,
-        }
-        job.status = "failed" if result.error else "done"
-        job.error = result.error
-    except Exception as exc:  # pragma: no cover - surfaced to the UI
-        job.status = "failed"
-        job.error = f"{type(exc).__name__}: {exc}"
-        await job.emit("error", {"message": job.error})
-        log.exception("job.failed", job_id=job.id)
-    finally:
-        from datetime import UTC, datetime
-
-        job.finished_at = datetime.now(UTC)
-        await job.emit("job:end", {"status": job.status, "error": job.error})
-
-
 @app.post("/api/ingest")
-async def start_ingest(req: IngestRequest) -> dict:
-    from vingo_scraper.apify.budget import get_budget
+async def start_ingest(
+    req: IngestRequest,
+    authorization: str | None = Header(None),
+    x_demo_token: str | None = Header(None),
+) -> dict:
+    """Start one manual run. Returns immediately; poll /api/manual."""
+    _require_secret(authorization, x_demo_token)
 
-    if registry.running:
-        raise HTTPException(409, "an ingest is already running")
+    from vingo_scraper.apify.budget import get_budget
+    from vingo_scraper.apify.client import start_run
+    from vingo_scraper.config import CATEGORIES
+    from vingo_scraper.db import config_store
 
     budget = await get_budget()
     if (blocked := budget.blocked_reason()):
         raise HTTPException(402, blocked)
-    # Apify bills per result; keep the demo button cheap regardless of input.
+
+    # Apify bills per result; keep the manual button cheap regardless of input.
     req.max_items = max(1, min(req.max_items, 25))
-    job = registry.create(
-        query=req.query, location=req.location,
-        max_items=req.max_items, dry_run=req.dry_run,
-    )
-    asyncio.create_task(_run_job(job, req))
-    return {"job_id": job.id, "status": job.status}
+    query = req.query
+    if req.category:
+        query = CATEGORIES.get(req.category, {}).get("query", req.category)
+    label = f"{req.location} / {req.category or query}"
+
+    try:
+        async with config_store.ingestion_lock("manual"):
+            if await config_store.get_manual_pending():
+                raise HTTPException(409, "a manual run is already in flight")
+            run = await start_run(
+                query, req.location, req.max_items,
+                include_details=req.include_details,
+                filters=req.to_filters(),
+            )
+            await config_store.set_manual_pending(run.run_id, run.run_input, label)
+    except config_store.IngestionBusy as busy:
+        # The whole point of the lock: two runners must never start Actors at
+        # the same time, because that is paying twice.
+        raise HTTPException(
+            409, "Ingestion currently in progress by automated runner"
+            if busy.holder == "automation" else f"Ingestion in progress by {busy.holder}"
+        ) from busy
+
+    return {"started": True, "run_id": run.run_id, "cell": label,
+            "reason": "actor started; poll /api/manual to collect it"}
 
 
-@app.get("/api/ingest/{job_id}/stream")
-async def stream(job_id: str) -> StreamingResponse:
-    job = registry.get(job_id)
-    if job is None:
-        raise HTTPException(404, "unknown job")
+@app.post("/api/ingest/collect")
+async def collect_ingest(
+    authorization: str | None = Header(None),
+    x_demo_token: str | None = Header(None),
+) -> dict:
+    """Second phase: pick up a finished manual run and ingest it."""
+    _require_secret(authorization, x_demo_token)
 
-    async def gen():
-        q = job.subscribe()
-        try:
-            while True:
-                try:
-                    event = await asyncio.wait_for(q.get(), timeout=30)
-                except TimeoutError:
-                    yield ": keepalive\n\n"
-                    continue
-                yield f"data: {json.dumps(event)}\n\n"
-                if event.get("stage") == "job:end":
-                    break
-        finally:
-            job.unsubscribe(q)
+    from vingo_scraper.apify.budget import invalidate_cache
+    from vingo_scraper.apify.client import collect_run
+    from vingo_scraper.apify.runner import ingest_collected
+    from vingo_scraper.db import config_store
 
-    return StreamingResponse(
-        gen(),
-        media_type="text/event-stream",
-        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
-    )
+    pending = await config_store.get_manual_pending()
+    if pending is None:
+        return {"ran": False, "reason": "no manual run in flight"}
+
+    run_id, run_input = pending
+    city = run_input.get("location") or "bangalore"
+    try:
+        run = await collect_run(run_id, run_input=run_input)
+    except Exception as exc:
+        await config_store.clear_manual(f"failed: {type(exc).__name__}")
+        log.warning("manual.collect_failed", run_id=run_id, error=str(exc)[:200])
+        return {"ran": False, "error": f"{type(exc).__name__}: {exc}"}
+
+    if run is None:
+        return {"ran": False, "waiting": True, "run_id": run_id,
+                "reason": "actor still running"}
+
+    try:
+        result = await ingest_collected(run, location=city, trigger="manual")
+        await config_store.clear_manual(
+            "failed: " + result.error if result.error else "ok"
+        )
+        invalidate_cache()
+        return {
+            "ran": True, "run_id": run_id,
+            "listings": len(result.listings),
+            "created": result.created,
+            "updated": result.updated,
+            "images_stored": result.images_stored,
+            "skipped_duplicates": result.skipped_duplicates,
+            "quality_flagged": result.quality_flagged,
+            "cost_usd": result.cost_usd,
+            "error": result.error,
+        }
+    except Exception as exc:
+        await config_store.clear_manual(f"error: {type(exc).__name__}")
+        log.exception("manual.ingest_failed", run_id=run_id)
+        return {"ran": False, "error": f"{type(exc).__name__}: {exc}"}
 
 
-@app.get("/api/ingest/{job_id}")
-async def job_status(job_id: str) -> dict:
-    job = registry.get(job_id)
-    if job is None:
-        raise HTTPException(404, "unknown job")
-    return {
-        "id": job.id, "status": job.status, "error": job.error,
-        "result": job.result, "events": list(job.events),
-    }
+@app.get("/api/manual")
+async def manual_status() -> dict:
+    """Manual run state plus its own history. Open: read-only."""
+    from vingo_scraper.db import config_store
+
+    try:
+        state = await config_store.manual_state()
+        state["history"] = await config_store.recent_ticks(trigger="manual")
+        state["lock"] = await config_store.lock_status()
+        return state
+    except Exception as exc:
+        log.warning("manual.status_failed", error=str(exc)[:200])
+        return {"running": False, "history": [], "error": type(exc).__name__}
 
 
 # --------------------------------------------------------------------------
@@ -697,10 +739,15 @@ async def _run_tick(*, grid: bool) -> dict:
 
     cell = f"{city} / {category}"
     try:
-        run = await start_run(
-            query, city, max_items, include_details=details
-        )
-        await config_store.set_pending(run.run_id, cell, run.run_input)
+        # Same lock the manual path takes. If a manual run holds it, this tick
+        # defers rather than starting a second Actor alongside it -- no spend,
+        # and the slot is returned by not having been claimed yet.
+        async with config_store.ingestion_lock("automation"):
+            run = await start_run(
+                query, city, max_items, include_details=details,
+                filters=await config_store.get_filters(),
+            )
+            await config_store.set_pending(run.run_id, cell, run.run_input)
         invalidate_cache()  # that run will spend; re-read before the next
         return {
             "ran": False, "started": True, "cell": cell,
@@ -708,6 +755,9 @@ async def _run_tick(*, grid: bool) -> dict:
             "reason": "actor started; a later tick collects it",
             "runs_remaining": claimed.runs_remaining,
         }
+    except config_store.IngestionBusy as busy:
+        return {"ran": False, "deferred": True, "cell": cell,
+                "reason": f"ingestion in progress by {busy.holder}"}
     except Exception as exc:
         # One dead cell must not stop the sequence -- record it and let the
         # next tick try a different one.

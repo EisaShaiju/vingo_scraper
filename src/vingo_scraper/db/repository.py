@@ -98,6 +98,16 @@ async def upsert_listing(
         "is_sold": listing.is_sold,
         "is_pending": listing.is_pending,
         "is_hidden": listing.is_hidden,
+        # Attached upstream by `pipeline.quality` and `extract.description`.
+        # getattr with a default so a Listing built in a test, or by a code
+        # path that skips the gate, still persists cleanly.
+        "quality_score": getattr(getattr(listing, "quality", None), "score", 0),
+        "quality_flags": getattr(getattr(listing, "quality", None), "reasons", []),
+        "description_facts": (
+            listing.description_facts.to_dict()
+            if hasattr(getattr(listing, "description_facts", None), "to_dict")
+            else {}
+        ),
         "first_seen_at": now,
         "last_seen_at": now,
     }

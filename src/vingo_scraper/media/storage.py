@@ -104,3 +104,76 @@ class InMemoryStore:
 
     def public_url(self, key: str) -> str:
         return f"{self.base}/{key}"
+
+
+class GCSStore:
+    """Google Cloud Storage, authenticated by Application Default Credentials.
+
+    No key file. The VM's attached service account supplies credentials, which
+    means there is no secret to rotate, leak, or accidentally commit. If an
+    upload 403s, the fix is an IAM binding on the bucket -- never a key.
+
+    The client is built lazily and cached: constructing it reads credentials
+    and costs a round trip, which is wasted work in any process that never
+    rehosts an image (CLI dry runs, migrations, the whole test suite).
+    """
+
+    def __init__(self, bucket: str | None = None, public_base: str | None = None):
+        self.bucket_name = bucket or settings.gcs_bucket
+        self.public_base = (public_base or settings.gcs_public_base).rstrip("/")
+        self._bucket = None
+
+    @property
+    def bucket(self):
+        if self._bucket is None:
+            try:
+                from google.cloud import storage as gcs
+            except ImportError as exc:  # pragma: no cover - deployment issue
+                raise StorageError(
+                    "google-cloud-storage is not installed; "
+                    "pip install -e . on the VM"
+                ) from exc
+            try:
+                self._bucket = gcs.Client().bucket(self.bucket_name)
+            except Exception as exc:
+                raise StorageError(
+                    f"could not reach gs://{self.bucket_name}: {exc}. "
+                    "Check the VM service account has roles/storage.objectAdmin "
+                    "(`gcloud storage ls gs://...` reproduces it)."
+                ) from exc
+        return self._bucket
+
+    def upload(self, key: str, data: bytes, content_type: str) -> str:
+        blob = self.bucket.blob(key)
+        try:
+            # Content-addressed keys mean the same bytes always land on the
+            # same path, so re-uploading is harmless and idempotent.
+            blob.upload_from_string(data, content_type=content_type)
+        except Exception as exc:
+            raise StorageError(f"upload of {key} failed: {exc}") from exc
+        return self.public_url(key)
+
+    def public_url(self, key: str) -> str:
+        """Built, not fetched -- the format is stable and deterministic, and
+        one fewer round trip per image matters at catalog scale."""
+        if self.public_base:
+            return f"{self.public_base}/{key}"
+        return f"https://storage.googleapis.com/{self.bucket_name}/{key}"
+
+
+def get_store() -> ObjectStore:
+    """The one place a storage backend is chosen.
+
+    `rehost_all()` and every caller stay backend-agnostic, which is what made
+    swapping Supabase for GCS a configuration change rather than a rewrite.
+    """
+    backend = (settings.storage_backend or "gcs").lower()
+    if backend == "gcs":
+        return GCSStore()
+    if backend == "memory":
+        return InMemoryStore()
+    if backend == "supabase":
+        return SupabaseStore()
+    raise StorageError(
+        f"unknown VINGO_STORAGE_BACKEND={backend!r}; use gcs, memory or supabase"
+    )

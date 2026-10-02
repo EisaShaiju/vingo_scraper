@@ -10,6 +10,7 @@ only a kill switch if it is checked before the money is spent, not after.
 
 from __future__ import annotations
 
+from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 
@@ -438,3 +439,171 @@ def _from_input(run_input: dict | None, *names: str) -> str:
         if value:
             return str(value)
     return "-"
+
+
+# --------------------------------------------------------------------------
+# Ingestion mutex
+#
+# One Apify run at a time, across automation ticks, manual clicks, every
+# worker and every open console. Two runners starting Actors concurrently is
+# not a correctness curiosity -- it is paying twice.
+# --------------------------------------------------------------------------
+
+# Arbitrary but fixed. Advisory locks are namespaced by this integer alone, so
+# it only has to be stable and not collide with another lock in this database.
+INGESTION_LOCK_KEY = 0x0C0E7E7  # "COMET"
+
+# A holder that has not finished within this long is treated as orphaned. The
+# advisory lock itself cannot leak -- Postgres drops it when the session ends,
+# including on crash -- so this only covers a process that is alive but wedged.
+LOCK_STALE_S = 600
+
+
+class IngestionBusy(RuntimeError):
+    """Someone else holds the ingestion lock. Carries who, for the 409 body."""
+
+    def __init__(self, holder: str | None):
+        self.holder = holder or "another runner"
+        super().__init__(f"ingestion in progress by {self.holder}")
+
+
+@asynccontextmanager
+async def ingestion_lock(holder: str):
+    """Hold the ingestion lock for the duration of the block.
+
+    `pg_try_advisory_lock` rather than `pg_advisory_lock`: trying and failing
+    immediately is what lets a manual click return 409 instead of silently
+    queueing behind a three-minute automation tick.
+
+    The lock is tied to the Postgres SESSION, so if this process dies -- crash,
+    OOM, SIGKILL, a dropped connection -- Postgres releases it automatically.
+    That is the entire reason for choosing an advisory lock over a boolean
+    column: a flag in a row stays `true` forever when the writer dies, and
+    somebody has to go and clear it by hand.
+
+    Raises `IngestionBusy` if another holder has it.
+    """
+    from sqlalchemy import text
+
+    async with session_scope() as s:
+        got = await s.scalar(
+            text("SELECT pg_try_advisory_lock(:k)"), {"k": INGESTION_LOCK_KEY}
+        )
+        if not got:
+            row = await _row(s)
+            # Expire an orphan rather than stay blocked forever. Rare: it needs
+            # a process that still holds its session but has stopped working.
+            if row.lock_acquired_at and (
+                datetime.now(UTC) - row.lock_acquired_at
+            ).total_seconds() > LOCK_STALE_S:
+                log.warning("ingestion.lock_stale", holder=row.lock_holder,
+                            since=_iso(row.lock_acquired_at))
+                row.lock_holder = None
+                row.lock_acquired_at = None
+            raise IngestionBusy(row.lock_holder)
+
+        row = await _row(s)
+        row.lock_holder = holder
+        row.lock_acquired_at = datetime.now(UTC)
+        log.info("ingestion.lock_acquired", holder=holder)
+
+        try:
+            yield
+        finally:
+            # Always, including on exception -- a lock released only on the
+            # happy path is a deadlock waiting for the first bad run.
+            try:
+                await s.execute(
+                    text("SELECT pg_advisory_unlock(:k)"), {"k": INGESTION_LOCK_KEY}
+                )
+                row.lock_holder = None
+                row.lock_acquired_at = None
+                log.info("ingestion.lock_released", holder=holder)
+            except Exception as exc:  # pragma: no cover - session already dead
+                # The session is going away, which releases the lock anyway.
+                log.warning("ingestion.unlock_failed", error=str(exc)[:160])
+
+
+async def lock_status() -> dict:
+    async with session_scope() as s:
+        row = await _row(s)
+        return {
+            "locked": bool(row.lock_holder),
+            "holder": row.lock_holder,
+            "since": _iso(row.lock_acquired_at),
+        }
+
+
+# --------------------------------------------------------------------------
+# Manual runs -- same two-phase shape as automation, separate state
+# --------------------------------------------------------------------------
+
+async def set_manual_pending(run_id: str, run_input: dict, label: str) -> None:
+    async with session_scope() as s:
+        row = await _row(s, lock=True)
+        row.manual_run_id = run_id
+        row.manual_started_at = datetime.now(UTC)
+        row.manual_status = f"running {label}"
+        row.manual_input = run_input or {}
+
+
+async def clear_manual(status: str | None = None) -> None:
+    async with session_scope() as s:
+        row = await _row(s, lock=True)
+        row.manual_run_id = None
+        row.manual_started_at = None
+        row.manual_input = None
+        if status:
+            row.manual_status = status
+
+
+async def get_manual_pending() -> tuple[str, dict] | None:
+    """(run_id, run_input) for an in-flight manual run, or None.
+
+    Abandons a run older than `PENDING_TIMEOUT_S` for the same reason the
+    automation path does: a run that never reports back must not wedge the
+    console permanently.
+    """
+    async with session_scope() as s:
+        row = await _row(s)
+        if not row.manual_run_id:
+            return None
+        if row.manual_started_at and (
+            datetime.now(UTC) - row.manual_started_at
+        ).total_seconds() > PENDING_TIMEOUT_S:
+            log.warning("manual.pending_abandoned", run_id=row.manual_run_id)
+            row.manual_run_id = None
+            row.manual_started_at = None
+            row.manual_input = None
+            row.manual_status = "abandoned a run that never reported back"
+            return None
+        return row.manual_run_id, row.manual_input or {}
+
+
+async def manual_state() -> dict:
+    async with session_scope() as s:
+        row = await _row(s)
+        return {
+            "running": bool(row.manual_run_id),
+            "run_id": row.manual_run_id,
+            "status": row.manual_status,
+            "started_at": _iso(row.manual_started_at),
+            "input": row.manual_input or {},
+        }
+
+
+# --------------------------------------------------------------------------
+# Marketplace filters, shared by both runners
+# --------------------------------------------------------------------------
+
+async def set_filters(filters: dict) -> dict:
+    async with session_scope() as s:
+        row = await _row(s, lock=True)
+        row.filters = filters or {}
+        return row.filters
+
+
+async def get_filters() -> dict:
+    async with session_scope() as s:
+        row = await _row(s)
+        return row.filters or {}

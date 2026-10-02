@@ -132,6 +132,41 @@
   .run{display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid #F1F5F9}
   .run:last-child{border:none}
   .run .id{font-family:ui-monospace,monospace;color:var(--muted);font-size:11px}
+  /* ---------- tabs ---------- */
+  .tabs{display:flex;gap:4px;margin:22px 0 18px;border-bottom:1px solid var(--line)}
+  .tab{appearance:none;background:none;border:none;font-family:inherit;
+       font-size:14px;font-weight:700;color:var(--muted);padding:12px 20px;
+       border-bottom:2px solid transparent;margin-bottom:-1px;cursor:pointer;
+       display:flex;align-items:center;gap:8px;transition:color .15s}
+  .tab:hover{color:var(--ink)}
+  .tab.on{color:var(--brand-dark);border-bottom-color:var(--brand)}
+  .tab .badge-n{font-size:11px;font-weight:800;background:var(--brand-soft);
+                color:var(--brand-dark);border-radius:999px;padding:2px 7px}
+  .tab.on .badge-n{background:var(--brand);color:#fff}
+  .panel{display:none}
+  .panel.on{display:block}
+
+  /* ---------- busy banner ---------- */
+  .busy{background:#FFFBEB;border:1px solid #FDE68A;color:#92400E;
+        border-radius:11px;padding:12px 15px;font-size:13px;font-weight:600;
+        margin-bottom:16px;display:flex;align-items:center;gap:10px}
+  .busy .spin-s{width:13px;height:13px;border:2px solid #FDE68A;
+                border-top-color:#92400E;border-radius:50%;
+                animation:s .8s linear infinite;flex-shrink:0}
+
+  /* ---------- quality + facts chips ---------- */
+  .chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+  .chip{font-size:11.5px;background:#F1F5F9;border:1px solid var(--line);
+        border-radius:999px;padding:4px 10px;color:#334155}
+  .chip b{color:var(--ink);font-weight:700}
+  .chip.warn{background:#FFFBEB;border-color:#FDE68A;color:#92400E}
+  .qs{display:inline-flex;align-items:center;gap:6px;font-size:12px;
+      font-weight:700}
+  .qs i{width:42px;height:5px;border-radius:3px;background:#E2E8F0;
+        display:inline-block;overflow:hidden}
+  .qs i b{display:block;height:100%;background:var(--ok)}
+  .qs.mid i b{background:var(--warn)} .qs.low i b{background:var(--err)}
+
   /* ---------- category rotation strip ---------- */
   .rot{display:flex;align-items:center;gap:14px;flex-wrap:wrap;
        padding:14px 19px;border-bottom:1px solid var(--line);background:#FBFDFF}
@@ -262,7 +297,16 @@
 
 <div class="wrap">
 
-  <div class="hero">
+  <nav class="tabs">
+    <button class="tab on" data-panel="p-auto">Automated pipeline</button>
+    <button class="tab" data-panel="p-manual">Manual ingestion</button>
+    <button class="tab" data-panel="p-catalog">Catalog
+      <span class="badge-n" id="t-count">0</span></button>
+  </nav>
+
+  <div id="busy-banner"></div>
+
+  <div class="hero" hidden>
     <div>
       <h1>Today's update</h1>
       <p>Pulls live Facebook Marketplace listings, rehosts every photo onto our
@@ -298,6 +342,7 @@
   <div id="budget"></div>
   <div id="dbbanner"></div>
 
+  <div class="panel on" id="p-auto">
   <div class="auto">
     <div class="auto-h">
       <span class="dot-live" id="a-dot"></span>
@@ -345,7 +390,83 @@
     </div>
     <div class="ticks" id="a-ticks"></div>
   </div>
+  </div><!-- /p-auto -->
 
+  <!-- ================= Manual ingestion ================= -->
+  <div class="panel" id="p-manual">
+    <div class="auto">
+      <div class="auto-h">
+        <span class="dot-live" id="m-dot"></span>
+        <h2>Manual ingestion</h2>
+        <span class="n" id="m-state" style="font-size:12px;color:var(--muted);margin-left:auto">idle</span>
+      </div>
+
+      <div class="auto-ctl" style="flex-wrap:wrap">
+        <div class="field">
+          <label>Category</label>
+          <select id="m-cat">
+            <option value="">— custom keyword —</option>
+            <option value="mobile_phones">Mobile phones</option>
+            <option value="electronics">Electronics</option>
+            <option value="furniture">Furniture</option>
+            <option value="vehicles">Vehicles</option>
+            <option value="appliances">Appliances</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Keyword</label>
+          <input id="m-q" value="iphone" style="min-width:150px">
+        </div>
+        <div class="field">
+          <label>City</label>
+          <select id="m-loc">
+            <option value="bangalore" selected>Bengaluru</option>
+            <option value="mumbai">Mumbai</option>
+            <option value="delhi">Delhi</option>
+            <option value="hyderabad">Hyderabad</option>
+            <option value="pune">Pune</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Min ₹</label>
+          <input id="m-min" type="number" min="0" placeholder="any" style="min-width:90px">
+        </div>
+        <div class="field">
+          <label>Max ₹</label>
+          <input id="m-max" type="number" min="0" placeholder="any" style="min-width:90px">
+        </div>
+        <div class="field">
+          <label>Sort</label>
+          <select id="m-sort">
+            <option value="creation_time_descend" selected>Newest first</option>
+            <option value="price_ascend">Price: low to high</option>
+            <option value="price_descend">Price: high to low</option>
+            <option value="">Marketplace default</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Listed within</label>
+          <select id="m-days">
+            <option value="1">24 hours</option>
+            <option value="7" selected>7 days</option>
+            <option value="30">30 days</option>
+            <option value="">Any time</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Items</label>
+          <input id="m-n" type="number" value="8" min="1" max="25" style="min-width:80px">
+        </div>
+        <button class="btn-sm" id="m-run">Run ingestion</button>
+      </div>
+
+      <div id="m-result" style="padding:0 19px"></div>
+      <div class="ticks" id="m-ticks"></div>
+    </div>
+  </div><!-- /p-manual -->
+
+  <!-- ================= Catalog ================= -->
+  <div class="panel" id="p-catalog">
   <div class="stats" id="stats"></div>
 
   <div class="grid">
@@ -395,6 +516,7 @@
     Storage · listings land <strong>pending review</strong> and are never
     auto-published
   </footer>
+  </div><!-- /p-catalog -->
 </div>
 
 <div class="ovl" id="ovl"><div class="modal" id="modal"></div></div>
@@ -439,6 +561,8 @@ function log(msg, cls=''){
 }
 
 let prevStats = {};
+function setTabCount(n){ const el = $('#t-count'); if(el) el.textContent = n; }
+
 async function loadStats(){
   const s = await (await fetch('/api/stats')).json();
 
@@ -540,97 +664,50 @@ async function health(){
   }catch{ $('#p-health').textContent='offline'; }
 }
 
-$('#run').onclick = async () => {
-  const btn = $('#run');
-  btn.disabled = true;
-  $('#run-ico').outerHTML = '<span class="spin" id="run-ico"></span>';
-  $('#run-txt').textContent = 'Running…';
-  $('#log').innerHTML = '';
-  $('#pipe-state').textContent = 'running';
-  const state = {};
-  drawSteps(state);
+// The old hero "Run today's update" button is gone. It streamed progress over
+// SSE from an in-memory job registry, which cannot work once more than one
+// process serves the app -- the stream request lands wherever, and that
+// instance has never heard of the job. Manual ingestion lives in its own tab
+// now, on the same durable two-phase runner as automation.
 
-  let job;
-  try{
-    const r = await fetch('/api/ingest', {
-      method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({
-        query: $('#q').value, location: $('#loc').value,
-        max_items: parseInt($('#n').value)||10,
-      })
-    });
-    if(!r.ok){ throw new Error((await r.json()).detail || r.statusText); }
-    job = (await r.json()).job_id;
-  }catch(e){
-    log('Failed to start: '+e.message, 'r');
-    return reset();
-  }
-
-  const es = new EventSource(`/api/ingest/${job}/stream`);
-  es.onmessage = ev => {
-    const d = JSON.parse(ev.data);
-    switch(d.stage){
-      case 'job:start':
-        log(`Starting: "${d.query}" in ${d.location}, max ${d.max_items}`, 'b');
-        state.apify='run'; drawSteps(state); break;
-      case 'apify:start':
-        log('Triggering Apify actor…'); break;
-      case 'apify:done':
-        state.apify='done'; state.apify_meta=`${d.items} items`;
-        state.parse='run'; drawSteps(state);
-        log(`Actor finished — ${d.items} items, run ${d.run_id}`, 'g');
-        if(d.cost_usd!=null) log(`Cost: $${Number(d.cost_usd).toFixed(4)}`);
-        break;
-      case 'parse:done':
-        state.parse='done'; state.parse_meta=`${d.listings} listings`;
-        drawSteps(state);
-        log(`Parsed ${d.listings} listings`, 'g');
-        (d.sample||[]).forEach(s=>log(`   · ${s.title} — ₹${Number(s.price||0).toLocaleString('en-IN')} (${s.images} photos)`));
-        break;
-      case 'rehost:start':
-        state.rehost='run'; state.rehost_meta=`0/${d.total}`; drawSteps(state);
-        log(`Rehosting ${d.total} images off Facebook's CDN…`, 'y'); break;
-      case 'rehost:done':
-        state.rehost = d.failed ? 'done' : 'done';
-        state.rehost_meta=`${d.stored}/${d.total}`; drawSteps(state);
-        log(`Rehosted ${d.stored} images${d.failed?`, ${d.failed} failed`:''}`, d.failed?'y':'g');
-        break;
-      case 'persist:start':
-        state.persist='run'; drawSteps(state); break;
-      case 'persist:done':
-        state.persist='done'; state.persist_meta=`+${d.created} new, ${d.updated} updated`;
-        drawSteps(state);
-        log(`Database: ${d.created} created, ${d.updated} updated`, 'g'); break;
-      case 'complete':
-        log('Done.', 'g'); break;
-      case 'dry_run':
-        log('Dry run — skipped storage and database', 'y'); break;
-      case 'empty':
-        log('No listings returned (density signal, not a failure)', 'y'); break;
-      case 'error':
-        Object.keys(state).forEach(k=>{ if(state[k]==='run') state[k]='bad'; });
-        drawSteps(state); log('ERROR: '+d.message, 'r'); break;
-      case 'job:end':
-        es.close();
-        $('#pipe-state').textContent = d.status;
-        loadStats(); loadListings(true); loadRuns();
-        reset();
-        break;
-    }
+// Structured facts pulled out of freeform description text. Sparse by
+// nature -- most sellers write very little -- so the block hides entirely
+// rather than showing an empty shell.
+function factChips(d){
+  const f = d.description_facts || {};
+  const rows = [];
+  const push = (label, obj) => {
+    const entries = Object.entries(obj || {});
+    if(entries.length) rows.push(`<div style="margin-top:10px">
+      <div class="k" style="font-size:11px;color:var(--muted);font-weight:700;
+           text-transform:uppercase;letter-spacing:.5px">${label}</div>
+      <div class="chips">${entries.map(([k,v]) =>
+        `<span class="chip"><b>${String(k).replace(/_/g,' ')}</b> ${v}</span>`).join('')}</div>
+    </div>`);
   };
-  es.onerror = () => { es.close(); log('Stream closed.', 'y'); reset(); };
+  push('Specifications', f.specs);
+  push('Condition', f.condition);
+  const extra = [];
+  if(f.sale_reason) extra.push(`<span class="chip"><b>reason</b> ${f.sale_reason}</span>`);
+  if(f.urgency) extra.push(`<span class="chip"><b>urgency</b> ${f.urgency}</span>`);
+  if(extra.length) rows.push(`<div style="margin-top:10px">
+      <div class="k" style="font-size:11px;color:var(--muted);font-weight:700;
+           text-transform:uppercase;letter-spacing:.5px">Signals</div>
+      <div class="chips">${extra.join('')}</div></div>`);
+  return rows.join('');
+}
 
-  function reset(){
-    btn.disabled = false;
-    const ico = $('#run-ico'); if(ico) ico.outerHTML = '<span id="run-ico">▶</span>';
-    $('#run-txt').textContent = 'Run today\'s update';
-  }
-};
+function qualityBlock(d){
+  const s = d.quality_score ?? 0;
+  const cls = s >= 70 ? '' : s >= 40 ? 'mid' : 'low';
+  const flags = (d.quality_flags || []).map(x =>
+    `<span class="chip warn">${x}</span>`).join('');
+  return `<div style="margin-top:10px">
+    <span class="qs ${cls}">Quality ${s}/100 <i><b style="width:${s}%"></b></i></span>
+    ${flags ? `<div class="chips">${flags}</div>` : ''}
+  </div>`;
+}
 
-drawSteps({});
-health(); loadStats(); loadListings(); loadRuns();
-
-// ------------------------------------------------------------- detail modal
 async function openDetail(id){
   const ovl = $('#ovl');
   $('#modal').innerHTML = '<div class="m-h"><h2>Loading...</h2></div>';
@@ -684,8 +761,12 @@ async function openDetail(id){
     + '<div class="m-sec"><h3>Photos - ' + stored.length + ' rehosted to our storage</h3>' + gallery + '</div>'
     + '<div class="m-sec"><h3>Description</h3><div class="m-desc">'
     + (d.description ? d.description.replace(/</g,'&lt;') : '<span class="seller-none">No description on this listing.</span>')
-    + '</div></div>' + history + '</div><div>'
+    + '</div></div>'
+    + (factChips(d) ? '<div class="m-sec"><h3>Extracted from the description</h3>'
+         + factChips(d) + '</div>' : '')
+    + history + '</div><div>'
     + '<div class="m-sec"><h3>Seller</h3>' + sellerBlock + '</div>'
+    + '<div class="m-sec"><h3>Quality</h3>' + qualityBlock(d) + '</div>'
     + '<div class="m-sec"><h3>Attributes</h3>' + attrBlock + '</div>'
     + '<div class="m-sec"><h3>Details</h3>'
     + '<div class="kv"><span class="k">Condition</span><span class="v">' + (d.condition||'').replace(/_/g,' ') + '</span></div>'
@@ -720,8 +801,8 @@ function applyGuards(){
     : guards.dbDown ? 'Database unavailable' : null;
   const blocked = reason !== null;
 
-  $('#run').disabled = blocked;
-  $('#run-txt').textContent = reason || "Run today's update";
+  const mrun = $('#m-run');
+  if(mrun) mrun.disabled = blocked || manualInFlight;
 
   const a = $('#a-start');
   if(a) a.disabled = blocked || a.dataset.running === '1';
@@ -945,7 +1026,135 @@ setInterval(() => {
   if(el && nextRunAt) el.textContent = fmtLeft(nextRunAt);
 }, 1000);
 
-setInterval(()=>{ if(!$('#run').disabled){ loadStats(); loadRuns(); } }, 15000);
+setInterval(()=>{ if($('#p-catalog').classList.contains('on')){ loadStats(); loadRuns(); } }, 15000);
+
+// ---------------------------------------------------------------- tabs ---
+document.querySelectorAll('.tab').forEach(btn => {
+  btn.onclick = () => {
+    document.querySelectorAll('.tab').forEach(b => b.classList.toggle('on', b === btn));
+    document.querySelectorAll('.panel').forEach(pn =>
+      pn.classList.toggle('on', pn.id === btn.dataset.panel));
+    if(btn.dataset.panel === 'p-catalog'){ loadStats(); loadListings(true); }
+    if(btn.dataset.panel === 'p-manual'){ loadManual(); }
+  };
+});
+
+// --------------------------------------------------- manual ingestion ---
+// Same two-phase shape as automation: start the Actor, then collect it on a
+// later request. The previous manual path waited inline and died against the
+// 60s ceiling without ever reporting why.
+let manualInFlight = false;
+
+function manualBody(){
+  const cat = $('#m-cat').value;
+  const num = id => { const v = parseInt($(id).value); return Number.isFinite(v) ? v : null; };
+  return {
+    query: $('#m-q').value || 'iphone',
+    category: cat || null,
+    location: $('#m-loc').value,
+    max_items: parseInt($('#m-n').value) || 8,
+    min_price: num('#m-min'),
+    max_price: num('#m-max'),
+    sort_by: $('#m-sort').value,
+    days_since_listed: $('#m-days').value,
+  };
+}
+
+function showBusy(message){
+  $('#busy-banner').innerHTML = message
+    ? `<div class="busy"><span class="spin-s"></span>${message}</div>` : '';
+}
+
+async function loadManual(){
+  let d;
+  try { d = await (await fetch('/api/manual')).json(); } catch { return; }
+
+  $('#m-dot').className = 'dot-live' + (d.running ? ' on' : '');
+  $('#m-state').textContent = d.running
+    ? `running · ${d.status || 'collecting when the actor finishes'}`
+    : (d.status || 'idle');
+  $('#m-run').disabled = d.running || manualInFlight;
+
+  // A lock held by the OTHER runner is the informative case: say who has it
+  // rather than letting the button fail silently.
+  const lock = d.lock || {};
+  showBusy(lock.locked && lock.holder !== 'manual'
+    ? `Ingestion busy — ${lock.holder} run in progress` : '');
+
+  const hist = d.history || [];
+  $('#m-ticks').innerHTML = hist.length
+    ? hist.map(x => `
+        <div class="tick ${x.error ? 'bad' : ''}">
+          <span class="cell">${x.city} / ${String(x.category).replace(/_/g,' ')}</span>
+          ${x.error
+            ? `<span class="num" style="color:var(--err)">${String(x.error).slice(0,60)}</span>`
+            : `<span class="num">${x.listings} listings · ${x.created} new · ${x.images} images · $${Number(x.cost_usd).toFixed(4)}</span>`}
+          <span class="when">${ago(x.at)}</span>
+        </div>`).join('')
+    : '<div class="tick"><span class="num">No manual runs yet.</span></div>';
+
+  // Drive the collect phase from here, the same way the automation tab does.
+  if(d.running && !manualInFlight) collectManual();
+}
+
+async function collectManual(){
+  if(manualInFlight) return;
+  manualInFlight = true;
+  try{
+    const r = await fetch('/api/ingest/collect', {
+      method:'POST', headers:{'X-Demo-Token': demoToken()}
+    });
+    const out = await r.json();
+    if(out.ran){
+      $('#m-result').innerHTML = `
+        <div class="inv"><span>✓</span><span>
+          <b>${out.listings} listings</b> · ${out.created} new · ${out.updated} updated ·
+          ${out.images_stored} images · ${out.skipped_duplicates} duplicate(s) skipped ·
+          ${out.quality_flagged} flagged · $${Number(out.cost_usd || 0).toFixed(4)}
+        </span></div>`;
+      loadStats(); loadListings(true); loadBudget();
+    } else if(out.error){
+      $('#m-result').innerHTML =
+        `<div class="inv bad"><span>✕</span><span>${out.error}</span></div>`;
+    }
+  } catch(e){
+    // Network blip: the run is still recorded server-side, so the next poll
+    // picks it up. Nothing to undo here.
+  } finally {
+    manualInFlight = false;
+    loadManual();
+  }
+}
+
+$('#m-run').onclick = async () => {
+  $('#m-run').disabled = true;
+  $('#m-result').innerHTML = '';
+  try{
+    const r = await fetch('/api/ingest', {
+      method:'POST',
+      headers:{'Content-Type':'application/json','X-Demo-Token': demoToken()},
+      body: JSON.stringify(manualBody()),
+    });
+    if(r.status === 409){
+      // The mutex, surfaced properly. Never a bare 500, never silence.
+      const body = await r.json();
+      showBusy(body.detail || 'Ingestion busy — run in progress');
+    } else if(r.status === 401){
+      sessionStorage.removeItem('demoToken');
+      alert('Demo token rejected.');
+    } else if(!r.ok){
+      const body = await r.json().catch(() => ({}));
+      $('#m-result').innerHTML =
+        `<div class="inv bad"><span>✕</span><span>${body.detail || 'could not start'}</span></div>`;
+    }
+  } finally { loadManual(); }
+};
+
+setInterval(() => {
+  if($('#p-manual').classList.contains('on')) loadManual();
+}, 5000);
+loadManual();
+
 </script>
 </body>
 </html>

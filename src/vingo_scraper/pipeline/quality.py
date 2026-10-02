@@ -81,18 +81,22 @@ def _looks_like_spam(text: str) -> bool:
     return any(p.search(text) for p in SPAM_PATTERNS)
 
 
-def assess(listing, *, photos_known: bool = True) -> QualityReport:
+def assess(listing, *, details_known: bool = True) -> QualityReport:
     """Score 0-100 from photo count, description richness, and attributes.
 
     Takes the parsed `Listing`, so it runs on the dataset before any image is
     downloaded.
 
-    `photos_known=False` when the run did not request listing details: the
-    Actor then returns only the primary image, so every listing looks like a
-    one-photo listing. Scoring that as low effort measures OUR cost setting
-    rather than the seller's -- it flagged 24 of 24 on the first real VM run.
-    Photos leave the score entirely in that case, and the result is rescaled
-    over what was actually observable so runs stay comparable.
+    `details_known=False` when the run did not request listing details. The
+    Actor then returns only the primary image AND no description at all --
+    measured on a real VM run: 1 photo and 0 description characters on all 24
+    listings. Judging either one is measuring OUR cost setting rather than the
+    seller's effort, so both leave the score entirely and what remains is
+    rescaled over what was actually observable, keeping runs comparable.
+
+    A details-off run therefore scores on price sanity and attributes only.
+    That is thin on purpose: it is a discovery run, and it cannot satisfy the
+    spec, which requires description and all photos.
     """
     rep = QualityReport()
     photos = len(getattr(listing, "images", []) or [])
@@ -104,7 +108,7 @@ def assess(listing, *, photos_known: bool = True) -> QualityReport:
     possible = 0
 
     # --- photos: 40 points, the strongest single signal of effort ---------
-    if photos_known:
+    if details_known:
         possible += 40
         if photos >= 5:
             earned += 40
@@ -117,22 +121,26 @@ def assess(listing, *, photos_known: bool = True) -> QualityReport:
             rep.passed = False
 
     # --- description: 35 points -------------------------------------------
-    possible += 35
-    if len(description) < MIN_DESCRIPTION_CHARS:
-        rep.reasons.append(
-            f"description {len(description)} chars, want >= {MIN_DESCRIPTION_CHARS}"
-        )
-        rep.passed = False
-    elif _looks_like_spam(description):
-        rep.reasons.append("description matches a spam pattern")
-        rep.passed = False
-        earned += 5
-    else:
-        earned += 15
-        if len(description) >= 60:
-            earned += 10
-        if len(description) >= 160:
-            earned += 10
+    # Only fetched with details. Without them it is empty for every listing,
+    # so judging it would flag the entire run for a field we did not buy.
+    if details_known:
+        possible += 35
+        if len(description) < MIN_DESCRIPTION_CHARS:
+            rep.reasons.append(
+                f"description {len(description)} chars, "
+                f"want >= {MIN_DESCRIPTION_CHARS}"
+            )
+            rep.passed = False
+        elif _looks_like_spam(description):
+            rep.reasons.append("description matches a spam pattern")
+            rep.passed = False
+            earned += 5
+        else:
+            earned += 15
+            if len(description) >= 60:
+                earned += 10
+            if len(description) >= 160:
+                earned += 10
 
     # --- price sanity: 15 points ------------------------------------------
     possible += 15
@@ -158,7 +166,7 @@ def assess(listing, *, photos_known: bool = True) -> QualityReport:
     return rep
 
 
-def assess_all(listings, *, photos_known: bool = True) -> tuple[list, dict]:
+def assess_all(listings, *, details_known: bool = True) -> tuple[list, dict]:
     """Attach a report to every listing; return (listings, summary).
 
     Nothing is dropped here -- see the module docstring. The summary is what
@@ -166,7 +174,7 @@ def assess_all(listings, *, photos_known: bool = True) -> tuple[list, dict]:
     """
     flagged = 0
     for item in listings:
-        report = assess(item, photos_known=photos_known)
+        report = assess(item, details_known=details_known)
         # Carried on the parsed object so `_persist` can write it without
         # re-deriving, and so the console can show why something was flagged.
         item.quality = report

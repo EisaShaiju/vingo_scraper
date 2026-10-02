@@ -786,7 +786,7 @@ def test_22_a_real_listing_survives_the_whole_pre_persist_pipeline():
     assert len(items) == 2
 
 
-def test_23_photo_gate_is_skipped_when_photos_were_not_requested():
+def test_23_photo_and_description_gates_skip_when_details_not_requested():
     """The gate flagged 24 of 24 on the first real VM run.
 
     Not 24 bad listings -- `include_details: false` makes the Actor return only
@@ -799,11 +799,14 @@ def test_23_photo_gate_is_skipped_when_photos_were_not_requested():
     one_photo = _real_listing()
     one_photo.images = one_photo.images[:1]
 
-    cheap = assess(one_photo, photos_known=False)
-    full = assess(one_photo, photos_known=True)
+    cheap = assess(one_photo, details_known=False)
+    full = assess(one_photo, details_known=True)
 
     assert cheap.passed is True
     assert not any("photo" in r for r in cheap.reasons)
+    # The description is empty for the same reason and must not be judged
+    # either -- that was the half of the bug the first fix missed.
+    assert not any("description" in r for r in cheap.reasons)
     assert full.passed is False
     assert any("photo" in r for r in full.reasons)
     # Rescaled, so a cheap run stays comparable with a detailed one.
@@ -825,26 +828,26 @@ def test_24_score_stays_on_a_0_100_scale_either_way():
         ),
         attributes={"brand": "Apple", "model": "13", "storage": "128GB"},
     )
-    for photos_known in (True, False):
-        rep = assess(rich, photos_known=photos_known)
+    for details_known in (True, False):
+        rep = assess(rich, details_known=details_known)
         assert 0 <= rep.score <= 100
 
     # A strong listing scores high whichever signals were observable, and the
     # two stay within a few points of each other. That closeness IS the point
     # of rescaling: a cheap run and a detailed one have to remain comparable,
     # which they were not before -- photos-off capped every listing at 60.
-    cheap = assess(rich, photos_known=False).score
-    full = assess(rich, photos_known=True).score
+    cheap = assess(rich, details_known=False).score
+    full = assess(rich, details_known=True).score
     assert cheap >= 90 and full >= 90
     assert abs(cheap - full) <= 10
 
 
 def test_25_runner_tells_the_gate_what_the_actor_was_asked_for():
-    """The wiring, not just the gate: a cheap run must set photos_known=False."""
+    """The wiring, not just the gate: a cheap run must set details_known=False."""
     import inspect
 
     from vingo_scraper.apify import runner
 
     src = inspect.getsource(runner.ingest_collected)
     assert "getListingDetails" in src
-    assert "photos_known=photos_known" in src
+    assert "details_known=details_known" in src

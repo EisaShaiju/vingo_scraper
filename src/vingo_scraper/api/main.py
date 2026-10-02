@@ -59,9 +59,11 @@ class DemoStartRequest(BaseModel):
 class AutomationRequest(BaseModel):
     interval_s: int = 180
     per_cell: int = 10
-    # Defaults off. Details double the per-listing charge, so the expensive
-    # option should be the one you have to ask for.
-    include_details: bool = False
+    # Defaults ON. Measured on the VM: without details the Actor returns no
+    # description at all and a single photo, and the spec requires both. The
+    # cheap run costs $0.0005/listing against $0.0015, but it cannot produce
+    # the deliverable -- so the saving is not a saving.
+    include_details: bool = True
     # 5 = one full sweep of the Bengaluru category grid.
     runs: int = 5
     city: str | None = None
@@ -79,7 +81,9 @@ class IngestRequest(BaseModel):
     # Optional category; when set it supplies the search term, so the manual
     # panel and the automation grid can run the identical query.
     category: str | None = None
-    include_details: bool = False
+    # ON for the same reason as automation: no description and one photo
+    # without it, and the spec asks for both.
+    include_details: bool = True
     # Marketplace filters. Validated against the Actor's real schema in
     # `client.merge_filters` -- unknown keys are dropped rather than sent,
     # because Apify fails the whole run on an unrecognised input field.

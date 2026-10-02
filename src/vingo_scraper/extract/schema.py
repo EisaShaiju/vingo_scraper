@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import enum
 from datetime import datetime
+from typing import Any
 from urllib.parse import urlparse
 
 from pydantic import BaseModel, Field, field_validator
@@ -178,6 +179,18 @@ class Listing(BaseModel):
     extraction_method: ExtractionMethod
     scraped_at: datetime | None = None
     review_status: ReviewStatus = ReviewStatus.PENDING_REVIEW
+
+    # --- attached downstream, before persistence ------------------------
+    # Pydantic rejects assignment of undeclared attributes, so these must be
+    # declared here even though nothing sets them during parsing. They are
+    # filled in by `extract.description.extract_all` and
+    # `pipeline.quality.assess_all`, which run between parse and rehost.
+    #
+    # Typed loosely on purpose: declaring the concrete dataclasses would make
+    # this module import the pipeline, and the parser has no business knowing
+    # anything about scoring.
+    description_facts: Any | None = None
+    quality: Any | None = None
 
     @field_validator("title")
     @classmethod

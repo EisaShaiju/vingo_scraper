@@ -3,6 +3,11 @@ Description=Comet ingestion console and API
 After=network-online.target postgresql.service
 Wants=network-online.target
 Requires=postgresql.service
+# StartLimit* belong to [Unit], not [Service]. systemd logs
+# "Unknown key ... ignoring" and silently drops them otherwise, which means
+# a crash loop restarts forever instead of giving up visibly.
+StartLimitBurst=5
+StartLimitIntervalSec=600
 
 [Service]
 Type=exec
@@ -25,12 +30,11 @@ ExecStart=/opt/comet/.venv/bin/uvicorn vingo_scraper.api.main:app \
 # obvious rather than merely safe, and this is not a throughput problem --
 # it spends most of its life waiting on Apify.
 
+# A crash loop should be loud, not silent: the StartLimit settings in [Unit]
+# give up after 5 failures in 10 minutes, so `systemctl status` shows a dead
+# unit rather than hiding the problem behind an endless restart.
 Restart=on-failure
 RestartSec=5
-# A crash loop should be loud, not silent: give up after 5 failures in 10
-# minutes so systemctl status shows a dead unit instead of hiding it.
-StartLimitBurst=5
-StartLimitIntervalSec=600
 
 # Hardening. The app needs the network, its venv, and nothing else.
 NoNewPrivileges=true

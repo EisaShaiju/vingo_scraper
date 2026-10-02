@@ -720,3 +720,67 @@ def test_pooled_engine_keeps_both_workarounds():
 
     engine = build_engine("postgresql+psycopg://u:p@host:6543/postgres")
     assert isinstance(engine.pool, NullPool)
+
+
+# --------------------------------------------------------------------------
+# the pipeline must run against the REAL schema, not a stand-in
+# --------------------------------------------------------------------------
+
+def _real_listing(**kw):
+    from vingo_scraper.extract.schema import ExtractionMethod, Listing, ListingImage
+
+    base = dict(
+        fb_listing_id="1", listing_url="https://fb.com/marketplace/item/1",
+        title="iPhone 13 128GB Midnight",
+        description="128gb, no scratches, box included. Shifting to Dubai.",
+        price_minor=4_500_000,
+        images=[ListingImage(source_url=f"https://x/{i}.jpg") for i in range(3)],
+        extraction_method=ExtractionMethod.APIFY,
+    )
+    base.update(kw)
+    return Listing(**base)
+
+
+def test_21_extract_and_quality_attach_to_a_real_pydantic_listing():
+    """The gap that reached production.
+
+    Pydantic rejects assignment of undeclared attributes, so
+    `item.description_facts = ...` raised `ValueError: "Listing" object has no
+    field "description_facts"` on the first live run -- after Apify had been
+    charged. Every test here used plain stand-in objects, which accept any
+    attribute, so none of them could ever have caught it.
+    """
+    from vingo_scraper.extract.description import extract_all
+    from vingo_scraper.pipeline.quality import assess_all
+
+    listings = [_real_listing()]
+    extract_all(listings)
+    listings, summary = assess_all(listings)
+
+    item = listings[0]
+    assert item.description_facts.specs["storage"] == "128 GB"
+    assert item.description_facts.condition_notes["scratches"] == "none"
+    assert item.quality.score > 0
+    assert summary["assessed"] == 1
+
+
+def test_22_a_real_listing_survives_the_whole_pre_persist_pipeline():
+    """Parse -> extract -> assess, in the order `ingest_collected` runs them."""
+    from vingo_scraper.extract.description import extract_all
+    from vingo_scraper.pipeline.quality import assess_all
+
+    good = _real_listing()
+    thin = _real_listing(fb_listing_id="2", description="x", images=[],
+                         price_minor=100)
+
+    items = [good, thin]
+    extract_all(items)
+    items, summary = assess_all(items)
+
+    assert good.quality.passed is True
+    # Thin listing: too few photos, description under 15 chars, Rs 1 price.
+    assert thin.quality.passed is False
+    assert len(thin.quality.reasons) == 3
+    assert summary["flagged"] == 1
+    # Flagged, never dropped -- the reject rate has to stay measurable.
+    assert len(items) == 2

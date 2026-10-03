@@ -173,6 +173,12 @@ async def ingest_collected(
         if (run.run_input or {}).get("onlyNewListings"):
             result.error = None
             result.all_cached = True
+        # Record the run even with nothing to show for it. `scrape_run` is the
+        # audit trail, and "we searched and Marketplace had none" is exactly
+        # the result worth being able to look up later -- it is also what the
+        # console's history reads, so without this an empty run leaves the
+        # operator wondering whether anything happened at all.
+        await _persist(result, run, trigger=trigger)
         return result
 
     # 1. Structured facts out of freeform description text.

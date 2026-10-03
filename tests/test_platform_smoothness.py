@@ -900,3 +900,31 @@ def test_29_legacy_actor_never_sees_the_cache_keys():
         "iphone", "bangalore", 8, actor_id="apify/facebook-marketplace-scraper"
     )
     assert "cacheStorageId" not in payload
+
+
+@pytest.mark.anyio
+async def test_30_a_run_with_no_listings_still_writes_an_audit_row(monkeypatch):
+    """"Searched, found nothing" is a result worth looking up later.
+
+    It is also what the console's run history reads, so skipping the row left
+    an empty run invisible -- the operator sees only the previous run and
+    reasonably concludes nothing happened.
+    """
+    from vingo_scraper.apify import runner
+    from vingo_scraper.apify.client import ActorRun
+
+    persisted = []
+
+    async def fake_persist(result, run, *, trigger="manual"):
+        persisted.append(trigger)
+        return 0, 0
+
+    monkeypatch.setattr(runner, "_persist", fake_persist)
+    monkeypatch.setattr(runner, "parse_payloads", lambda *a, **k: [])
+
+    run = ActorRun(run_id="r1", actor_id="a", status="SUCCEEDED",
+                   run_input={"onlyNewListings": True}, cost_usd=0.00005)
+    result = await runner.ingest_collected(run, location="bangalore", trigger="manual")
+
+    assert result.all_cached is True
+    assert persisted == ["manual"]

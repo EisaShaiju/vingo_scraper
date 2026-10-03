@@ -125,8 +125,8 @@ async def stats() -> dict:
             "pending_review": 0, "cost_usd": 0.0, "fbcdn_leaks": 0,
             "last_run_at": None, "db_available": False,
             "db_error": _friendly_db_error(exc),
-            "supabase_project": settings.supabase_url.replace("https://", "").split(".")[0],
-            "bucket": settings.storage_bucket,
+            "supabase_project": "comet (local)",
+            "bucket": settings.gcs_bucket,
         }
 
 
@@ -134,7 +134,7 @@ def _friendly_db_error(exc: Exception) -> str:
     """Turn a psycopg wall-of-text into something actionable."""
     msg = str(exc)
     if "getaddrinfo failed" in msg or "ENOTFOUND" in msg or "not found" in msg:
-        return "Supabase project unreachable - check VINGO_DATABASE_URL in .env"
+        return "Postgres unreachable - check VINGO_DATABASE_URL in /etc/comet.env"
     if "password authentication" in msg:
         return "Database password rejected"
     if "prepared statement" in msg:
@@ -177,8 +177,8 @@ async def _stats() -> dict:
         "cost_usd": round(cost or 0.0, 4),
         "fbcdn_leaks": leaked or 0,
         "last_run_at": last.started_at.isoformat() if last else None,
-        "supabase_project": settings.supabase_url.replace("https://", "").split(".")[0],
-        "bucket": settings.storage_bucket,
+        "supabase_project": "comet (local)",
+        "bucket": settings.gcs_bucket,
         "db_available": True,
         "db_error": None,
     }

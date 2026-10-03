@@ -289,7 +289,7 @@
     <div class="logo">vingo<span>.</span></div>
     <div class="tag">Marketplace Ingestion Console</div>
     <div class="right">
-      <span class="pill" id="p-src">Apify → Supabase</span>
+      <span class="pill" id="p-src">Apify → GCS + Postgres</span>
       <span class="pill" id="p-health">checking…</span>
     </div>
   </div>
@@ -451,7 +451,7 @@
 
       <div class="card">
         <div class="card-h">
-          <h2>Listings in Supabase</h2>
+          <h2>Listings</h2>
           <span class="n" id="tbl-n"></span>
         </div>
         <div class="tbl-wrap">
@@ -469,7 +469,7 @@
 
     <div style="display:flex;flex-direction:column;gap:20px">
       <div class="card">
-        <div class="card-h"><h2>Supabase</h2><span class="n" id="sb-proj"></span></div>
+        <div class="card-h"><h2>Storage &amp; database</h2><span class="n" id="sb-proj"></span></div>
         <div class="sb" id="sb"></div>
       </div>
       <div class="card">
@@ -480,7 +480,7 @@
   </div>
 
   <footer>
-    Images are downloaded from Facebook's expiring CDN and rehosted to Supabase
+    Images are downloaded from Facebook's expiring CDN and rehosted to our own GCS bucket
     Storage · listings land <strong>pending review</strong> and are never
     auto-published
   </footer>
@@ -504,7 +504,7 @@ const ago = iso => {
 const STEPS = [
   ['apify',   'Apify actor run'],
   ['parse',   'Parse listings'],
-  ['rehost',  'Rehost images → Supabase'],
+  ['rehost',  'Rehost images → GCS'],
   ['persist', 'Upsert into Postgres'],
 ];
 
@@ -563,9 +563,9 @@ async function loadStats(){
   guards.dbDown = s.db_available === false;
   applyGuards();
 
-  $('#sb-proj').textContent = s.supabase_project;
+  
   $('#sb').innerHTML = `
-    <div class="sb-row"><span class="k">Project</span><span class="v">${s.supabase_project}</span></div>
+    <div class="sb-row"><span class="k">Database</span><span class="v">comet (local)</span></div>
     <div class="sb-row"><span class="k">Bucket</span><span class="v">${s.bucket}</span></div>
     <div class="sb-row"><span class="k">listing rows</span><span class="v">${s.listings}</span></div>
     <div class="sb-row"><span class="k">listing_image rows</span><span class="v">${s.images}</span></div>

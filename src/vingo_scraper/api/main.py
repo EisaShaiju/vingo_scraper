@@ -449,6 +449,7 @@ async def collect_ingest(
             "skipped_duplicates": result.skipped_duplicates,
             "quality_flagged": result.quality_flagged,
             "cost_usd": result.cost_usd,
+            "all_cached": result.all_cached,
             "error": result.error,
         }
     except Exception as exc:

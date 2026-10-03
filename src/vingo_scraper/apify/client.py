@@ -155,6 +155,13 @@ def build_run_input(
             "getListingDetails": include_details,
             "getAllListingPhotos": True,
         }
+        # Actor-side dedup. Without it a re-run re-scrapes and re-bills every
+        # listing we already hold; our database check only avoids the image
+        # work. Both keys are in the live build schema.
+        if settings.apify_cache_store_id:
+            payload["onlyNewListings"] = True
+            payload["cacheStorageId"] = settings.apify_cache_store_id
+
         payload.update(merge_filters(filters))
         return payload
 

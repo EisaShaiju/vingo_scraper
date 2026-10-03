@@ -866,3 +866,37 @@ def test_26_seller_id_column_fits_a_real_pfbid():
     assert len(real) > 64
     column = models.Seller.__table__.c.fb_seller_id
     assert column.type.length >= len(real)
+
+
+def test_27_actor_side_cache_keys_are_sent():
+    """The only mechanism that avoids re-billing.
+
+    Our fb_listing_id check runs after the money is spent -- Apify charges
+    when it scrapes, before any id reaches us. A repeat query with the cache
+    off cost $0.01205 and returned 24 listings we already held.
+    """
+    from vingo_scraper.apify.client import CURIOUS_CODER, build_run_input
+    from vingo_scraper.config import settings
+
+    payload = build_run_input("iphone", "bangalore", 8, actor_id=CURIOUS_CODER)
+    assert payload["onlyNewListings"] is True
+    assert payload["cacheStorageId"] == settings.apify_cache_store_id
+
+
+def test_28_empty_cache_id_forces_a_full_rescrape(monkeypatch):
+    """A demo needs listings arriving, not a correct but empty run."""
+    from vingo_scraper.apify.client import CURIOUS_CODER, build_run_input
+
+    monkeypatch.setattr("vingo_scraper.config.settings.apify_cache_store_id", "")
+    payload = build_run_input("iphone", "bangalore", 8, actor_id=CURIOUS_CODER)
+    assert "onlyNewListings" not in payload
+    assert "cacheStorageId" not in payload
+
+
+def test_29_legacy_actor_never_sees_the_cache_keys():
+    from vingo_scraper.apify.client import build_run_input
+
+    payload = build_run_input(
+        "iphone", "bangalore", 8, actor_id="apify/facebook-marketplace-scraper"
+    )
+    assert "cacheStorageId" not in payload

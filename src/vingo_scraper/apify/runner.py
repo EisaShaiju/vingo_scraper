@@ -35,6 +35,9 @@ class IngestResult:
     # Listings already in the database, skipped before any image was fetched.
     skipped_duplicates: int = 0
     quality_flagged: int = 0
+    # True when the Actor returned nothing because everything was already in
+    # its cache -- a successful no-op, not an empty search.
+    all_cached: bool = False
 
     def summary(self) -> str:
         lines = [
@@ -163,6 +166,13 @@ async def ingest_collected(
     log.info("ingest.parsed", items=result.items_returned,
              listings=len(result.listings))
     if not result.listings:
+        # Zero listings from a cached run means "nothing new since last time",
+        # which is the cache working. Zero from an uncached run means the
+        # search genuinely found nothing. Collapsing the two makes every
+        # correct re-run look like a failure.
+        if (run.run_input or {}).get("onlyNewListings"):
+            result.error = None
+            result.all_cached = True
         return result
 
     # 1. Structured facts out of freeform description text.

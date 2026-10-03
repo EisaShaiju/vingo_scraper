@@ -45,6 +45,19 @@ class Settings(BaseSettings):
     # timeout -- the VM, or Vercel Pro's 300s -- and each tick keeps roughly
     # three times the listings at identical cost.
     apify_accept_full_page: bool = False
+
+    # Actor-side dedup. The Actor keeps a key-value store of listing ids it
+    # has already returned and skips them on the next run -- which is the ONLY
+    # mechanism that avoids the CHARGE. Our own `fb_listing_id` check runs
+    # after the money is spent (Apify bills when it scrapes, before any id
+    # reaches us), so it saves image bandwidth and never saved a cent.
+    #
+    # Measured: a repeat query with this off cost $0.01205 and returned 24
+    # listings we already held.
+    #
+    # Set to "" to force a full re-scrape -- useful for a demo that needs to
+    # show listings arriving rather than a correct but empty run.
+    apify_cache_store_id: str = "comet-seen-listings"
     # Ceiling on TOTAL Apify spend per UTC day, checked against actual
     # recorded spend in `scrape_run` before each cell. This is the guard
     # that makes unattended scheduling safe on a per-result-billed API.

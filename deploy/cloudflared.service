@@ -1,0 +1,23 @@
+[Unit]
+Description=Cloudflare Tunnel for the Comet console
+After=network-online.target caddy.service
+Wants=network-online.target
+
+[Service]
+Type=notify
+# Points at Caddy (8080), NOT uvicorn (8000). Caddy holds the password, so
+# the tunnel cannot publish the console unauthenticated even by mistake.
+ExecStart=/usr/bin/cloudflared tunnel --no-autoupdate --url http://127.0.0.1:8080
+Restart=on-failure
+RestartSec=5
+User=root
+
+# A quick tunnel mints a NEW random hostname every start, so the URL changes
+# after any restart or reboot. For a stable address, create a named tunnel
+# against a Cloudflare account and swap the ExecStart line.
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=cloudflared
+
+[Install]
+WantedBy=multi-user.target

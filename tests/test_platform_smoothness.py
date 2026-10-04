@@ -26,13 +26,14 @@ from fastapi.testclient import TestClient
 
 from vingo_scraper.api.main import app
 from vingo_scraper.apify.budget import BudgetStatus
+from vingo_scraper.config import AUTOMATION_CATEGORIES
 from vingo_scraper.db.config_store import DemoState
 
 SECRET = "test-secret-token"
 AUTH = {"X-Demo-Token": SECRET}
-CATEGORIES_IN_ORDER = [
-    "mobile_phones", "electronics", "furniture", "vehicles", "appliances",
-]
+# The automated sweep walks this subset, not every Marketplace category: a
+# sweep over all 18 costs 3.5x one over 5, for categories nobody asked for.
+CATEGORIES_IN_ORDER = list(AUTOMATION_CATEGORIES)
 
 
 # --------------------------------------------------------------------------
@@ -233,14 +234,15 @@ def client(monkeypatch, h) -> TestClient:
 
     # ---- Apify -----------------------------------------------------------
     async def start_run(query, location, max_items, *, include_details=False,
-                        filters=None, **kw):
+                        filters=None, category=None, **kw):
         from vingo_scraper.apify.client import ActorRun, build_run_input
         run_input = build_run_input(
-            query, location, max_items,
+            query, location, max_items, category=category,
             include_details=include_details, filters=filters,
         )
         rec = {"query": query, "location": location, "max_items": max_items,
-               "filters": filters or {}, "run_input": run_input}
+               "category": category, "filters": filters or {},
+               "run_input": run_input}
         h.started.append(rec)
         return ActorRun(run_id=f"run-{len(h.started)}", actor_id="test/actor",
                         status="RUNNING", run_input=run_input)
@@ -253,7 +255,7 @@ def client(monkeypatch, h) -> TestClient:
         return ActorRun(run_id=run_id, actor_id="test/actor", status="SUCCEEDED",
                         run_input=run_input or {}, cost_usd=0.0115)
 
-    async def ingest_collected(run, *, location, trigger="automation"):
+    async def ingest_collected(run, *, location, trigger="automation", max_age_hours=None):
         if h.ingest_raises:
             raise h.ingest_raises
         from vingo_scraper.apify.runner import IngestResult
@@ -372,14 +374,14 @@ def test_06_round_robin_walks_all_five_categories_in_order(client, h):
 
 def test_07_cursor_wraps_back_to_the_first_category(client, h):
     """A sixth run returns to category 1 rather than running off the end."""
-    arm(h, runs=2, cursor=4)                 # start on appliances
+    arm(h, runs=2, cursor=4)                 # start on the LAST category
 
     client.post("/api/automation/tick", headers=AUTH)
-    assert h.pending[1].endswith("appliances")
+    assert h.pending[1].endswith(CATEGORIES_IN_ORDER[-1])
     client.post("/api/automation/tick", headers=AUTH)
 
     client.post("/api/automation/tick", headers=AUTH)
-    assert h.pending[1].endswith("mobile_phones")
+    assert h.pending[1].endswith(CATEGORIES_IN_ORDER[0])
 
 
 # ==========================================================================
@@ -422,7 +424,9 @@ def test_10_automated_filters_reach_the_actor_and_default_to_newest(client, h):
     sent = h.started[0]["run_input"]
     assert sent["minPrice"] == 1000
     assert sent["sortBy"] == "creation_time_descend"
-    assert sent["daysSinceListed"] == "7"
+    # Automation pins 24 hours: a daily sweep asking for 7 days re-sees six
+    # days of listings it already holds, every single run.
+    assert sent["daysSinceListed"] == "1"
 
 
 # ==========================================================================
@@ -775,15 +779,17 @@ def test_22_a_real_listing_survives_the_whole_pre_persist_pipeline():
 
     items = [good, thin]
     extract_all(items)
-    items, summary = assess_all(items)
+    kept, summary = assess_all(items)
 
     assert good.quality.passed is True
-    # Thin listing: too few photos, description under 15 chars, Rs 1 price.
-    assert thin.quality.passed is False
-    assert len(thin.quality.reasons) == 3
-    assert summary["flagged"] == 1
-    # Flagged, never dropped -- the reject rate has to stay measurable.
-    assert len(items) == 2
+    # Thin listing: no photos and a Rs 1 placeholder price. Both are hard
+    # rejections, so it never reaches rehosting and costs nothing to store.
+    assert thin.quality.hard_reject is True
+    assert summary["rejected"] == 1
+    assert [x.fb_listing_id for x in kept] == [good.fb_listing_id]
+    # The count survives even though the row does not -- otherwise a threshold
+    # that is silently wrong would never show up.
+    assert summary["rejected_reasons"]
 
 
 def test_23_photo_and_description_gates_skip_when_details_not_requested():

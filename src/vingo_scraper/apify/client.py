@@ -18,12 +18,21 @@ import structlog
 from apify_client import ApifyClientAsync
 
 from vingo_scraper.apify.urls import category_url, search_url, to_start_urls
-from vingo_scraper.config import settings
+from vingo_scraper.config import CATEGORIES, settings
 
 log = structlog.get_logger(__name__)
 
 # Apify reports these as terminal states.
 _SUCCESS = "SUCCEEDED"
+
+
+class EmptySearchError(ValueError):
+    """Neither a category nor a keyword was given.
+
+    Refused rather than defaulted: browsing a whole city with no narrowing is
+    an unbounded request on a per-result-billed API, and "I forgot to type
+    anything" should not cost a page.
+    """
 
 
 class ApifyRunError(RuntimeError):
@@ -100,6 +109,20 @@ DEFAULT_FILTERS: dict[str, object] = {
     "daysSinceListed": "7",
 }
 
+# The Actor accepts only these. There is NO hourly option -- the finest
+# Facebook itself offers is one day, so anything tighter has to be applied
+# after the fetch, which narrows what we KEEP rather than what we PAY FOR.
+DAYS_SINCE_LISTED_CHOICES = ("", "1", "7", "30")
+
+# What the unattended sweep uses. A daily cadence that asked for 7 days would
+# re-see six days of listings it already holds on every single run; the Actor
+# cache suppresses the charge, but asking for the right window is cheaper and
+# clearer than relying on the cache to undo a bad request.
+AUTOMATION_FILTERS: dict[str, object] = {
+    "sortBy": SORT_NEWEST,
+    "daysSinceListed": "1",
+}
+
 
 def merge_filters(overrides: dict | None = None) -> dict:
     """Defaults plus caller overrides, dropping anything the Actor rejects.
@@ -142,19 +165,34 @@ def build_run_input(
     """
     actor_id = actor_id or settings.apify_actor_id
 
+    if not (search_query or category):
+        raise EmptySearchError(
+            "give a category or a keyword -- an unnarrowed browse is unbounded"
+        )
+
     if actor_id.startswith(CURIOUS_CODER):
         # Volume is controlled by PAGES here, not items. Using Apify's
         # `max_items` instead would truncate the dataset while the Actor kept
         # scraping and billing -- measured once at 24 charged for 3 returned.
         pages = max(1, min((max_items + 24) // 25, 3))
-        payload = {
-            "searchKeyword": search_query or category or "",
+        payload: dict[str, Any] = {
             "location": location,
             "maxPagesPerUrl": pages,
             # Spec requires description and ALL photos.
             "getListingDetails": include_details,
             "getAllListingPhotos": True,
         }
+
+        # A category is a Marketplace URL, not a parameter -- the Actor has no
+        # `categoryIds` input. Browsing the real category path returns what a
+        # human sees in Facebook's own sidebar, which a keyword search does
+        # not: "electronics" as a search term matches listing TEXT, while
+        # /marketplace/bangalore/electronics matches the category itself.
+        if category:
+            slug = CATEGORIES.get(category, {}).get("slug", category)
+            payload["urls"] = to_start_urls([category_url(location, slug)])
+        else:
+            payload["searchKeyword"] = search_query
         # Actor-side dedup. Without it a re-run re-scrapes and re-bills every
         # listing we already hold; our database check only avoids the image
         # work. Both keys are in the live build schema.
@@ -340,6 +378,9 @@ async def start_run(
         category=category, include_details=include_details, filters=filters,
     )
     client = client or ApifyClientAsync(token=settings.apify_api_token)
+    # Private bookkeeping keys never reach Apify -- one unknown field fails
+    # the run outright, after it has already charged.
+    run_input = {k: v for k, v in run_input.items() if not k.startswith("_")}
 
     log.info("apify.run.start_async", actor=actor_id, location=location,
              query=search_query or category, limit=max_items)

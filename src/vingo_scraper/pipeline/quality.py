@@ -4,11 +4,17 @@ Runs **before** rehosting, which is the whole point: a listing rejected here
 costs no bandwidth, no storage, and no Supabase/GCS write. Rehosting is the
 expensive step, so the cheap check goes first.
 
-Design decision: this **flags, it does not discard**. Rows land with a
-`quality_score` and stay `pending_review`, matching the invariant that nothing
-auto-publishes. Discarding would make the rejects unmeasurable -- and the
-rejection rate is exactly the number that tells us whether the thresholds are
-right. `is_servable` already gates what a buyer could ever see.
+Two tiers, and the distinction is the whole design:
+
+* **Hard rejections** are dropped before rehosting, so they cost no bandwidth
+  and no storage. Fewer than two photos, a placeholder price, or spam text.
+* **Soft signals** only move `quality_score`. A missing description is the
+  main one: the business answer to "no description" is to contact the seller,
+  not to throw the listing away.
+
+Discarding makes the reject rate invisible, which is how a wrong threshold
+survives unnoticed. `assess_all` therefore returns a tally of what it dropped
+and why, and `scrape_run` stores it -- we keep the number without the rows.
 """
 
 from __future__ import annotations
@@ -22,7 +28,13 @@ log = structlog.get_logger(__name__)
 
 # --- thresholds, all deliberately conservative -----------------------------
 
+# Hard floor. A single-photo listing is the clearest signal of a low-effort
+# post, and the spec asks for photos.
 MIN_PHOTOS = 2
+
+# NOT a rejection. Scores lower without one, but a listing with no description
+# is a listing whose seller we contact -- that is the business process, so
+# dropping it here would destroy the lead.
 MIN_DESCRIPTION_CHARS = 15
 
 # Placeholder prices. These are not cheap listings, they are listings where the
@@ -58,9 +70,13 @@ class QualityReport:
     score: int = 0
     passed: bool = True
     reasons: list[str] = field(default_factory=list)
+    # Drop it before rehosting rather than storing it flagged. Only the hard
+    # rules set this; a thin description does not.
+    hard_reject: bool = False
 
     def to_dict(self) -> dict:
-        return {"score": self.score, "passed": self.passed, "reasons": self.reasons}
+        return {"score": self.score, "passed": self.passed,
+                "reasons": self.reasons, "hard_reject": self.hard_reject}
 
 
 def _price_is_placeholder(price_minor: int | None) -> bool:
@@ -119,6 +135,7 @@ def assess(listing, *, details_known: bool = True) -> QualityReport:
         else:
             rep.reasons.append(f"only {photos} photo(s), want >= {MIN_PHOTOS}")
             rep.passed = False
+            rep.hard_reject = True
 
     # --- description: 35 points -------------------------------------------
     # Only fetched with details. Without them it is empty for every listing,
@@ -126,14 +143,13 @@ def assess(listing, *, details_known: bool = True) -> QualityReport:
     if details_known:
         possible += 35
         if len(description) < MIN_DESCRIPTION_CHARS:
-            rep.reasons.append(
-                f"description {len(description)} chars, "
-                f"want >= {MIN_DESCRIPTION_CHARS}"
-            )
-            rep.passed = False
+            # Scored down, never rejected. No description means the seller
+            # gets contacted, which is the point of collecting the listing.
+            rep.reasons.append(f"short description ({len(description)} chars)")
         elif _looks_like_spam(description):
             rep.reasons.append("description matches a spam pattern")
             rep.passed = False
+            rep.hard_reject = True
             earned += 5
         else:
             earned += 15
@@ -147,6 +163,7 @@ def assess(listing, *, details_known: bool = True) -> QualityReport:
     if _price_is_placeholder(price_minor):
         rep.reasons.append(f"placeholder price ({(price_minor or 0) // 100})")
         rep.passed = False
+        rep.hard_reject = True
     elif price_minor is None:
         rep.reasons.append("no price could be read")
     else:
@@ -172,20 +189,33 @@ def assess_all(listings, *, details_known: bool = True) -> tuple[list, dict]:
     Nothing is dropped here -- see the module docstring. The summary is what
     makes the thresholds reviewable rather than a guess frozen in code.
     """
-    flagged = 0
+    kept, rejected = [], []
+    tally: dict[str, int] = {}
     for item in listings:
         report = assess(item, details_known=details_known)
         # Carried on the parsed object so `_persist` can write it without
-        # re-deriving, and so the console can show why something was flagged.
+        # re-deriving, and so the console can show why something scored low.
         item.quality = report
-        flagged += not report.passed
+        if report.hard_reject:
+            rejected.append(item)
+            for reason in report.reasons:
+                # Tally the shape, not the instance: "only 1 photo(s)" and
+                # "only 0 photo(s)" are the same problem.
+                key = reason.split("(")[0].strip()
+                tally[key] = tally.get(key, 0) + 1
+        else:
+            kept.append(item)
+
     summary = {
         "assessed": len(listings),
-        "flagged": flagged,
-        "passed": len(listings) - flagged,
+        "kept": len(kept),
+        "rejected": len(rejected),
+        "rejected_reasons": tally,
         "mean_score": round(
-            sum(x.quality.score for x in listings) / len(listings), 1
-        ) if listings else 0.0,
+            sum(x.quality.score for x in kept) / len(kept), 1
+        ) if kept else 0.0,
     }
     log.info("quality.summary", **summary)
-    return listings, summary
+    # Only the kept listings continue. The count and the reasons survive in
+    # the summary so a threshold that is silently wrong is still visible.
+    return kept, summary

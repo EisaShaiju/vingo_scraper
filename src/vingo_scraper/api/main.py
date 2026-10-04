@@ -25,6 +25,7 @@ from fastapi.responses import FileResponse
 from pydantic import BaseModel
 from sqlalchemy import func, select
 
+from vingo_scraper.apify.client import AUTOMATION_FILTERS
 from vingo_scraper.config import settings
 from vingo_scraper.db import models
 from vingo_scraper.db.session import session_scope
@@ -91,6 +92,11 @@ class IngestRequest(BaseModel):
     max_price: int | None = None
     sort_by: str | None = None
     days_since_listed: str | None = None
+    # Finer than the Actor's one-day floor. Applied AFTER fetching, so it
+    # narrows what we keep rather than what we pay for -- said plainly in the
+    # UI, because a filter that looks like it saves money and does not is
+    # worse than no filter.
+    max_age_hours: int | None = None
 
     def to_filters(self) -> dict:
         return {
@@ -367,8 +373,7 @@ async def start_ingest(
     _require_secret(authorization, x_demo_token)
 
     from vingo_scraper.apify.budget import get_budget
-    from vingo_scraper.apify.client import start_run
-    from vingo_scraper.config import CATEGORIES
+    from vingo_scraper.apify.client import EmptySearchError, start_run
     from vingo_scraper.db import config_store
 
     budget = await get_budget()
@@ -377,10 +382,8 @@ async def start_ingest(
 
     # Apify bills per result; keep the manual button cheap regardless of input.
     req.max_items = max(1, min(req.max_items, 25))
-    query = req.query
-    if req.category:
-        query = CATEGORIES.get(req.category, {}).get("query", req.category)
-    label = f"{req.location} / {req.category or query}"
+    query = req.query if not req.category else None
+    label = f"{req.location} / {req.category or req.query}"
 
     try:
         async with config_store.ingestion_lock("manual"):
@@ -388,10 +391,20 @@ async def start_ingest(
                 raise HTTPException(409, "a manual run is already in flight")
             run = await start_run(
                 query, req.location, req.max_items,
+                category=req.category,
                 include_details=req.include_details,
                 filters=req.to_filters(),
             )
-            await config_store.set_manual_pending(run.run_id, run.run_input, label)
+            # Stored alongside the run input, never inside it: the Actor
+            # rejects unknown keys and fails the entire run, which costs a
+            # full page charge.
+            await config_store.set_manual_pending(
+                run.run_id, {**run.run_input, "_max_age_hours": req.max_age_hours},
+                label,
+            )
+    except EmptySearchError as exc:
+        # Refused before any spend: an unnarrowed browse is unbounded.
+        raise HTTPException(400, str(exc)) from exc
     except config_store.IngestionBusy as busy:
         # The whole point of the lock: two runners must never start Actors at
         # the same time, because that is paying twice.
@@ -435,7 +448,10 @@ async def collect_ingest(
                 "reason": "actor still running"}
 
     try:
-        result = await ingest_collected(run, location=city, trigger="manual")
+        result = await ingest_collected(
+            run, location=city, trigger="manual",
+            max_age_hours=(run_input or {}).get("_max_age_hours"),
+        )
         await config_store.clear_manual(
             "failed: " + result.error if result.error else "ok"
         )
@@ -447,7 +463,9 @@ async def collect_ingest(
             "updated": result.updated,
             "images_stored": result.images_stored,
             "skipped_duplicates": result.skipped_duplicates,
-            "quality_flagged": result.quality_flagged,
+            "rejected": result.rejected,
+            "rejected_reasons": result.rejected_reasons,
+            "stale_dropped": result.stale_dropped,
             "cost_usd": result.cost_usd,
             "all_cached": result.all_cached,
             "error": result.error,
@@ -737,14 +755,17 @@ async def _run_tick(*, grid: bool) -> dict:
         return {"ran": False, "reason": "sequence complete",
                 **(await config_store.get_state()).to_dict()}
 
-    from vingo_scraper.apify.client import start_run
-    from vingo_scraper.config import CATEGORIES
+    from vingo_scraper.apify.client import EmptySearchError, start_run
     from vingo_scraper.pipeline.sweep import automation_cells
 
+    cell_category = None
     if grid:
         cells = automation_cells(claimed.city)
         city, category = cells[claimed.cursor % len(cells)]
-        query = CATEGORIES.get(category, {}).get("query", category)
+        # Browse the real category URL rather than searching for its name:
+        # "electronics" as a keyword matches listing TEXT, while the category
+        # path matches the category itself.
+        cell_category, query = category, None
         max_items, details = claimed.per_cell, claimed.include_details
     else:
         city, category = claimed.location, claimed.search_query
@@ -758,8 +779,13 @@ async def _run_tick(*, grid: bool) -> dict:
         # and the slot is returned by not having been claimed yet.
         async with config_store.ingestion_lock("automation"):
             run = await start_run(
-                query, city, max_items, include_details=details,
-                filters=await config_store.get_filters(),
+                query, city, max_items,
+                category=cell_category,
+                include_details=details,
+                # Automation always asks for the last 24 hours: a daily sweep
+                # requesting 7 days re-sees six days of listings it already
+                # holds on every run.
+                filters={**AUTOMATION_FILTERS, **(await config_store.get_filters())},
             )
             await config_store.set_pending(run.run_id, cell, run.run_input)
         invalidate_cache()  # that run will spend; re-read before the next
@@ -769,6 +795,9 @@ async def _run_tick(*, grid: bool) -> dict:
             "reason": "actor started; a later tick collects it",
             "runs_remaining": claimed.runs_remaining,
         }
+    except EmptySearchError as exc:
+        # Refused before any spend: an unnarrowed browse is unbounded.
+        raise HTTPException(400, str(exc)) from exc
     except config_store.IngestionBusy as busy:
         return {"ran": False, "deferred": True, "cell": cell,
                 "reason": f"ingestion in progress by {busy.holder}"}

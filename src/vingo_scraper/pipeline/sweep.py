@@ -24,7 +24,12 @@ from sqlalchemy import func, select
 
 from vingo_scraper.apify.client import ApifyRunError
 from vingo_scraper.apify.runner import ingest
-from vingo_scraper.config import CATEGORIES, INDIA_CITIES, settings
+from vingo_scraper.config import (
+    AUTOMATION_CATEGORIES,
+    CATEGORIES,
+    INDIA_CITIES,
+    settings,
+)
 from vingo_scraper.db import models
 from vingo_scraper.db.session import session_scope
 
@@ -162,7 +167,10 @@ def automation_cells(city: str | None = None) -> list[tuple[str, str]]:
 
     The full 25-cell grid is still what `run_sweep` uses for supply measurement.
     """
-    return build_cells(cities=[city or INDIA_CITIES["bengaluru"]])
+    return build_cells(
+        cities=[city or INDIA_CITIES["bengaluru"]],
+        categories=list(AUTOMATION_CATEGORIES),
+    )
 
 
 def estimated_cell_cost(

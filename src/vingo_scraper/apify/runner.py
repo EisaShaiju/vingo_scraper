@@ -35,6 +35,14 @@ class IngestResult:
     # Listings already in the database, skipped before any image was fetched.
     skipped_duplicates: int = 0
     quality_flagged: int = 0
+    # Dropped by the quality gate before any image was fetched. Kept as a
+    # count because the rows themselves are discarded -- without this the
+    # reject rate would be invisible and a wrong threshold would survive.
+    rejected: int = 0
+    rejected_reasons: dict = field(default_factory=dict)
+    # Dropped for being older than the caller asked for. Separate from
+    # `rejected` because stale is not the same failure as low quality.
+    stale_dropped: int = 0
     # True when the Actor returned nothing because everything was already in
     # its cache -- a successful no-op, not an empty search.
     all_cached: bool = False
@@ -143,8 +151,31 @@ async def ingest(
     return result
 
 
+def _drop_stale(listings, max_age_hours: int) -> tuple[list, int]:
+    """Keep only listings posted within `max_age_hours`.
+
+    A listing with no `posted_at` is KEPT. Unknown age is not the same as old,
+    and discarding on missing data would silently throw away every listing
+    whose timestamp we failed to parse.
+    """
+    from datetime import UTC, datetime, timedelta
+
+    cutoff = datetime.now(UTC) - timedelta(hours=max_age_hours)
+    fresh, dropped = [], 0
+    for item in listings:
+        posted = getattr(item, "posted_at", None)
+        if posted is not None and posted < cutoff:
+            dropped += 1
+        else:
+            fresh.append(item)
+    if dropped:
+        log.info("ingest.stale_dropped", count=dropped, max_age_hours=max_age_hours)
+    return fresh, dropped
+
+
 async def ingest_collected(
-    run, *, location: str, trigger: str = "automation"
+    run, *, location: str, trigger: str = "automation",
+    max_age_hours: int | None = None,
 ) -> IngestResult:
     """Parse, rehost and persist a run that has already finished.
 
@@ -194,7 +225,16 @@ async def ingest_collected(
     result.listings, quality_summary = assess_all(
         result.listings, details_known=details_known
     )
-    result.quality_flagged = quality_summary["flagged"]
+    result.rejected = quality_summary["rejected"]
+    result.rejected_reasons = quality_summary["rejected_reasons"]
+    result.quality_flagged = result.rejected  # kept for the older API shape
+
+    # 2b. Freshness. The Actor's finest window is one day, so anything tighter
+    #     is applied here -- it narrows what we KEEP, never what we paid for.
+    if max_age_hours:
+        result.listings, result.stale_dropped = _drop_stale(
+            result.listings, max_age_hours
+        )
 
     # 3. Duplicates. Checked before rehosting, so a listing we already hold
     #    costs zero image downloads on a re-scrape -- only `last_seen_at`

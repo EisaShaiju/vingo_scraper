@@ -238,11 +238,14 @@ def test_read_degrades_instead_of_500(client, monkeypatch):
 
 def test_grid_order_is_the_configured_categories():
     """cat 1 -> 2 -> 3 -> 4 -> 5, Bengaluru throughout, then wrap."""
-    from vingo_scraper.config import CATEGORIES
+    from vingo_scraper.config import AUTOMATION_CATEGORIES
     from vingo_scraper.pipeline.sweep import automation_cells
 
+    # A subset of CATEGORIES on purpose: the full list is 18 Marketplace
+    # categories, and sweeping all of them costs 3.5x for categories nobody
+    # asked for.
     cells = automation_cells()
-    assert [k for _, k in cells] == list(CATEGORIES.keys())
+    assert [k for _, k in cells] == list(AUTOMATION_CATEGORIES)
     assert {c for c, _ in cells} == {"bangalore"}
 
 
@@ -277,9 +280,9 @@ def test_start_does_not_reset_the_cursor():
 def test_snapshot_exposes_the_whole_rotation(client, stubbed):
     """The console renders the strip from this, rather than re-deriving it."""
     d = client.get("/api/automation").json()
-    assert [c["category"] for c in d["cells"]] == [
-        "mobile_phones", "electronics", "furniture", "vehicles", "appliances"
-    ]
+    from vingo_scraper.config import AUTOMATION_CATEGORIES
+
+    assert [c["category"] for c in d["cells"]] == list(AUTOMATION_CATEGORIES)
     assert all(c["city"] == "bangalore" for c in d["cells"])
     assert "cycle_position" in d
     assert "current_cell" in d

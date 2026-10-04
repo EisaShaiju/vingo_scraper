@@ -132,9 +132,38 @@ INDIA_CITIES: dict[str, str] = {
 # Candidate categories for Vingo's launch catalog. `slug` is the Marketplace
 # category path; `query` is the free-text search fallback.
 CATEGORIES: dict[str, dict[str, str]] = {
-    "mobile_phones": {"slug": "mobile-phones", "query": "mobile phone"},
-    "electronics": {"slug": "electronics", "query": "electronics"},
-    "furniture": {"slug": "furniture", "query": "furniture"},
-    "vehicles": {"slug": "vehicles", "query": "bike"},
-    "appliances": {"slug": "appliances", "query": "appliance"},
+    # `slug` is the real Marketplace category path -- these are the categories
+    # Facebook's own sidebar lists, so a browse URL built from one returns what
+    # a human would see. `query` is the keyword fallback for Actors that cannot
+    # take a URL.
+    #
+    # There is NO `categoryIds` input on the Actor (verified against the live
+    # build schema), so category selection happens through the URL, not a
+    # parameter. See apify/urls.py::category_url.
+    "vehicles":            {"slug": "vehicles",            "query": "vehicles"},
+    "property_rent":       {"slug": "propertyrentals",     "query": "property for rent"},
+    "classifieds":         {"slug": "classifieds",         "query": "classifieds"},
+    "clothing":            {"slug": "apparel",             "query": "clothing"},
+    "electronics":         {"slug": "electronics",         "query": "electronics"},
+    "entertainment":       {"slug": "entertainment",       "query": "entertainment"},
+    "family":              {"slug": "family",              "query": "family"},
+    "garden_outdoor":      {"slug": "garden",              "query": "garden and outdoor"},
+    "hobbies":             {"slug": "hobbies",             "query": "hobbies"},
+    "home_goods":          {"slug": "home-goods",          "query": "home goods"},
+    "home_improvement":    {"slug": "home-improvement",    "query": "home improvement"},
+    "musical_instruments": {"slug": "musical-instruments", "query": "musical instruments"},
+    "office_supplies":     {"slug": "office-supplies",     "query": "office supplies"},
+    "pet_supplies":        {"slug": "pet-supplies",        "query": "pet supplies"},
+    "property_sale":       {"slug": "propertyforsale",     "query": "property for sale"},
+    "sporting_goods":      {"slug": "sporting-goods",      "query": "sporting goods"},
+    "toys_games":          {"slug": "toys",                "query": "toys and games"},
+    # Kept because the automation grid and older runs reference it.
+    "mobile_phones":       {"slug": "mobile-phones",       "query": "mobile phone"},
 }
+
+# What the automated sweep walks. Deliberately a subset: these are the
+# categories with resale value for Vingo, and a sweep over all 18 would cost
+# 3.5x a sweep over 5 for categories nobody asked for.
+AUTOMATION_CATEGORIES: list[str] = [
+    "mobile_phones", "electronics", "home_goods", "vehicles", "sporting_goods",
+]

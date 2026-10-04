@@ -531,3 +531,20 @@ async def test_8_01_an_actor_error_item_is_reported_not_counted_as_a_listing(
     # The error item is not a listing we failed to parse.
     assert result.items_returned == 0
     assert result.listings == []
+
+
+def test_8_02_a_long_actor_error_cannot_break_the_status_write():
+    """Postgres does not truncate -- it raises and loses the whole UPDATE.
+
+    Surfacing Actor errors put a 300-character message into a varchar(64)
+    column, so every manual run ended in a red DataError even when the scrape
+    itself had succeeded.
+    """
+    from vingo_scraper.db.config_store import STATUS_MAX, _fit
+
+    long = "failed: " + ("Number of records scraped per run is limited. " * 10)
+    assert len(_fit(long)) <= STATUS_MAX
+    assert _fit(None) is None
+    assert _fit("ok") == "ok"
+    # Newlines in the message must not survive into a status field.
+    assert "\n" not in _fit("failed:\n\n  limit reached\n")

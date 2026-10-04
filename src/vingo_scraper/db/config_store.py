@@ -24,6 +24,19 @@ log = structlog.get_logger(__name__)
 
 CONFIG_ID = 1
 
+# `manual_status` and `last_status` are varchar(64). Actor error messages run
+# to hundreds of characters, and Postgres does not truncate -- it raises
+# StringDataRightTruncation and loses the whole UPDATE. Status columns hold a
+# status; the full text belongs in the response and the log.
+STATUS_MAX = 64
+
+
+def _fit(status: str | None) -> str | None:
+    if status is None:
+        return None
+    status = " ".join(status.split())
+    return status if len(status) <= STATUS_MAX else status[: STATUS_MAX - 1] + "…"
+
 
 @dataclass
 class DemoState:
@@ -225,7 +238,7 @@ async def claim_run() -> DemoState | None:
 async def record_result(status: str) -> None:
     async with session_scope() as s:
         row = await _row(s)
-        row.last_status = status
+        row.last_status = _fit(status)
 
 
 # --------------------------------------------------------------------------
@@ -543,7 +556,7 @@ async def set_manual_pending(run_id: str, run_input: dict, label: str) -> None:
         row = await _row(s, lock=True)
         row.manual_run_id = run_id
         row.manual_started_at = datetime.now(UTC)
-        row.manual_status = f"running {label}"
+        row.manual_status = _fit(f"running {label}")
         row.manual_input = run_input or {}
 
 
@@ -554,7 +567,7 @@ async def clear_manual(status: str | None = None) -> None:
         row.manual_started_at = None
         row.manual_input = None
         if status:
-            row.manual_status = status
+            row.manual_status = _fit(status)
 
 
 async def get_manual_pending() -> tuple[str, dict] | None:

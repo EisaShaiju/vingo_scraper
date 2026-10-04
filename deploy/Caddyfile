@@ -1,0 +1,67 @@
+# Comet — public entry point.
+#
+# Caddy is the ONLY thing listening on a public interface. uvicorn stays on
+# 127.0.0.1:8000, because /api/automation/start spends real money and the only
+# thing in front of it would otherwise be a shared secret in a header.
+#
+# Install:
+#   sudo apt-get install -y debian-keyring debian-archive-keyring apt-transport-https curl
+#   curl -1sLf https://dl.cloudsmith.io/public/caddy/stable/gpg.key \
+#     | sudo gpg --dearmor -o /usr/share/keyrings/caddy-stable-archive-keyring.gpg
+#   curl -1sLf https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt \
+#     | sudo tee /etc/apt/sources.list.d/caddy-stable.list
+#   sudo apt-get update && sudo apt-get install -y caddy
+#
+#   sudo cp deploy/Caddyfile /etc/caddy/Caddyfile
+#   # then edit the hostname and the password hash below
+#   sudo systemctl reload caddy
+#
+# Firewall (once):
+#   gcloud compute firewall-rules create comet-web \
+#     --allow tcp:80,tcp:443 --target-tags=comet-web --project=vingo-starbase
+#   gcloud compute instances add-tags comet-vm --tags=comet-web \
+#     --zone=asia-south1-c --project=vingo-starbase
+#
+# Generate the password hash (never store the plaintext):
+#   caddy hash-password
+
+# Replace with your hostname. `<EXTERNAL_IP>.sslip.io` works with no DNS setup
+# at all and still gets a real certificate; a proper domain is better for a
+# client demo. An IP alone will NOT work -- Let's Encrypt will not issue for one.
+comet.example.com {
+	encode zstd gzip
+
+	# Everything behind one password. There is no per-user identity here and
+	# this is not pretending to be one: it keeps the console off the open
+	# internet, nothing more. Put IAP or SSO in front before this holds
+	# anything that is not already public Marketplace data.
+	basic_auth {
+		# vingo  —  replace with the output of `caddy hash-password`
+		vingo $2a$14$REPLACE_THIS_WITH_A_REAL_BCRYPT_HASH
+	}
+
+	reverse_proxy 127.0.0.1:8000 {
+		# An ingest collect can sit for ~45s waiting on Apify. The default
+		# 30s write timeout would cut it off mid-run, after Apify has
+		# already charged -- the exact failure the two-phase tick exists to
+		# avoid, reintroduced one layer up.
+		transport http {
+			read_timeout 120s
+			write_timeout 120s
+		}
+	}
+
+	log {
+		output file /var/log/caddy/comet.log
+		format json
+	}
+
+	header {
+		# The console is internal tooling; nothing here should be framed,
+		# sniffed, or indexed.
+		X-Frame-Options DENY
+		X-Content-Type-Options nosniff
+		Referrer-Policy no-referrer
+		-Server
+	}
+}

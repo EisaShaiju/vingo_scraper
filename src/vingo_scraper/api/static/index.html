@@ -297,12 +297,6 @@
 
 <div class="wrap">
 
-  <nav class="tabs">
-    <button class="tab on" data-panel="p-auto">Automated pipeline</button>
-    <button class="tab" data-panel="p-manual">Manual ingestion</button>
-    <button class="tab" data-panel="p-catalog">Catalog
-      <span class="badge-n" id="t-count">0</span></button>
-  </nav>
 
   <div id="busy-banner"></div>
 
@@ -310,7 +304,7 @@
   <div id="budget"></div>
   <div id="dbbanner"></div>
 
-  <div class="panel on" id="p-auto">
+  <section id="p-auto">
   <div class="auto">
     <div class="auto-h">
       <span class="dot-live" id="a-dot"></span>
@@ -358,10 +352,10 @@
     </div>
     <div class="ticks" id="a-ticks"></div>
   </div>
-  </div><!-- /p-auto -->
+  </section>
 
   <!-- ================= Manual ingestion ================= -->
-  <div class="panel" id="p-manual">
+  <section id="p-manual">
     <div class="auto">
       <div class="auto-h">
         <span class="dot-live" id="m-dot"></span>
@@ -373,12 +367,25 @@
         <div class="field">
           <label>Category</label>
           <select id="m-cat">
-            <option value="">— custom keyword —</option>
-            <option value="mobile_phones">Mobile phones</option>
-            <option value="electronics">Electronics</option>
-            <option value="furniture">Furniture</option>
+            <option value="">— keyword search —</option>
             <option value="vehicles">Vehicles</option>
-            <option value="appliances">Appliances</option>
+            <option value="property_rent">Property for rent</option>
+            <option value="classifieds">Classifieds</option>
+            <option value="clothing">Clothing</option>
+            <option value="electronics">Electronics</option>
+            <option value="entertainment">Entertainment</option>
+            <option value="family">Family</option>
+            <option value="garden_outdoor">Garden &amp; outdoor</option>
+            <option value="hobbies">Hobbies</option>
+            <option value="home_goods">Home goods</option>
+            <option value="home_improvement">Home improvement</option>
+            <option value="mobile_phones">Mobile phones</option>
+            <option value="musical_instruments">Musical instruments</option>
+            <option value="office_supplies">Office supplies</option>
+            <option value="pet_supplies">Pet supplies</option>
+            <option value="property_sale">Property for sale</option>
+            <option value="sporting_goods">Sporting goods</option>
+            <option value="toys_games">Toys &amp; games</option>
           </select>
         </div>
         <div class="field">
@@ -425,16 +432,25 @@
           <label>Items</label>
           <input id="m-n" type="number" value="8" min="1" max="25" style="min-width:80px">
         </div>
-        <button class="btn-sm" id="m-run">Run ingestion</button>
+        <div class="field">
+          <label>Fresher than</label>
+          <select id="m-hours">
+            <option value="">no extra limit</option>
+            <option value="6">6 hours</option>
+            <option value="12">12 hours</option>
+            <option value="24">24 hours</option>
+          </select>
+        </div>
+        <button class="btn-sm" id="m-run">Run once</button>
       </div>
 
       <div id="m-result" style="padding:0 19px"></div>
       <div class="ticks" id="m-ticks"></div>
     </div>
-  </div><!-- /p-manual -->
+  </section>
 
   <!-- ================= Catalog ================= -->
-  <div class="panel" id="p-catalog">
+  <section id="p-catalog">
   <div class="stats" id="stats"></div>
 
   <div class="grid">
@@ -484,7 +500,7 @@
     Storage · listings land <strong>pending review</strong> and are never
     auto-published
   </footer>
-  </div><!-- /p-catalog -->
+  </section>
 </div>
 
 <div class="ovl" id="ovl"><div class="modal" id="modal"></div></div>
@@ -627,7 +643,7 @@ async function health(){
   try{
     const h = await (await fetch('/api/health')).json();
     const el = $('#p-health');
-    el.textContent = h.ok ? 'Supabase connected' : 'Supabase down';
+    el.textContent = h.ok ? 'database connected' : 'database down';
     el.className = 'pill ' + (h.ok?'live':'down');
   }catch{ $('#p-health').textContent='offline'; }
 }
@@ -994,18 +1010,10 @@ setInterval(() => {
   if(el && nextRunAt) el.textContent = fmtLeft(nextRunAt);
 }, 1000);
 
-setInterval(()=>{ if($('#p-catalog').classList.contains('on')){ loadStats(); loadRuns(); } }, 15000);
+setInterval(()=>{ loadStats(); loadRuns(); }, 15000);
 
 // ---------------------------------------------------------------- tabs ---
-document.querySelectorAll('.tab').forEach(btn => {
-  btn.onclick = () => {
-    document.querySelectorAll('.tab').forEach(b => b.classList.toggle('on', b === btn));
-    document.querySelectorAll('.panel').forEach(pn =>
-      pn.classList.toggle('on', pn.id === btn.dataset.panel));
-    if(btn.dataset.panel === 'p-catalog'){ loadStats(); loadListings(true); }
-    if(btn.dataset.panel === 'p-manual'){ loadManual(); }
-  };
-});
+// One page, no tabs. Everything polls; nothing is hidden behind a click.
 
 // --------------------------------------------------- manual ingestion ---
 // Same two-phase shape as automation: start the Actor, then collect it on a
@@ -1017,7 +1025,9 @@ function manualBody(){
   const cat = $('#m-cat').value;
   const num = id => { const v = parseInt($(id).value); return Number.isFinite(v) ? v : null; };
   return {
-    query: $('#m-q').value || 'iphone',
+    // No silent default. A blank form must not run a whole-city browse:
+    // that is unbounded on a per-result-billed API.
+    query: $('#m-q').value.trim(),
     category: cat || null,
     location: $('#m-loc').value,
     max_items: parseInt($('#m-n').value) || 8,
@@ -1025,6 +1035,7 @@ function manualBody(){
     max_price: num('#m-max'),
     sort_by: $('#m-sort').value,
     days_since_listed: $('#m-days').value,
+    max_age_hours: num('#m-hours'),
   };
 }
 
@@ -1077,8 +1088,9 @@ async function collectManual(){
       $('#m-result').innerHTML = `
         <div class="inv"><span>✓</span><span>
           <b>${out.listings} listings</b> · ${out.created} new · ${out.updated} updated ·
-          ${out.images_stored} images · ${out.skipped_duplicates} duplicate(s) skipped ·
-          ${out.quality_flagged} flagged · $${Number(out.cost_usd || 0).toFixed(4)}
+          ${out.images_stored} images · ${out.skipped_duplicates} already held ·
+          ${out.rejected || 0} rejected${out.stale_dropped ? ` · ${out.stale_dropped} too old` : ''} ·
+          $${Number(out.cost_usd || 0).toFixed(4)}
         </span></div>`;
       loadStats(); loadListings(true); loadBudget();
     } else if(out.error){
@@ -1095,13 +1107,20 @@ async function collectManual(){
 }
 
 $('#m-run').onclick = async () => {
+  const body = manualBody();
+  if(!body.category && !body.query){
+    $('#m-result').innerHTML = '<div class="inv bad"><span>!</span><span>'
+      + 'Pick a category or type a keyword. An unnarrowed browse would scrape '
+      + 'the whole city.</span></div>';
+    return;
+  }
   $('#m-run').disabled = true;
   $('#m-result').innerHTML = '';
   try{
     const r = await fetch('/api/ingest', {
       method:'POST',
       headers:{'Content-Type':'application/json','X-Demo-Token': demoToken()},
-      body: JSON.stringify(manualBody()),
+      body: JSON.stringify(body),
     });
     if(r.status === 409){
       // The mutex, surfaced properly. Never a bare 500, never silence.
@@ -1119,7 +1138,7 @@ $('#m-run').onclick = async () => {
 };
 
 setInterval(() => {
-  if($('#p-manual').classList.contains('on')) loadManual();
+  loadManual();
 }, 5000);
 loadManual();
 

@@ -192,10 +192,23 @@ async def ingest_collected(
     result.run_id = run.run_id
     result.cost_usd = run.cost_usd
     result.items_returned = len(run.items)
+    # The Actor reports its own failures as dataset ITEMS carrying an `error`
+    # key rather than by failing the run. Left unhandled they count as
+    # listings the parser mysteriously dropped -- the console showed
+    # "1 listings, 0 new" for what was actually an error message.
+    actor_errors = [
+        str(x.get("error"))[:300] for x in run.items
+        if isinstance(x, dict) and x.get("error") and not x.get("id")
+    ]
+    if actor_errors:
+        result.error = actor_errors[0]
+        result.items_returned = len(run.items) - len(actor_errors)
+        log.error("ingest.actor_error", error=actor_errors[0])
+
     result.listings = parse_payloads(run.items, city=location)
 
     log.info("ingest.parsed", items=result.items_returned,
-             listings=len(result.listings))
+             listings=len(result.listings), actor_errors=len(actor_errors))
     if not result.listings:
         # Zero listings from a cached run means "nothing new since last time",
         # which is the cache working. Zero from an uncached run means the

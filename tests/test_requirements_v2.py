@@ -496,3 +496,38 @@ def test_7_10_every_category_is_offered_in_the_ui():
     h = page()
     for name in CATEGORIES:
         assert f'value="{name}"' in h, name
+
+
+# ==========================================================================
+# Actor errors arrive as dataset items, not as a failed run
+# ==========================================================================
+
+@pytest.mark.anyio
+async def test_8_01_an_actor_error_item_is_reported_not_counted_as_a_listing(
+    monkeypatch,
+):
+    """The Actor reports failures as dataset ITEMS with an `error` key.
+
+    Unhandled, the console showed "1 listings · 0 new" for what was an error
+    message -- indistinguishable from a parser bug, and it sent us looking for
+    one.
+    """
+    from vingo_scraper.apify import runner
+    from vingo_scraper.apify.client import ActorRun
+
+    async def no_persist(result, run, *, trigger="manual"):
+        return 0, 0
+
+    monkeypatch.setattr(runner, "_persist", no_persist)
+
+    run = ActorRun(
+        run_id="r1", actor_id="a", status="SUCCEEDED", run_input={},
+        items=[{"error": "Search returned no results for this query"}],
+        cost_usd=0.00005,
+    )
+    result = await runner.ingest_collected(run, location="bangalore")
+
+    assert "no results" in (result.error or "")
+    # The error item is not a listing we failed to parse.
+    assert result.items_returned == 0
+    assert result.listings == []

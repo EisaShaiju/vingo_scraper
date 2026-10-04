@@ -307,16 +307,24 @@ def test_4_10_gate_runs_before_rehosting():
 # 5. Never re-scrape what we already hold
 # ==========================================================================
 
-def test_5_01_actor_cache_keys_are_sent():
-    payload = build_run_input("iphone", "bangalore", 8, actor_id=CURIOUS_CODER)
-    assert payload["onlyNewListings"] is True
-    assert payload["cacheStorageId"] == settings.apify_cache_store_id
+def test_5_01_actor_cache_is_off_by_default():
+    """With no scheduled runner, the cache only hides results.
 
-
-def test_5_02_cache_can_be_disabled_for_a_demo(monkeypatch):
-    monkeypatch.setattr("vingo_scraper.config.settings.apify_cache_store_id", "")
+    It told the Actor "skip anything you already gave us", so a person typing
+    xbox got 0 listings for $0.0000 and a console that looked broken.
+    """
+    assert settings.apify_cache_store_id == ""
     payload = build_run_input("iphone", "bangalore", 8, actor_id=CURIOUS_CODER)
     assert "onlyNewListings" not in payload
+    assert "cacheStorageId" not in payload
+
+
+def test_5_02_cache_can_be_re_enabled(monkeypatch):
+    """Kept working for when a scheduled sweep returns."""
+    monkeypatch.setattr("vingo_scraper.config.settings.apify_cache_store_id", "s1")
+    payload = build_run_input("iphone", "bangalore", 8, actor_id=CURIOUS_CODER)
+    assert payload["onlyNewListings"] is True
+    assert payload["cacheStorageId"] == "s1"
 
 
 def test_5_03_database_side_dedup_exists():

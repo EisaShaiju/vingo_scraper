@@ -55,9 +55,20 @@ class Settings(BaseSettings):
     # Measured: a repeat query with this off cost $0.01205 and returned 24
     # listings we already held.
     #
-    # Set to "" to force a full re-scrape -- useful for a demo that needs to
-    # show listings arriving rather than a correct but empty run.
-    apify_cache_store_id: str = "comet-seen-listings"
+    # DEFAULT OFF, and that is deliberate now that manual is the only runner.
+    #
+    # The cache made sense for a scheduled sweep hitting the same five
+    # categories every day. For a person typing "xbox" it is actively wrong:
+    # the Actor replies "already gave you those", returns nothing, charges
+    # nothing, and the console looks broken. Observed exactly that -- repeated
+    # keyword searches returning 0 listings for $0.0000.
+    #
+    # The database check (`_split_known`) still prevents re-downloading images
+    # for listings we hold, so a repeat search is cheap in bandwidth. It costs
+    # one Apify page, which is the price of actually seeing results.
+    #
+    # Set a store id to re-enable it if a scheduled runner comes back.
+    apify_cache_store_id: str = ""
     # Ceiling on TOTAL Apify spend per UTC day, checked against actual
     # recorded spend in `scrape_run` before each cell. This is the guard
     # that makes unattended scheduling safe on a per-result-billed API.

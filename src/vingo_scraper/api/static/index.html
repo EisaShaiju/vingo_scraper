@@ -788,6 +788,13 @@ async function collectManual(){
     } else if(out.error){
       $('#m-result').innerHTML =
         `<div class="inv bad"><span>✕</span><span>${out.error}</span></div>`;
+    } else if(out.ran && out.listings === 0 && out.skipped_duplicates > 0){
+      // Everything found was already in the catalog. Not a failure -- the
+      // listings ARE there, below. Saying nothing here reads as a dead run.
+      $('#m-result').innerHTML = '<div class="inv"><span>✓</span><span>'
+        + `<b>${out.skipped_duplicates} listings</b> found, all already in the `
+        + 'catalog below. No images re-downloaded.</span></div>';
+      loadStats(); loadListings(true);
     } else if(out.ran === false && out.waiting !== true && !out.reason?.includes('no manual')){
       // Searched, found nothing. Distinct from a failure, and worth saying --
       // silence here reads as a broken button.

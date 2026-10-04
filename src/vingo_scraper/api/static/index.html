@@ -146,6 +146,31 @@
   .panel{display:none}
   .panel.on{display:block}
 
+  /* ---------- tabs ---------- */
+  .tabs{display:flex;gap:4px;margin:22px 0 18px;border-bottom:1px solid var(--line)}
+  .tab{appearance:none;background:none;border:none;font-family:inherit;
+       font-size:14px;font-weight:700;color:var(--muted);padding:12px 20px;
+       border-bottom:2px solid transparent;margin-bottom:-1px;cursor:pointer;
+       display:flex;align-items:center;gap:8px;transition:color .15s}
+  .tab:hover{color:var(--ink)}
+  .tab.on{color:var(--brand-dark);border-bottom-color:var(--brand)}
+  .tab .badge-n{font-size:11px;font-weight:800;background:var(--brand-soft);
+                color:var(--brand-dark);border-radius:999px;padding:2px 7px}
+  .tab.on .badge-n{background:var(--brand);color:#fff}
+  .panel{display:none} .panel.on{display:block}
+
+  /* ---------- run in progress ---------- */
+  /* A 10-50s wait needs to look like work, not a dead button. */
+  .working{display:flex;flex-direction:column;align-items:center;gap:14px;
+           padding:44px 20px;background:var(--card);border:1px solid var(--line);
+           border-radius:var(--radius);margin:16px 0}
+  .working .ring{width:52px;height:52px;border:4px solid var(--brand-soft);
+                 border-top-color:var(--brand);border-radius:50%;
+                 animation:s .9s linear infinite}
+  .working .big{font-size:16px;font-weight:800}
+  .working .phase{font-size:13px;color:var(--muted)}
+  .working .elapsed{font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums}
+
   /* ---------- busy banner ---------- */
   .busy{background:#FFFBEB;border:1px solid #FDE68A;color:#92400E;
         border-radius:11px;padding:12px 15px;font-size:13px;font-weight:600;
@@ -277,6 +302,12 @@
 <div class="wrap">
 
 
+  <nav class="tabs">
+    <button class="tab on" data-panel="p-manual">Search</button>
+    <button class="tab" data-panel="p-catalog">Catalog
+      <span class="badge-n" id="t-count">0</span></button>
+  </nav>
+
   <div id="busy-banner"></div>
 
 
@@ -285,7 +316,7 @@
 
 
   <!-- ================= Manual ingestion ================= -->
-  <section id="p-manual">
+  <section class="panel on" id="p-manual">
     <div class="auto">
       <div class="auto-h">
         <span class="dot-live" id="m-dot"></span>
@@ -352,16 +383,24 @@
         <div class="field">
           <label>Listed within</label>
           <select id="m-days">
+            <option value="" selected>Any time</option>
             <option value="1">24 hours</option>
-            <option value="7" selected>7 days</option>
+            <option value="7">7 days</option>
             <option value="30">30 days</option>
-            <option value="">Any time</option>
           </select>
         </div>
         <div class="field">
-          <label>Items</label>
-          <input id="m-n" type="number" value="8" min="1" max="25" style="min-width:80px">
+          <label>Volume</label>
+          <select id="m-n">
+            <option value="8">1 page · ~24 listings</option>
+            <option value="30">2 pages · ~48 listings</option>
+            <option value="60">3 pages · ~72 listings</option>
+          </select>
         </div>
+        <label style="display:flex;align-items:center;gap:6px;font-size:12px;
+                      color:var(--muted);font-weight:600;white-space:nowrap">
+          <input type="checkbox" id="m-strict" checked> Title must match
+        </label>
         <div class="field">
           <label>Fresher than</label>
           <select id="m-hours">
@@ -375,12 +414,17 @@
       </div>
 
       <div id="m-result" style="padding:0 19px"></div>
+      <div id="m-progress"></div>
+      <!-- Results of the run you just did, and nothing else. The full
+           catalog lives in its own tab so the two questions -- "what did I
+           just get?" and "what do we hold?" -- stop competing. -->
+      <div id="m-results"></div>
       <div class="ticks" id="m-ticks"></div>
     </div>
   </section>
 
   <!-- ================= Catalog ================= -->
-  <section id="p-catalog">
+  <section class="panel" id="p-catalog">
   <div class="stats" id="stats"></div>
 
   <div class="grid">
@@ -398,6 +442,11 @@
       <div class="card">
         <div class="card-h">
           <h2>Listings</h2>
+
+          <input id="cat-filter" placeholder="filter by title…"
+                 style="margin-left:14px;padding:6px 11px;border:1px solid var(--line);
+                        border-radius:8px;font-size:13px;font-family:inherit;
+                        min-width:210px;color:var(--ink)">
           <span class="n" id="tbl-n"></span>
         </div>
         <div class="tbl-wrap">
@@ -526,8 +575,12 @@ async function loadStats(){
 }
 
 let known = new Set();
+let catalogRows = [];
+
 async function loadListings(highlight=false){
-  const d = await (await fetch('/api/listings?limit=60')).json();
+  const d = await (await fetch('/api/listings?limit=200')).json();
+  catalogRows = d.listings || [];
+  const el = $('#t-count'); if(el) el.textContent = d.count || 0;
   $('#tbl-n').textContent = d.count + ' rows';
   if(!d.listings.length){
     $('#rows').innerHTML = '<tr><td colspan="9" class="empty">No listings yet — run an update.</td></tr>';
@@ -705,6 +758,87 @@ document.addEventListener('keydown', e => { if(e.key === 'Escape') closeDetail()
 
 let manualInFlight = false;
 
+
+// ---------------------------------------------------------------- tabs ---
+// Two genuinely different questions: "what did I just get?" and "what do we
+// hold?". The earlier three-tab layout was wrong because Manual and Automated
+// were the SAME question split in half.
+document.querySelectorAll('.tab').forEach(btn => {
+  btn.onclick = () => {
+    document.querySelectorAll('.tab').forEach(b => b.classList.toggle('on', b === btn));
+    document.querySelectorAll('.panel').forEach(pn =>
+      pn.classList.toggle('on', pn.id === btn.dataset.panel));
+    if(btn.dataset.panel === 'p-catalog'){ loadStats(); loadListings(); }
+  };
+});
+
+// ------------------------------------------------------------- progress ---
+let runStartedAt = null, progressTimer = null;
+
+const PHASES = [
+  [0,  'Starting the actor…'],
+  [6,  'Waiting for Facebook — this is the slow part'],
+  [25, 'Downloading and rehosting photos…'],
+  [45, 'Still going. Big result sets take longer.'],
+];
+
+function showProgress(on){
+  if(!on){
+    runStartedAt = null;
+    clearInterval(progressTimer); progressTimer = null;
+    $('#m-progress').innerHTML = '';
+    return;
+  }
+  if(runStartedAt) return;            // already showing
+  runStartedAt = Date.now();
+  const paint = () => {
+    const s = Math.floor((Date.now() - runStartedAt) / 1000);
+    let phase = PHASES[0][1];
+    for(const [at, text] of PHASES) if(s >= at) phase = text;
+    $('#m-progress').innerHTML = `
+      <div class="working">
+        <div class="ring"></div>
+        <div class="big">Scraping Marketplace…</div>
+        <div class="phase">${phase}</div>
+        <div class="elapsed">${s}s elapsed · nothing to click</div>
+      </div>`;
+  };
+  paint();
+  progressTimer = setInterval(paint, 1000);
+}
+
+// --------------------------------------------------- this run's results ---
+function renderRunResults(rows, label){
+  if(!rows || !rows.length){ $('#m-results').innerHTML = ''; return; }
+  $('#m-results').innerHTML = `
+    <div class="card" style="margin-top:16px">
+      <div class="card-h">
+        <h2>From this run</h2>
+        <span class="n">${rows.length} listings · ${label}</span>
+      </div>
+      <div class="tbl-wrap"><table>
+        <thead><tr><th></th><th>Title</th><th>Price</th><th>Condition</th>
+          <th>Photos</th></tr></thead>
+        <tbody>${rows.map(l => `
+          <tr onclick="openDetail('${l.id}')" style="cursor:pointer">
+            <td>${l.thumb_id ? `<img class="thumb" src="/api/image/${l.thumb_id}" loading="lazy">`
+                             : '<div class="thumb"></div>'}</td>
+            <td class="ttl">${(l.title||'').replace(/</g,'&lt;')}</td>
+            <td class="price">${l.price_inr!=null ? fmt(l.price_inr) : '—'}</td>
+            <td><span class="badge b-used">${(l.condition||'').replace(/_/g,' ')}</span></td>
+            <td>${l.photos}</td>
+          </tr>`).join('')}</tbody>
+      </table></div>
+    </div>`;
+}
+
+async function showRunResults(runId, label){
+  try{
+    const d = await (await fetch('/api/listings?limit=80&since_run=' + encodeURIComponent(runId))).json();
+    renderRunResults(d.listings, label);
+  }catch{ /* the catalog tab still has everything */ }
+}
+
 function manualBody(){
   const cat = $('#m-cat').value;
   const num = id => { const v = parseInt($(id).value); return Number.isFinite(v) ? v : null; };
@@ -720,8 +854,13 @@ function manualBody(){
     sort_by: $('#m-sort').value,
     days_since_listed: $('#m-days').value,
     max_age_hours: num('#m-hours'),
+    title_match: $('#m-strict') ? $('#m-strict').checked : true,
+    strict: $('#m-strict') ? $('#m-strict').checked : true,
   };
 }
+
+// What the operator asked for, for labelling the results block.
+let lastQueryLabel = '';
 
 function showBusy(message){
   $('#busy-banner').innerHTML = message
@@ -739,11 +878,7 @@ async function loadManual(){
 
   // The Actor takes 10-50s and the page polls silently through it. Without
   // this the button just sits disabled and the run looks dead.
-  if(d.running && !$('#m-result').innerHTML.includes('working')){
-    $('#m-result').innerHTML = '<div class="inv"><span class="spin-s"></span>'
-      + '<span><b>Scraping…</b> the actor usually takes 10–50 seconds. '
-      + 'This page is waiting for it; nothing to click.</span></div>';
-  }
+  showProgress(!!d.running);
   $('#m-run').disabled = d.running || manualInFlight;
 
   // A lock held by the OTHER runner is the informative case: say who has it
@@ -777,12 +912,15 @@ async function collectManual(){
     });
     const out = await r.json();
     if(out.ran){
+      showProgress(false);
+      if(out.run_id) showRunResults(out.run_id, lastQueryLabel);
       $('#m-result').innerHTML = `
         <div class="inv"><span>✓</span><span>
           <b>${out.listings} listings</b> · ${out.created} new · ${out.updated} updated ·
           ${out.images_stored} images · ${out.skipped_duplicates} already held ·
           ${out.rejected ? `<b>${out.rejected} rejected</b> (under 2 photos or a junk price)` : '0 rejected'}${out.stale_dropped ? ` · ${out.stale_dropped} too old` : ''} ·
-          $${Number(out.cost_usd || 0).toFixed(4)}
+          ${out.off_topic ? `· <b>${out.off_topic} off-topic</b> (title did not match)` : ''}
+          · $${Number(out.cost_usd || 0).toFixed(4)}
         </span></div>`;
       loadStats(); loadListings(true); loadBudget();
     } else if(out.error){
@@ -821,12 +959,18 @@ $('#m-run').onclick = async () => {
   }
   $('#m-run').disabled = true;
   $('#m-result').innerHTML = '';
+  $('#m-results').innerHTML = '';
+  lastQueryLabel = body.category
+    ? body.category.replace(/_/g,' ')
+    : body.query;
+  showProgress(true);
   try{
     const r = await fetch('/api/ingest', {
       method:'POST',
       headers:{'Content-Type':'application/json'},
       body: JSON.stringify(body),
     });
+    if(!r.ok) showProgress(false);
     if(r.status === 409){
       // The mutex, surfaced properly. Never a bare 500, never silence.
       const body = await r.json();
@@ -844,6 +988,24 @@ setInterval(() => {
 }, 5000);
 loadManual();
 
+
+// Filter the catalog in the browser: a few hundred rows is nothing to scan,
+// and a round trip per keystroke would be worse than useless.
+const catFilter = document.querySelector('#cat-filter');
+if(catFilter){
+  catFilter.oninput = () => {
+    const q = catFilter.value.trim().toLowerCase();
+    let shown = 0, total = 0;
+    document.querySelectorAll('#rows tr').forEach(tr => {
+      const t = (tr.querySelector('.ttl')?.textContent || '').toLowerCase();
+      const hit = !q || t.includes(q);
+      tr.style.display = hit ? '' : 'none';
+      total++; if(hit) shown++;
+    });
+    document.querySelector('#tbl-n').textContent =
+      q ? shown + ' of ' + total + ' rows' : total + ' rows';
+  };
+}
 </script>
 </body>
 </html>

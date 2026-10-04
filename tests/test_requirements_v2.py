@@ -117,12 +117,25 @@ def test_1_10_private_keys_never_reach_apify():
 # 2. One page, no tabs
 # ==========================================================================
 
-def test_2_01_no_tab_bar():
-    assert '<nav class="tabs">' not in page()
+def test_2_01_exactly_two_tabs():
+    """Search and Catalog answer different questions, so they are separated.
+
+    The earlier THREE-tab layout was wrong for the opposite reason: Manual and
+    Automated were the same question split in half.
+    """
+    h = page()
+    assert h.count('class="tab ') + h.count('class="tab"') == 2
+    assert 'data-panel="p-manual"' in h
+    assert 'data-panel="p-catalog"' in h
+    # Automation is gone, not hidden behind a third tab.
+    assert 'data-panel="p-auto"' not in h
 
 
-def test_2_02_no_tab_switching_javascript():
-    assert "document.querySelectorAll('.tab')" not in page()
+def test_2_02_the_search_tab_opens_first():
+    """You arrive to do something, not to browse what you already have."""
+    h = page()
+    assert '<button class="tab on" data-panel="p-manual">' in h
+    assert '<section class="panel on" id="p-manual">' in h
 
 
 def test_2_03_both_sections_present_at_once():
@@ -632,3 +645,64 @@ def test_9_10_no_automation_imports_linger():
     src = inspect.getsource(main)
     assert "AUTOMATION_FILTERS" not in src
     assert "automation_cells" not in src
+
+
+# ==========================================================================
+# The UI changes this session
+# ==========================================================================
+
+def test_10_01_a_run_in_flight_is_unmissable():
+    """A 13px spinner inside a text line reads as a dead button for 50s."""
+    h = page()
+    assert 'class="working"' in h and 'class="ring"' in h
+    assert "Scraping Marketplace" in h
+
+
+def test_10_02_progress_names_the_phase_and_counts_seconds():
+    h = page()
+    assert "Waiting for Facebook" in h
+    assert "elapsed" in h
+
+
+def test_10_03_the_search_tab_shows_only_this_runs_listings():
+    h = page()
+    assert "showRunResults" in h
+    assert "since_run=" in h
+
+
+def test_10_04_volume_is_offered_in_pages_not_items():
+    """"Items: 8" was a lie -- volume is bought by the ~24-listing page."""
+    h = page()
+    assert "1 page · ~24 listings" in h
+    assert 'type="number" value="8"' not in h
+
+
+def test_10_05_recency_defaults_to_any_time():
+    """A 7-day window hid most of what Marketplace actually shows."""
+    h = page()
+    assert '<option value="" selected>Any time</option>' in h
+
+
+def test_10_06_the_title_filter_is_on_by_default():
+    h = page()
+    assert 'id="m-strict" checked' in h
+
+
+def test_10_07_off_topic_drops_are_reported():
+    """A filter that silently eats results is worse than no filter."""
+    assert "off-topic" in page()
+
+
+def test_10_08_the_catalog_can_be_filtered():
+    h = page()
+    assert 'id="cat-filter"' in h and "catFilter" in h
+
+
+def test_10_09_the_catalog_count_appears_on_its_tab():
+    assert 'id="t-count"' in page()
+
+
+def test_10_10_progress_stops_when_a_start_fails():
+    """Otherwise the spinner runs forever on a 409 or a 400."""
+    h = page()
+    assert "if(!r.ok) showProgress(false);" in h

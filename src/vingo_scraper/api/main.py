@@ -102,6 +102,12 @@ class IngestRequest(BaseModel):
     # UI, because a filter that looks like it saves money and does not is
     # worse than no filter.
     max_age_hours: int | None = None
+    # Keep only listings whose TITLE matches the keyword. On by default:
+    # Facebook matches description text, so "cycles" returns MacBooks saying
+    # "battery cycle count". Off gives you Facebook's raw relevance.
+    title_match: bool = True
+    # Ask Facebook to be stricter too. Costs nothing and happens upstream.
+    strict: bool = True
 
     def to_filters(self) -> dict:
         return {
@@ -109,6 +115,7 @@ class IngestRequest(BaseModel):
             "maxPrice": self.max_price,
             "sortBy": self.sort_by,
             "daysSinceListed": self.days_since_listed,
+            "strictFiltering": self.strict or None,
         }
 
 
@@ -450,7 +457,10 @@ async def start_ingest(
             # rejects unknown keys and fails the entire run, which costs a
             # full page charge.
             await config_store.set_manual_pending(
-                run.run_id, {**run.run_input, "_max_age_hours": req.max_age_hours},
+                run.run_id,
+                {**run.run_input, "_max_age_hours": req.max_age_hours,
+                 "_search_term": (req.query if req.title_match and not req.category
+                                  else None)},
                 label,
             )
     except EmptySearchError as exc:
@@ -499,6 +509,7 @@ async def collect_ingest(
         result = await ingest_collected(
             run, location=city, trigger="manual",
             max_age_hours=(run_input or {}).get("_max_age_hours"),
+            search_term=(run_input or {}).get("_search_term"),
         )
         await config_store.clear_manual(
             "failed: " + result.error if result.error else "ok"
@@ -514,6 +525,8 @@ async def collect_ingest(
             "rejected": result.rejected,
             "rejected_reasons": result.rejected_reasons,
             "stale_dropped": result.stale_dropped,
+            "off_topic": result.off_topic,
+            "off_topic_examples": result.off_topic_examples,
             "cost_usd": result.cost_usd,
             "all_cached": result.all_cached,
             "error": result.error,

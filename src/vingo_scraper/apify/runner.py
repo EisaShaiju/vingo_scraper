@@ -43,6 +43,9 @@ class IngestResult:
     # Dropped for being older than the caller asked for. Separate from
     # `rejected` because stale is not the same failure as low quality.
     stale_dropped: int = 0
+    # Dropped because only the DESCRIPTION matched the search, not the title.
+    off_topic: int = 0
+    off_topic_examples: list = field(default_factory=list)
     # True when the Actor returned nothing because everything was already in
     # its cache -- a successful no-op, not an empty search.
     all_cached: bool = False
@@ -175,7 +178,7 @@ def _drop_stale(listings, max_age_hours: int) -> tuple[list, int]:
 
 async def ingest_collected(
     run, *, location: str, trigger: str = "automation",
-    max_age_hours: int | None = None,
+    max_age_hours: int | None = None, search_term: str | None = None,
 ) -> IngestResult:
     """Parse, rehost and persist a run that has already finished.
 
@@ -187,6 +190,7 @@ async def ingest_collected(
     from vingo_scraper.extract.description import extract_all
     from vingo_scraper.media.storage import get_store
     from vingo_scraper.pipeline.quality import assess_all
+    from vingo_scraper.pipeline.relevance import filter_relevant
 
     result = IngestResult()
     result.run_id = run.run_id
@@ -241,6 +245,14 @@ async def ingest_collected(
     result.rejected = quality_summary["rejected"]
     result.rejected_reasons = quality_summary["rejected_reasons"]
     result.quality_flagged = result.rejected  # kept for the older API shape
+
+    # 2a. Relevance. Facebook matches DESCRIPTION text, so a search for
+    #     "cycles" returns MacBooks whose listing says "battery cycle count".
+    #     Before rehosting, so a dropped listing costs no bandwidth.
+    if search_term:
+        result.listings, rel = filter_relevant(result.listings, search_term)
+        result.off_topic = rel.dropped
+        result.off_topic_examples = rel.examples
 
     # 2b. Freshness. The Actor's finest window is one day, so anything tighter
     #     is applied here -- it narrows what we KEEP, never what we paid for.

@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Vingo · Ingestion Console</title>
+<title>Vingo · Marketplace Ingestion</title>
 <style>
   /* Palette lifted from justvingo.com: indigo primary on a near-white ground. */
   :root{
@@ -167,27 +167,6 @@
   .qs i b{display:block;height:100%;background:var(--ok)}
   .qs.mid i b{background:var(--warn)} .qs.low i b{background:var(--err)}
 
-  /* ---------- category rotation strip ---------- */
-  .rot{display:flex;align-items:center;gap:14px;flex-wrap:wrap;
-       padding:14px 19px;border-bottom:1px solid var(--line);background:#FBFDFF}
-  .rot-city{font-size:12px;font-weight:800;text-transform:uppercase;
-            letter-spacing:.6px;color:var(--brand-dark);background:var(--brand-soft);
-            padding:6px 12px;border-radius:999px;white-space:nowrap}
-  .rot-cells{display:flex;align-items:center;gap:6px;flex-wrap:wrap;flex:1}
-  .rc{display:flex;align-items:center;gap:7px;font-size:12.5px;padding:6px 11px;
-      border-radius:999px;border:1px solid var(--line);background:var(--card);
-      color:var(--muted);white-space:nowrap}
-  .rc .mk{width:16px;height:16px;border-radius:50%;flex-shrink:0;
-          display:flex;align-items:center;justify-content:center;
-          font-size:10px;font-weight:800;background:#E2E8F0;color:#94A3B8}
-  .rc.done{color:var(--ok);border-color:#A7F3D0;background:var(--ok-soft)}
-  .rc.done .mk{background:var(--ok);color:#fff}
-  .rc.now{color:var(--brand-dark);border-color:var(--brand);background:var(--brand-soft);
-          font-weight:800;box-shadow:0 0 0 3px rgba(79,70,229,.12)}
-  .rc.now .mk{background:var(--brand);color:#fff;animation:p 1.3s ease-in-out infinite}
-  @keyframes p{0%,100%{opacity:1}50%{opacity:.35}}
-  .rot-now{font-size:12.5px;font-weight:700;color:var(--ink);white-space:nowrap}
-  .rot-now .q{color:var(--muted);font-weight:600}
   /* ---------- automation panel ---------- */
   .auto{border:1px solid var(--line);border-radius:var(--radius);background:var(--card);
         overflow:hidden;margin-bottom:20px}
@@ -304,55 +283,6 @@
   <div id="budget"></div>
   <div id="dbbanner"></div>
 
-  <section id="p-auto">
-  <div class="auto">
-    <div class="auto-h">
-      <span class="dot-live" id="a-dot"></span>
-      <h2>Automation</h2>
-      <span class="n" id="a-state" style="font-size:12px;color:var(--muted);margin-left:auto">idle</span>
-    </div>
-    <div class="rot" id="a-rot"></div>
-    <div class="auto-body" id="a-metrics"></div>
-    <div id="a-warn"></div>
-    <div class="auto-ctl">
-      <div class="field">
-        <label>Every</label>
-        <select id="a-int">
-          <option value="180" selected>3 minutes</option>
-          <option value="300">5 minutes</option>
-          <option value="900">15 minutes</option>
-          <option value="3600">1 hour</option>
-          <option value="21600">6 hours</option>
-        </select>
-      </div>
-      <div class="field">
-        <label>Listings / run</label>
-        <!-- Capped at 8: one tick must finish inside Vercel's 60s function
-             ceiling, and a measured ingest of 10 sits right on it. -->
-        <input id="a-per" type="number" value="8" min="1" max="8" style="min-width:90px">
-      </div>
-      <div class="field">
-        <label>Runs</label>
-        <!-- 5 = one full sweep of the category grid. -->
-        <input id="a-runs" type="number" value="5" min="1" max="10" style="min-width:70px">
-      </div>
-      <div class="field">
-        <label>Detail fetch</label>
-        <select id="a-det">
-          <option value="false" selected>Off — half price</option>
-          <option value="true">On — 2x cost</option>
-        </select>
-      </div>
-      <label style="display:flex;align-items:center;gap:6px;font-size:12px;
-                    color:var(--muted);font-weight:600;white-space:nowrap">
-        <input type="checkbox" id="a-restart"> Restart at category 1
-      </label>
-      <button class="btn-sm" id="a-start">Start automation</button>
-      <button class="btn-sm stop" id="a-stop" disabled>Stop</button>
-    </div>
-    <div class="ticks" id="a-ticks"></div>
-  </div>
-  </section>
 
   <!-- ================= Manual ingestion ================= -->
   <section id="p-manual">
@@ -608,7 +538,7 @@ async function loadListings(highlight=false){
     const cond = l.condition==='new' ? 'b-new' : 'b-used';
     const rev = l.review_status==='pending_review' ? 'b-pend' : 'b-appr';
     return `<tr class="${isNew?'new':''}" onclick="openDetail('${l.id}')">
-      <td>${l.thumb?`<img class="thumb" src="${l.thumb}" loading="lazy">`:'<div class="thumb"></div>'}</td>
+      <td>${l.thumb?`<img class="thumb" src="/api/image/${l.thumb_id}" loading="lazy">`:'<div class="thumb"></div>'}</td>
       <td class="ttl"><a href="${l.listing_url}" target="_blank" rel="noopener" onclick="event.stopPropagation()">${l.title}</a></td>
       <td class="price">${fmt(l.price_inr)}</td>
       <td><span class="badge ${cond}">${l.condition.replace(/_/g,' ')}</span></td>
@@ -770,255 +700,9 @@ function closeDetail(){
 $('#ovl').onclick = e => { if(e.target.id === 'ovl') closeDetail(); };
 document.addEventListener('keydown', e => { if(e.key === 'Escape') closeDetail(); });
 
-// ---------------------------------------------------------------- automation
-let lastTickCount = -1, nextRunAt = null, tickTimer = null;
+// No token prompt. Caddy authenticates at the edge and the app binds to
+// loopback, so anyone reaching this page is already past the gate.
 
-// Both the database and the budget can block a run, and they are checked by
-// separate polls. Without a single gate they race and re-enable each other's
-// disabled buttons -- which would let someone spend Apify credit on a run
-// that cannot persist.
-const guards = { dbDown: false, budgetBlocked: null };
-
-function applyGuards(){
-  const reason = guards.budgetBlocked
-    ? 'Budget cap reached'
-    : guards.dbDown ? 'Database unavailable' : null;
-  const blocked = reason !== null;
-
-  const mrun = $('#m-run');
-  if(mrun) mrun.disabled = blocked || manualInFlight;
-
-  const a = $('#a-start');
-  if(a) a.disabled = blocked || a.dataset.running === '1';
-}
-
-function fmtLeft(iso){
-  if(!iso) return '—';
-  const s = Math.max(0, Math.round((new Date(iso) - Date.now())/1000));
-  return s >= 60 ? `${Math.floor(s/60)}m ${String(s%60).padStart(2,'0')}s` : `${s}s`;
-}
-
-async function loadBudget(){
-  let b;
-  try { b = await (await fetch('/api/budget')).json(); } catch { return null; }
-
-  const cls = b.pct_used >= 100 ? 'err' : b.pct_used > 70 ? 'warn' : '';
-  $('#budget').innerHTML = `
-    <div class="budget ${b.exhausted?'stopped':''}">
-      <div class="budget-top">
-        <h2>Apify budget</h2>
-        <span style="font-size:12px;color:var(--muted)">
-          hard cap $${b.total_cap_usd.toFixed(2)}${b.monthly_limit_usd
-            ? ` · free tier $${b.monthly_limit_usd.toFixed(2)}/mo` : ''}</span>
-        <span class="amt">$${b.monthly_used_usd.toFixed(4)}</span>
-      </div>
-      <div class="bigbar"><i class="${cls}" style="width:${Math.min(100,b.pct_used)}%"></i></div>
-      <div class="budget-foot">
-        <span>${b.pct_used.toFixed(1)}% of cap used</span>
-        <span>$${b.remaining_usd.toFixed(4)} remaining</span>
-      </div>
-      ${b.blocked_reason
-        ? `<div class="stopmsg"><span>&#9209;</span><span>${b.blocked_reason}</span></div>`
-        : ''}
-      ${b.error ? `<div class="stopmsg"><span>&#9888;</span><span>${b.error} — refusing to spend while usage cannot be read.</span></div>` : ''}
-    </div>`;
-
-  // Nothing may start once the cap is hit; that is the point of the cap.
-  guards.budgetBlocked = (b.exhausted || b.blocked_reason) ? b.blocked_reason : null;
-  applyGuards();
-  return b;
-}
-
-// The demo token authorises SPENDING. Held in sessionStorage so it survives
-// a reload but not the browser closing, and never written to the page.
-function demoToken(){
-  let t = sessionStorage.getItem('demoToken');
-  if(!t){
-    t = prompt('Demo token (VINGO_DEMO_SECRET) — needed to start automation:');
-    if(t) sessionStorage.setItem('demoToken', t.trim());
-  }
-  return t ? t.trim() : '';
-}
-
-let tickInFlight = false;
-// Set false once this tab is known not to hold a valid token, so it stops
-// firing ticks that can only 401.
-let driving = true;
-
-async function loadAutomation(){
-  let d;
-  try { d = await (await fetch('/api/automation')).json(); } catch { return; }
-  if(d.error && !('running' in d)) return;
-
-  $('#a-dot').className = 'dot-live' + ((d.running || d.pending) ? ' on' : '');
-  $('#a-state').textContent = d.pending
-    ? `scraping ${d.pending_cell} · collecting when the actor finishes`
-    : d.running
-      ? `running · every ${Math.round(d.interval_s/60)} min · next ${d.next_cell}`
-        + ` · ${d.runs_remaining} left · ticks while this page is open`
-      : (d.stopped_reason || 'idle');
-  $('#a-start').dataset.running = d.running ? '1' : '0';
-  // Stop stays clickable whenever a sequence is armed. It is the kill switch;
-  // it must never be the control that is greyed out when you need it.
-  $('#a-stop').disabled = !(d.running || d.pending);
-  applyGuards();
-  nextRunAt = d.next_run_at;
-
-  // The rotation, made visible. `cycle_position` is how far into the current
-  // cycle we are; `current_cell` is what is being scraped right now, which is
-  // NOT `cursor` -- the cursor has already advanced to what comes next.
-  const cells = d.cells || [];
-  const cityLabel = (d.city === 'bangalore') ? 'Bengaluru' : (d.city || '');
-  const nice = s => String(s).replace(/_/g, ' ');
-  $('#a-rot').innerHTML = cells.length ? `
-    <span class="rot-city">${cityLabel}</span>
-    <span class="rot-cells">${cells.map((c, i) => {
-      const isNow = d.current_cell
-        ? d.current_cell === `${c.city} / ${c.category}`
-        : (d.running && i === d.cursor);
-      const isDone = !isNow && i < d.cycle_position;
-      return `<span class="rc ${isNow ? 'now' : isDone ? 'done' : ''}">
-                <span class="mk">${isDone ? '\u2713' : i + 1}</span>${nice(c.category)}
-              </span>`;
-    }).join('')}</span>
-    ${d.current_cell
-      ? `<span class="rot-now">Scraping now <span class="q">${nice(d.current_cell)}</span></span>`
-      : d.running
-        ? `<span class="rot-now">Next <span class="q">${nice(d.next_cell)}</span></span>`
-        : ''}` : '';
-
-  const pct = d.daily_cap_usd ? Math.min(100, 100 * d.spend_today_usd / d.daily_cap_usd) : 0;
-  const cls = pct > 90 ? 'err' : pct > 60 ? 'warn' : '';
-
-  $('#a-metrics').innerHTML = `
-    <div class="am"><span class="k">Runs completed</span><span class="v">${d.ticks}</span></div>
-    <div class="am"><span class="k">Next run in</span>
-      <span class="v" id="a-count">${d.running ? fmtLeft(d.next_run_at) : '—'}</span></div>
-    <div class="am"><span class="k">${d.current_cell ? 'Scraping now' : 'Next up'}</span>
-      <span class="v small">${nice((d.current_cell || d.next_cell || '').split(' / ')[1] || '-')}<br>
-      <span style="color:var(--muted);font-weight:600">step ${d.cycle_position + 1} of ${d.cells_total}</span></span></div>
-    <div class="am"><span class="k">Spend today</span>
-      <span class="v ${cls}">$${d.spend_today_usd.toFixed(4)}</span>
-      <div class="bar"><i class="${cls}" style="width:${pct}%"></i></div>
-      <span style="font-size:10.5px;color:var(--muted)">of $${d.daily_cap_usd.toFixed(2)} daily cap</span></div>
-    <div class="am"><span class="k">Runs affordable</span>
-      <span class="v ${d.ticks_affordable < 10 ? 'warn' : ''}">${d.ticks_affordable}</span></div>
-    <div class="am"><span class="k">Cost / run</span>
-      <span class="v small">$${d.est_tick_usd.toFixed(4)}</span></div>`;
-
-  // Projecting the chosen cadence out over a day is the number that stops a
-  // "just leave it running" demo turning into a real bill.
-  const over = d.projected_daily_usd > d.daily_cap_usd;
-  $('#a-warn').innerHTML = over
-    ? `<div class="warnbox"><strong>At this cadence that projects to
-       $${d.projected_daily_usd.toFixed(2)}/day</strong> — above the
-       $${d.daily_cap_usd.toFixed(2)} daily cap, so automation stops partway
-       through the day. Fine for a demo; lengthen the interval to run
-       continuously.</div>`
-    : '';
-
-  const hist = d.history || [];
-  $('#a-ticks').innerHTML = hist.length
-    ? hist.map((h,i)=>`
-        <div class="tick ${h.error?'bad':''} ${i===0 && d.ticks!==lastTickCount ? 'fresh':''}">
-          <span class="cell">${h.city} / ${String(h.category).replace(/_/g,' ')}</span>
-          ${h.error
-            ? `<span class="num" style="color:var(--err)">${String(h.error).slice(0,60)}</span>`
-            : `<span class="num">${h.listings} listings · ${h.created} new · ${h.images} images · $${h.cost_usd.toFixed(4)}</span>`}
-          <span class="when">${ago(h.at)}</span>
-        </div>`).join('')
-    : '<div class="tick"><span class="num">No runs yet.</span></div>';
-
-  // A new tick means the database moved -- refresh what the page shows.
-  if(d.ticks !== lastTickCount){
-    if(lastTickCount !== -1){ loadStats(); loadListings(true); loadRuns(); }
-    lastTickCount = d.ticks;
-  }
-
-  // Drive the schedule from here. The server is stateless between requests on
-  // Vercel, so something outside it has to notice a tick is due -- that is
-  // this page, or an external pinger hitting the same endpoint.
-  // A run already in flight is collected as soon as it finishes -- the money
-  // is spent either way, so there is nothing to gain by waiting out the
-  // interval before picking it up.
-  if(!driving) return;
-  if(d.pending && !tickInFlight){ fireTick(); return; }
-  if(d.running && d.next_run_at && !tickInFlight){
-    if(Date.now() >= new Date(d.next_run_at).getTime()) fireTick();
-  }
-}
-
-async function fireTick(){
-  if(tickInFlight) return;          // a slow tick must never be fired twice
-  tickInFlight = true;
-  try{
-    const r = await fetch('/api/automation/tick', {
-      method:'POST', headers:{'X-Demo-Token': demoToken()}
-    });
-    if(r.status === 401){
-      // Stop driving from this tab -- but do NOT stop the sequence. A tab that
-      // cannot authenticate is not a reason to kill a run someone else armed,
-      // and this previously killed sequences the moment an unauthenticated
-      // console was left open anywhere.
-      sessionStorage.removeItem('demoToken');
-      driving = false;
-      $('#a-state').textContent =
-        'automation is running, but this tab cannot drive it - reload and enter the demo token';
-    }
-  } catch(e){
-    // Network blip: leave it armed, the next poll retries.
-  } finally {
-    tickInFlight = false;
-    loadAutomation();
-  }
-}
-
-$('#a-start').onclick = async () => {
-  $('#a-start').disabled = true;
-  driving = true;
-  try{
-    const r = await fetch('/api/automation/start', {
-      method:'POST',
-      headers:{'Content-Type':'application/json','X-Demo-Token': demoToken()},
-      body: JSON.stringify({
-        interval_s: parseInt($('#a-int').value),
-        per_cell: parseInt($('#a-per').value) || 10,
-        include_details: $('#a-det').value === 'true',
-        runs: parseInt($('#a-runs') ? $('#a-runs').value : 5) || 5,
-        restart: $('#a-restart') ? $('#a-restart').checked : false,
-      })
-    });
-    if(!r.ok){
-      if(r.status === 401) sessionStorage.removeItem('demoToken');
-      alert((await r.json()).detail || 'could not start');
-    }
-  } finally { loadAutomation(); }
-};
-
-$('#a-stop').onclick = async () => {
-  $('#a-stop').disabled = true;
-  // No token: stopping is unauthenticated by design.
-  await fetch('/api/automation/stop', {method:'POST'});
-  loadAutomation();
-};
-
-// Poll state every 5s; tick the countdown every second so it feels live.
-loadBudget(); loadAutomation();
-setInterval(() => { loadBudget(); loadAutomation(); }, 5000);
-setInterval(() => {
-  const el = $('#a-count');
-  if(el && nextRunAt) el.textContent = fmtLeft(nextRunAt);
-}, 1000);
-
-setInterval(()=>{ loadStats(); loadRuns(); }, 15000);
-
-// ---------------------------------------------------------------- tabs ---
-// One page, no tabs. Everything polls; nothing is hidden behind a click.
-
-// --------------------------------------------------- manual ingestion ---
-// Same two-phase shape as automation: start the Actor, then collect it on a
-// later request. The previous manual path waited inline and died against the
-// 60s ceiling without ever reporting why.
 let manualInFlight = false;
 
 function manualBody(){
@@ -1050,8 +734,16 @@ async function loadManual(){
 
   $('#m-dot').className = 'dot-live' + (d.running ? ' on' : '');
   $('#m-state').textContent = d.running
-    ? `running · ${d.status || 'collecting when the actor finishes'}`
+    ? `scraping · ${d.status || 'waiting for the actor'}`
     : (d.status || 'idle');
+
+  // The Actor takes 10-50s and the page polls silently through it. Without
+  // this the button just sits disabled and the run looks dead.
+  if(d.running && !$('#m-result').innerHTML.includes('working')){
+    $('#m-result').innerHTML = '<div class="inv"><span class="spin-s"></span>'
+      + '<span><b>Scraping…</b> the actor usually takes 10–50 seconds. '
+      + 'This page is waiting for it; nothing to click.</span></div>';
+  }
   $('#m-run').disabled = d.running || manualInFlight;
 
   // A lock held by the OTHER runner is the informative case: say who has it
@@ -1081,7 +773,7 @@ async function collectManual(){
   manualInFlight = true;
   try{
     const r = await fetch('/api/ingest/collect', {
-      method:'POST', headers:{'X-Demo-Token': demoToken()}
+      method:'POST'
     });
     const out = await r.json();
     if(out.ran){
@@ -1089,13 +781,19 @@ async function collectManual(){
         <div class="inv"><span>✓</span><span>
           <b>${out.listings} listings</b> · ${out.created} new · ${out.updated} updated ·
           ${out.images_stored} images · ${out.skipped_duplicates} already held ·
-          ${out.rejected || 0} rejected${out.stale_dropped ? ` · ${out.stale_dropped} too old` : ''} ·
+          ${out.rejected ? `<b>${out.rejected} rejected</b> (under 2 photos or a junk price)` : '0 rejected'}${out.stale_dropped ? ` · ${out.stale_dropped} too old` : ''} ·
           $${Number(out.cost_usd || 0).toFixed(4)}
         </span></div>`;
       loadStats(); loadListings(true); loadBudget();
     } else if(out.error){
       $('#m-result').innerHTML =
         `<div class="inv bad"><span>✕</span><span>${out.error}</span></div>`;
+    } else if(out.ran === false && out.waiting !== true && !out.reason?.includes('no manual')){
+      // Searched, found nothing. Distinct from a failure, and worth saying --
+      // silence here reads as a broken button.
+      $('#m-result').innerHTML = '<div class="inv"><span>○</span><span>'
+        + 'No listings matched. Try a wider <b>Listed within</b>, drop the '
+        + 'price filters, or use a broader keyword.</span></div>';
     }
   } catch(e){
     // Network blip: the run is still recorded server-side, so the next poll
@@ -1119,16 +817,13 @@ $('#m-run').onclick = async () => {
   try{
     const r = await fetch('/api/ingest', {
       method:'POST',
-      headers:{'Content-Type':'application/json','X-Demo-Token': demoToken()},
+      headers:{'Content-Type':'application/json'},
       body: JSON.stringify(body),
     });
     if(r.status === 409){
       // The mutex, surfaced properly. Never a bare 500, never silence.
       const body = await r.json();
       showBusy(body.detail || 'Ingestion busy — run in progress');
-    } else if(r.status === 401){
-      sessionStorage.removeItem('demoToken');
-      alert('Demo token rejected.');
     } else if(!r.ok){
       const body = await r.json().catch(() => ({}));
       $('#m-result').innerHTML =

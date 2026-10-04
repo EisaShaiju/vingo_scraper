@@ -105,6 +105,10 @@ class InMemoryStore:
     def public_url(self, key: str) -> str:
         return f"{self.base}/{key}"
 
+    def download(self, key: str) -> tuple[bytes, str]:
+        data, content_type = self.objects[key]
+        return data, content_type
+
 
 class GCSStore:
     """Google Cloud Storage, authenticated by Application Default Credentials.
@@ -155,10 +159,29 @@ class GCSStore:
 
     def public_url(self, key: str) -> str:
         """Built, not fetched -- the format is stable and deterministic, and
-        one fewer round trip per image matters at catalog scale."""
+        one fewer round trip per image matters at catalog scale.
+
+        NOTE: this URL only resolves for a browser if the bucket grants public
+        read. Ours does not, and the org policy may forbid it, so the console
+        renders images through `/api/image/...` instead -- see `download`.
+        """
         if self.public_base:
             return f"{self.public_base}/{key}"
         return f"https://storage.googleapis.com/{self.bucket_name}/{key}"
+
+    def download(self, key: str) -> tuple[bytes, str]:
+        """(bytes, content_type). Used by the image proxy.
+
+        The app can read the bucket with its own credentials even when the
+        objects are private, which is what lets the catalog show photos
+        without making the bucket world-readable.
+        """
+        blob = self.bucket.blob(key)
+        try:
+            data = blob.download_as_bytes()
+        except Exception as exc:
+            raise StorageError(f"download of {key} failed: {exc}") from exc
+        return data, (blob.content_type or "image/jpeg")
 
 
 def get_store() -> ObjectStore:

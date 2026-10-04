@@ -12,7 +12,6 @@ from datetime import UTC, datetime, timedelta
 import pytest
 
 from vingo_scraper.apify.client import (
-    AUTOMATION_FILTERS,
     CURIOUS_CODER,
     DAYS_SINCE_LISTED_CHOICES,
     SORT_NEWEST,
@@ -20,7 +19,7 @@ from vingo_scraper.apify.client import (
     build_run_input,
     merge_filters,
 )
-from vingo_scraper.config import AUTOMATION_CATEGORIES, CATEGORIES, settings
+from vingo_scraper.config import CATEGORIES, settings
 from vingo_scraper.extract.schema import ExtractionMethod, Listing, ListingImage
 from vingo_scraper.pipeline.quality import MIN_PHOTOS, assess, assess_all
 
@@ -126,10 +125,12 @@ def test_2_02_no_tab_switching_javascript():
     assert "document.querySelectorAll('.tab')" not in page()
 
 
-def test_2_03_all_three_sections_present_at_once():
+def test_2_03_both_sections_present_at_once():
+    """Ingest and catalog, visible together. The automation section is gone."""
     h = page()
-    for sid in ("p-auto", "p-manual", "p-catalog"):
+    for sid in ("p-manual", "p-catalog"):
         assert f'id="{sid}"' in h
+    assert 'id="p-auto"' not in h
 
 
 def test_2_04_sections_are_not_hidden_behind_a_class():
@@ -152,12 +153,16 @@ def test_2_07_catalog_renders_without_a_click():
     assert "loadListings" in page()
 
 
-def test_2_08_automation_strip_still_present():
-    assert 'id="a-rot"' in page()
+def test_2_08_no_automation_markup_remains():
+    """Automation was removed, not hidden. A hidden panel gets switched on."""
+    h = page()
+    for dead in ('id="a-rot"', 'id="a-start"', 'id="a-stop"', "loadAutomation"):
+        assert dead not in h, dead
 
 
-def test_2_09_kill_switch_on_the_page():
-    assert 'id="a-stop"' in page()
+def test_2_09_the_ingest_form_is_the_whole_control_surface():
+    h = page()
+    assert 'id="m-run"' in h and 'id="m-cat"' in h and 'id="m-q"' in h
 
 
 def test_2_10_page_is_served_at_root(tmp_path):
@@ -222,15 +227,14 @@ def test_3_07_manual_start_is_wrapped_in_the_lock():
     assert 'ingestion_lock("manual")' in inspect.getsource(main.start_ingest)
 
 
-def test_3_08_automated_tick_is_wrapped_in_the_lock():
-    import inspect
-
+def test_3_08_no_second_runner_can_take_the_lock():
+    """Automation is gone; manual is the only holder."""
     from vingo_scraper.api import main
-    assert 'ingestion_lock("automation")' in inspect.getsource(main._run_tick)
+    assert not hasattr(main, "_run_tick")
 
 
 def test_3_09_ui_shows_a_busy_banner():
-    assert "Ingestion busy" in page()
+    assert "Ingestion busy" in page() or "already in progress" in page()
 
 
 def test_3_10_busy_is_409_not_500():
@@ -387,9 +391,9 @@ def test_6_02_a_recency_window_is_always_set():
     assert merge_filters()["daysSinceListed"] in DAYS_SINCE_LISTED_CHOICES
 
 
-def test_6_03_automation_asks_for_one_day():
-    """A daily sweep asking for 7 days re-sees six days it already holds."""
-    assert AUTOMATION_FILTERS["daysSinceListed"] == "1"
+def test_6_03_a_tighter_window_is_available_to_the_operator():
+    """Manual chooses its own window; there is no scheduled runner to pin one."""
+    assert set(DAYS_SINCE_LISTED_CHOICES) >= {"1", "7", "30"}
 
 
 def test_6_04_the_actor_has_no_hourly_option():
@@ -487,9 +491,9 @@ def test_7_08_unknown_category_falls_back_to_its_own_name():
     assert payload["urls"][0]["url"].endswith("/made-up")
 
 
-def test_7_09_automation_walks_a_subset_not_all_18():
-    assert set(AUTOMATION_CATEGORIES) <= set(CATEGORIES)
-    assert len(AUTOMATION_CATEGORIES) < len(CATEGORIES)
+def test_7_09_every_category_is_selectable_by_hand():
+    """With no sweep, the operator picks -- so all 18 must be reachable."""
+    assert len(CATEGORIES) >= 18
 
 
 def test_7_10_every_category_is_offered_in_the_ui():
@@ -548,3 +552,75 @@ def test_8_02_a_long_actor_error_cannot_break_the_status_write():
     assert _fit("ok") == "ok"
     # Newlines in the message must not survive into a status field.
     assert "\n" not in _fit("failed:\n\n  limit reached\n")
+
+
+# ==========================================================================
+# Manual is the whole product now
+# ==========================================================================
+
+def test_9_01_automation_endpoints_are_gone():
+    """Removed, not disabled. A dormant second runner still shares the lock."""
+    from vingo_scraper.api.main import app
+    paths = {r.path for r in app.routes if hasattr(r, "path")}
+    for dead in ("/api/automation", "/api/automation/start", "/api/cron/tick",
+                 "/api/demo/status", "/api/demo/start"):
+        assert dead not in paths, dead
+
+
+def test_9_02_the_manual_endpoints_remain():
+    from vingo_scraper.api.main import app
+    paths = {r.path for r in app.routes if hasattr(r, "path")}
+    assert {"/api/ingest", "/api/ingest/collect", "/api/manual"} <= paths
+
+
+def test_9_03_the_lock_still_guards_a_double_click():
+    """Two runners became one, but one operator clicking twice still pays twice."""
+    import inspect
+
+    from vingo_scraper.api import main
+    assert 'ingestion_lock("manual")' in inspect.getsource(main.start_ingest)
+
+
+def test_9_04_a_run_in_flight_is_reported_as_scraping():
+    assert "Scraping" in page()
+
+
+def test_9_05_an_empty_result_says_so():
+    """Silence after a run reads as a broken button."""
+    assert "No listings matched" in page()
+
+
+def test_9_06_rejections_are_explained_in_the_ui():
+    assert "under 2 photos" in page()
+
+
+def test_9_07_the_page_collects_without_being_asked():
+    """A 45s wait the operator has to poll by hand is not a working button."""
+    h = page()
+    assert "collectManual" in h
+    assert "setInterval" in h
+
+
+def test_9_08_two_phase_is_kept_even_with_one_runner():
+    """The Actor's 10.8-47.1s variance did not go away with automation."""
+    import inspect
+
+    from vingo_scraper.api import main
+    assert "start_run" in inspect.getsource(main.start_ingest)
+    assert "collect_run" in inspect.getsource(main.collect_ingest)
+
+
+def test_9_09_manual_history_is_still_filtered_by_trigger():
+    import inspect
+
+    from vingo_scraper.api import main
+    assert 'trigger="manual"' in inspect.getsource(main.manual_status)
+
+
+def test_9_10_no_automation_imports_linger():
+    import inspect
+
+    from vingo_scraper.api import main
+    src = inspect.getsource(main)
+    assert "AUTOMATION_FILTERS" not in src
+    assert "automation_cells" not in src

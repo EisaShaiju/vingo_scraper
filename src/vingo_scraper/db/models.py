@@ -79,14 +79,6 @@ class Seller(Base):
     rating: Mapped[float | None] = mapped_column(Float)
     rating_count: Mapped[int | None] = mapped_column(Integer)
 
-    # Outreach state. On the LISTING rather than the seller because seller
-    # identity is absent on ~94% of rows -- see migration 0009.
-    outreach_status: Mapped[str] = mapped_column(
-        String(16), default="new", server_default="new", index=True
-    )
-    contacted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
-    outreach_note: Mapped[str | None] = mapped_column(Text)
-
     first_seen_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
 
     listings: Mapped[list[Listing]] = relationship(back_populates="seller")
@@ -187,6 +179,14 @@ class Listing(Base):
     review_status: Mapped[ReviewStatus] = mapped_column(
         _enum(ReviewStatus, "review_status"), default=ReviewStatus.PENDING_REVIEW
     )
+
+    # Outreach state. On the LISTING rather than the seller because seller
+    # identity is absent on ~94% of rows -- see migration 0009.
+    outreach_status: Mapped[str] = mapped_column(
+        String(16), default="new", server_default="new", index=True
+    )
+    contacted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    outreach_note: Mapped[str | None] = mapped_column(Text)
 
     first_seen_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
     last_seen_at: Mapped[datetime] = mapped_column(

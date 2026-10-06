@@ -199,3 +199,50 @@ def test_17_a_database_failure_is_an_empty_list_not_a_500(monkeypatch) -> None:
     r = TestClient(api.app).get("/api/listings")
     assert r.status_code == 200
     assert r.json() == {"listings": [], "count": 0, "db_available": False}
+
+
+# --------------------------------------------------------------------------
+# the model, against the migration
+# --------------------------------------------------------------------------
+
+def test_18_outreach_columns_are_on_listing_not_seller() -> None:
+    """These landed on Seller once and nothing caught it.
+
+    `Seller` and `Listing` both declare a `first_seen_at` line, so an edit
+    anchored on that text hit the wrong class. Every test passed -- they all
+    exercised the scorer and the CSV, neither of which touches the ORM -- and
+    the console returned an empty list for every tab, because the swallowed
+    error was `'Listing' object has no attribute 'outreach_status'`.
+    """
+    from vingo_scraper.db.models import Listing, Seller
+
+    for col in ("outreach_status", "contacted_at", "outreach_note"):
+        assert col in Listing.__table__.columns, f"listing is missing {col}"
+        assert col not in Seller.__table__.columns, f"seller should not have {col}"
+
+
+def test_19_the_model_matches_what_migration_0009_creates() -> None:
+    """The DDL and the mapped class must agree on the table, or queries fail
+    at runtime against a database that is perfectly correct."""
+    import pathlib
+    import re
+
+    src = pathlib.Path("alembic/versions/0009_outreach.py").read_text(encoding="utf-8")
+    added = set(re.findall(r'add_column\(\s*"(\w+)",\s*sa\.Column\(\s*"(\w+)"', src))
+    assert added, "could not read the migration's add_column calls"
+
+    from vingo_scraper.db.models import Listing
+    for table, column in added:
+        assert table == "listing", f"0009 touches {table}, model expects listing"
+        assert column in Listing.__table__.columns, f"model missing {column}"
+
+
+def test_20_the_listings_payload_reads_only_columns_that_exist() -> None:
+    """The endpoint reads these off the row; a typo here is a silent empty
+    catalog, because /api/listings swallows its own errors by design."""
+    from vingo_scraper.db.models import Listing
+
+    for attr in ("category", "quality_score", "description_facts",
+                 "outreach_status", "contacted_at", "outreach_note",
+                 "price_history"):
+        assert hasattr(Listing, attr), f"Listing has no {attr}"

@@ -117,17 +117,19 @@ def test_1_10_private_keys_never_reach_apify():
 # 2. One page, no tabs
 # ==========================================================================
 
-def test_2_01_exactly_two_tabs():
-    """Search and Catalog answer different questions, so they are separated.
+def test_2_01_one_tab_per_question():
+    """Search, Leads and Catalog answer three different questions.
 
-    The earlier THREE-tab layout was wrong for the opposite reason: Manual and
-    Automated were the same question split in half.
+    The earlier Manual/Automated split was wrong for the opposite reason: those
+    were the SAME question split in half. A tab earns its place by answering
+    something the others cannot -- "what did I just get", "who do I message
+    first", "what do we hold".
     """
     h = page()
-    assert h.count('class="tab ') + h.count('class="tab"') == 2
-    assert 'data-panel="p-manual"' in h
-    assert 'data-panel="p-catalog"' in h
-    # Automation is gone, not hidden behind a third tab.
+    assert h.count('class="tab ') + h.count('class="tab"') == 3
+    for panel in ("p-manual", "p-leads", "p-catalog"):
+        assert f'data-panel="{panel}"' in h
+    # Automation is gone, not hidden behind another tab.
     assert 'data-panel="p-auto"' not in h
 
 

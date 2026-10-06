@@ -1,0 +1,201 @@
+"""Outreach state and the CSV the team actually works from.
+
+Offline like everything else: the database read is substituted, so these pin
+the contract and the shaping, not Postgres.
+"""
+
+from __future__ import annotations
+
+import csv
+import io
+
+import pytest
+from fastapi.testclient import TestClient
+
+from vingo_scraper.api import main as api
+
+ROW = {
+    "id": "11111111-1111-1111-1111-111111111111",
+    "title": 'Royal Enfield "Classic" 350, 2019',   # quotes: CSV escaping
+    "price_inr": 145000.0,
+    "location": "Indiranagar",
+    "category": "vehicles",
+    "posted_at": "2026-09-20T10:00:00+00:00",
+    "image_count": 7,
+    "quality_score": 88,
+    "outreach_status": "contacted",
+    "contacted_at": "2026-10-05T09:00:00+00:00",
+    "outreach_note": "asked for pickup Sat",
+    "listing_url": "https://www.facebook.com/marketplace/item/123",
+    "lead": {
+        "score": 72, "band": "hot",
+        "signals": [
+            {"label": "Price cut 12% (₹20,000)", "points": 30, "kind": "good"},
+            {"label": "Seller is relocating", "points": 22, "kind": "good"},
+        ],
+    },
+}
+
+
+@pytest.fixture
+def client(monkeypatch):
+    async def fake_listings(limit, since_run, **kw):
+        fake_listings.seen = {"limit": limit, "since_run": since_run, **kw}
+        return {"listings": [ROW], "count": 1}
+
+    monkeypatch.setattr(api, "_listings", fake_listings)
+    return TestClient(api.app), fake_listings
+
+
+# --------------------------------------------------------------------------
+# the vocabulary
+# --------------------------------------------------------------------------
+
+def test_01_the_five_states_cover_a_real_conversation() -> None:
+    assert api.OUTREACH_STATUSES == (
+        "new", "contacted", "replied", "converted", "dead"
+    )
+
+
+def test_02_an_invented_status_is_refused() -> None:
+    c = TestClient(api.app)
+    r = c.post("/api/listings/11111111-1111-1111-1111-111111111111/outreach",
+               json={"status": "maybe"})
+    assert r.status_code == 400
+    assert "status must be one of" in r.text
+
+
+def test_03_the_refusal_names_the_allowed_values() -> None:
+    """A 400 that does not say what IS allowed costs a round trip."""
+    c = TestClient(api.app)
+    r = c.post("/api/listings/11111111-1111-1111-1111-111111111111/outreach",
+               json={"status": "nope"})
+    for state in api.OUTREACH_STATUSES:
+        assert state in r.text
+
+
+def test_04_a_note_is_optional() -> None:
+    from vingo_scraper.api.main import OutreachRequest
+    assert OutreachRequest(status="contacted").note is None
+
+
+def test_05_status_is_required() -> None:
+    """Defaulting it would let a mis-shaped request silently mark a lead."""
+    from pydantic import ValidationError
+
+    from vingo_scraper.api.main import OutreachRequest
+    with pytest.raises(ValidationError):
+        OutreachRequest()
+
+
+# --------------------------------------------------------------------------
+# the export
+# --------------------------------------------------------------------------
+
+def test_06_export_is_a_csv_attachment(client) -> None:
+    c, _ = client
+    r = c.get("/api/export.csv")
+    assert r.status_code == 200
+    assert r.headers["content-type"].startswith("text/csv")
+    assert "attachment" in r.headers["content-disposition"]
+    assert "vingo-leads.csv" in r.headers["content-disposition"]
+
+
+def test_07_export_carries_the_score_and_the_reasons(client) -> None:
+    c, _ = client
+    row = next(csv.DictReader(io.StringIO(c.get("/api/export.csv").text)))
+    assert row["lead_score"] == "72"
+    assert row["band"] == "hot"
+    assert "Seller is relocating" in row["signals"]
+
+
+def test_08_export_carries_the_contact_route(client) -> None:
+    """With no phone or email anywhere, the listing URL IS the contact route.
+    An export without it is a spreadsheet nobody can act on."""
+    c, _ = client
+    row = next(csv.DictReader(io.StringIO(c.get("/api/export.csv").text)))
+    assert row["listing_url"] == ROW["listing_url"]
+
+
+def test_09_export_carries_outreach_state(client) -> None:
+    c, _ = client
+    row = next(csv.DictReader(io.StringIO(c.get("/api/export.csv").text)))
+    assert row["outreach_status"] == "contacted"
+    assert row["note"] == "asked for pickup Sat"
+
+
+def test_10_a_title_with_quotes_and_commas_survives(client) -> None:
+    """Marketplace titles are seller-written. One stray quote must not shift
+    every later column by one."""
+    c, _ = client
+    row = next(csv.DictReader(io.StringIO(c.get("/api/export.csv").text)))
+    assert row["title"] == ROW["title"]
+    assert row["listing_url"].startswith("https://")
+
+
+def test_11_export_defaults_to_the_lead_ordering(client) -> None:
+    c, fake = client
+    c.get("/api/export.csv")
+    assert fake.seen["order"] == "lead"
+
+
+def test_12_export_passes_its_filters_through(client) -> None:
+    """The file must be what you were looking at, not a different question."""
+    c, fake = client
+    c.get("/api/export.csv?search=iphone&outreach=new")
+    assert fake.seen["search"] == "iphone"
+    assert fake.seen["outreach"] == "new"
+
+
+def test_13_export_has_a_header_row(client) -> None:
+    c, _ = client
+    first = c.get("/api/export.csv").text.splitlines()[0]
+    assert first.startswith("lead_score,band,signals,title")
+
+
+def test_14_a_lead_with_no_signals_still_exports(monkeypatch) -> None:
+    """A listing with nothing stated is still a lead -- the business contacts
+    that seller regardless."""
+    bare = {**ROW, "lead": {"score": 0, "band": "cold", "signals": []}}
+
+    async def one_bare(limit, since_run, **kw):
+        return {"listings": [bare], "count": 1}
+
+    monkeypatch.setattr(api, "_listings", one_bare)
+    text = TestClient(api.app).get("/api/export.csv").text
+    row = next(csv.DictReader(io.StringIO(text)))
+    assert row["lead_score"] == "0" and row["signals"] == ""
+
+
+# --------------------------------------------------------------------------
+# the listings query the lead tab depends on
+# --------------------------------------------------------------------------
+
+def test_15_the_lead_order_is_an_explicit_request(client) -> None:
+    """The catalog must stay newest-first; only the Leads tab asks to be
+    re-sorted."""
+    c, fake = client
+    c.get("/api/listings")
+    assert fake.seen["order"] == "recent"
+    c.get("/api/listings?order=lead")
+    assert fake.seen["order"] == "lead"
+
+
+def test_16_filters_reach_the_query(client) -> None:
+    c, fake = client
+    c.get("/api/listings?search=sofa&outreach=new&offset=20")
+    assert fake.seen["search"] == "sofa"
+    assert fake.seen["outreach"] == "new"
+    assert fake.seen["offset"] == 20
+
+
+def test_17_a_database_failure_is_an_empty_list_not_a_500(monkeypatch) -> None:
+    """The console must still render when Postgres is down -- a blank page
+    tells the operator nothing about which part broke."""
+    async def boom(*a, **kw):
+        raise RuntimeError("connection refused")
+
+    monkeypatch.setattr(api, "_listings", boom)
+    r = TestClient(api.app).get("/api/listings")
+    assert r.status_code == 200
+    assert r.json() == {"listings": [], "count": 0, "db_available": False}

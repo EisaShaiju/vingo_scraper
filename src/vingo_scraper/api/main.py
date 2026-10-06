@@ -22,19 +22,25 @@ quietly disagrees with itself.
 
 from __future__ import annotations
 
+import csv
+import io
+import uuid
 from contextlib import asynccontextmanager
+from datetime import UTC, datetime
 from pathlib import Path
 
 import structlog
 from fastapi import FastAPI, Header, HTTPException
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, Response
 from pydantic import BaseModel
 from sqlalchemy import func, select
+from sqlalchemy.orm import selectinload
 
 from vingo_scraper.config import settings
 from vingo_scraper.db import models
 from vingo_scraper.db.session import session_scope
 from vingo_scraper.extract.schema import ImageStatus, ReviewStatus
+from vingo_scraper.pipeline import lead_score
 
 log = structlog.get_logger(__name__)
 
@@ -203,24 +209,56 @@ async def _stats() -> dict:
 
 
 @app.get("/api/listings")
-async def listings(limit: int = 60, since_run: str | None = None) -> dict:
+async def listings(
+    limit: int = 60,
+    offset: int = 0,
+    since_run: str | None = None,
+    search: str | None = None,
+    outreach: str | None = None,
+    order: str = "recent",
+) -> dict:
+    """The catalog, the results of one run, or the lead queue.
+
+    `order=lead` sorts by the computed lead score. That sort happens in Python
+    rather than SQL because the score is not stored -- see
+    `pipeline.lead_score` for why. It therefore scores the `limit` rows the
+    query returns, so a lead queue wants a generous limit.
+    """
     try:
-        return await _listings(limit, since_run)
+        return await _listings(limit, since_run, offset=offset, search=search,
+                               outreach=outreach, order=order)
     except Exception as exc:
         log.warning("listings.db_unavailable", error=str(exc)[:160])
         return {"listings": [], "count": 0, "db_available": False}
 
 
-async def _listings(limit: int, since_run: str | None) -> dict:
+async def _listings(limit: int, since_run: str | None, *, offset: int = 0,
+                    search: str | None = None, outreach: str | None = None,
+                    order: str = "recent") -> dict:
     async with session_scope() as s:
-        q = select(models.Listing).order_by(models.Listing.last_seen_at.desc())
+        q = select(models.Listing)
         if since_run:
             run = await s.scalar(
                 select(models.ScrapeRun).where(models.ScrapeRun.run_id == since_run)
             )
             if run:
                 q = q.where(models.Listing.scrape_run_id == run.id)
-        rows = (await s.scalars(q.limit(limit))).all()
+        if search:
+            # Server-side so the lead queue can be filtered across everything
+            # held, not just the page the browser happens to have.
+            q = q.where(models.Listing.title.ilike(f"%{search}%"))
+        if outreach:
+            q = q.where(models.Listing.outreach_status == outreach)
+
+        # Scoring needs a pool to score. Ordering by lead score in SQL is not
+        # possible without storing it, so take a wider slice and sort after.
+        want = max(limit, 300) if order == "lead" else limit
+        q = q.order_by(models.Listing.last_seen_at.desc())
+        # Eager-load price history: scoring reads it for every row, and a
+        # lazy load per row is the same per-listing round-trip pattern that
+        # took persist from 8s to 60s once already.
+        q = q.options(selectinload(models.Listing.price_history))
+        rows = (await s.scalars(q.limit(want).offset(offset))).all()
 
         out = []
         for r in rows:
@@ -256,7 +294,20 @@ async def _listings(limit: int, since_run: str | None) -> dict:
                 # direct storage URL 403s and the browser shows a grey box.
                 "thumb_id": str(stored[0].id) if stored else None,
                 "images": [i.storage_url for i in stored[:6]],
+                "category": r.category,
+                "quality_score": r.quality_score,
+                "description_facts": r.description_facts or {},
+                "outreach_status": r.outreach_status or "new",
+                "contacted_at": r.contacted_at.isoformat() if r.contacted_at else None,
+                "outreach_note": r.outreach_note,
+                "lead": lead_score.score_listing(
+                    r, price_history=list(r.price_history or [])
+                ).to_dict(),
             })
+
+        if order == "lead":
+            out.sort(key=lambda d: (-d["lead"]["score"], -len(d["lead"]["signals"])))
+            out = out[:limit]
     return {"listings": out, "count": len(out)}
 
 
@@ -564,6 +615,88 @@ async def manual_status() -> dict:
 # --------------------------------------------------------------------------
 # review queue -- demonstrates that nothing auto-publishes
 # --------------------------------------------------------------------------
+
+class OutreachRequest(BaseModel):
+    """Unlike review, this takes a BODY and moves in both directions.
+
+    Outreach genuinely goes backwards -- a "replied" that turns out to be a
+    wrong number is "new" again, and forcing a one-way transition would make
+    the operator lie to the tool to keep working.
+    """
+
+    status: str
+    note: str | None = None
+
+
+OUTREACH_STATUSES = ("new", "contacted", "replied", "converted", "dead")
+
+
+@app.post("/api/listings/{listing_id}/outreach")
+async def set_outreach(listing_id: str, req: OutreachRequest) -> dict:
+    if req.status not in OUTREACH_STATUSES:
+        raise HTTPException(400, f"status must be one of {OUTREACH_STATUSES}")
+    async with session_scope() as s:
+        row = await s.get(models.Listing, uuid.UUID(listing_id))
+        if row is None:
+            raise HTTPException(404, "no such listing")
+        row.outreach_status = req.status
+        if req.note is not None:
+            # Truncate rather than let Postgres raise. The column is Text so
+            # there is no hard limit, but an accidental paste of a whole chat
+            # log is not a note.
+            row.outreach_note = req.note[:2000]
+        # Stamped on the first move away from `new`, and kept thereafter --
+        # "when did we first reach out" is the question, not "when was this
+        # row last touched".
+        if req.status != "new" and row.contacted_at is None:
+            row.contacted_at = datetime.now(UTC)
+        if req.status == "new":
+            row.contacted_at = None
+        return {
+            "ok": True, "status": row.outreach_status,
+            "contacted_at": row.contacted_at.isoformat() if row.contacted_at else None,
+        }
+
+
+@app.get("/api/export.csv")
+async def export_csv(
+    search: str | None = None, outreach: str | None = None,
+    order: str = "lead", limit: int = 1000,
+) -> Response:
+    """The lead queue as a file, for whoever works it outside this console.
+
+    Same filters as /api/listings so the export is what you are looking at,
+    not a different question answered separately.
+    """
+    data = await _listings(limit, None, search=search, outreach=outreach, order=order)
+    buf = io.StringIO()
+    w = csv.writer(buf)
+    w.writerow([
+        "lead_score", "band", "signals", "title", "price_inr", "location",
+        "category", "posted_at", "photos", "quality_score",
+        "outreach_status", "contacted_at", "note", "listing_url",
+    ])
+    for row in data["listings"]:
+        lead = row.get("lead") or {}
+        w.writerow([
+            lead.get("score", 0), lead.get("band", ""),
+            " | ".join(s["label"] for s in lead.get("signals", [])),
+            row["title"], row["price_inr"] or "", row["location"] or "",
+            row.get("category") or "", row["posted_at"] or "",
+            row["image_count"], row.get("quality_score") or 0,
+            row.get("outreach_status") or "new", row.get("contacted_at") or "",
+            row.get("outreach_note") or "",
+            # Last, because it is long -- and it is the column that matters:
+            # with no seller phone or email anywhere, this URL IS the contact
+            # route. It opens Marketplace's own message composer.
+            row["listing_url"],
+        ])
+    return Response(
+        buf.getvalue(),
+        media_type="text/csv",
+        headers={"Content-Disposition": 'attachment; filename="vingo-leads.csv"'},
+    )
+
 
 @app.post("/api/listings/{listing_id}/review")
 async def review(listing_id: str, action: str = "approve") -> dict:

@@ -132,6 +132,31 @@
   .run{display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid #F1F5F9}
   .run:last-child{border:none}
   .run .id{font-family:ui-monospace,monospace;color:var(--muted);font-size:11px}
+  /* ---------- leads ---------- */
+  .lead{display:flex;gap:14px;padding:14px 19px;border-bottom:1px solid var(--line)}
+  .lead:last-child{border-bottom:none}
+  .lead img{width:76px;height:76px;object-fit:cover;border-radius:8px;flex:0 0 auto;
+            background:var(--brand-soft)}
+  .lead .mid{flex:1;min-width:0}
+  .lead .t{font-weight:700;font-size:14px;margin-bottom:3px;
+           overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .lead .sub{font-size:12px;color:var(--muted);margin-bottom:6px}
+  .sig{display:inline-block;font-size:11px;font-weight:700;border-radius:999px;
+       padding:2px 9px;margin:0 5px 5px 0}
+  .sig.good{background:var(--brand-soft);color:var(--brand-dark)}
+  .sig.bad{background:#fde8e8;color:#9b1c1c}
+  .score{flex:0 0 58px;text-align:center}
+  .score .num{font-size:22px;font-weight:800;line-height:1.1}
+  .score .band{font-size:10px;font-weight:800;text-transform:uppercase;
+               letter-spacing:.04em}
+  .score.hot .num,.score.hot .band{color:#9b1c1c}
+  .score.warm .num,.score.warm .band{color:#92400e}
+  .score.cold .num,.score.cold .band{color:var(--muted)}
+  .lead .acts{flex:0 0 auto;display:flex;flex-direction:column;gap:5px;align-items:stretch}
+  .lead .acts select,.lead .acts a{font-size:11px;font-family:inherit;padding:5px 9px;
+      border:1px solid var(--line);border-radius:7px;background:var(--card);
+      color:var(--ink);text-decoration:none;text-align:center;cursor:pointer}
+
   /* ---------- tabs ---------- */
   .tabs{display:flex;gap:4px;margin:22px 0 18px;border-bottom:1px solid var(--line)}
   .tab{appearance:none;background:none;border:none;font-family:inherit;
@@ -304,6 +329,8 @@
 
   <nav class="tabs">
     <button class="tab on" data-panel="p-manual">Search</button>
+    <button class="tab" data-panel="p-leads">Leads
+      <span class="badge-n" id="t-leads">0</span></button>
     <button class="tab" data-panel="p-catalog">Catalog
       <span class="badge-n" id="t-count">0</span></button>
   </nav>
@@ -421,6 +448,43 @@
   </section>
 
   <!-- ================= Catalog ================= -->
+  <section class="panel" id="p-leads">
+    <div class="auto">
+      <div class="auto-h">
+        <h2>Leads</h2>
+        <span class="n" id="lead-n" style="margin-left:auto"></span>
+      </div>
+      <div class="auto-ctl" style="flex-wrap:wrap">
+        <div class="field">
+          <label>Status</label>
+          <select id="lead-status">
+            <option value="">All</option>
+            <option value="new" selected>Not contacted</option>
+            <option value="contacted">Contacted</option>
+            <option value="replied">Replied</option>
+            <option value="converted">Converted</option>
+            <option value="dead">Dead</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Title contains</label>
+          <input id="lead-q" placeholder="e.g. iphone" style="min-width:180px">
+        </div>
+        <button class="btn-sm" id="lead-refresh">Refresh</button>
+        <a class="btn-sm" id="lead-csv" href="/api/export.csv?order=lead"
+           style="text-decoration:none;display:inline-flex;align-items:center">
+          Export CSV</a>
+      </div>
+      <div style="padding:0 19px 6px;font-size:11px;color:var(--muted)">
+        Ranked by how likely the seller is to answer — price cuts, stated
+        reasons for selling, and how long it has sat unsold. Facebook exposes
+        no phone or email, so <strong>Message seller</strong> opens the listing
+        on Marketplace, where its own composer is.
+      </div>
+      <div id="lead-rows"></div>
+    </div>
+  </section>
+
   <section class="panel" id="p-catalog">
   <div class="stats" id="stats"></div>
 
@@ -521,6 +585,14 @@ function log(msg, cls=''){
 }
 
 let prevStats = {};
+// Titles and locations are seller-written text from Facebook. Interpolating
+// them into innerHTML raw is a scripting hole fed by a stranger's listing.
+function esc(s){
+  return String(s == null ? '' : s)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;');
+}
+
 function setTabCount(n){ const el = $('#t-count'); if(el) el.textContent = n; }
 
 async function loadStats(){
@@ -589,7 +661,7 @@ async function loadListings(highlight=false){
     const rev = l.review_status==='pending_review' ? 'b-pend' : 'b-appr';
     return `<tr class="${isNew?'new':''}" onclick="openDetail('${l.id}')">
       <td>${l.thumb?`<img class="thumb" src="/api/image/${l.thumb_id}" loading="lazy">`:'<div class="thumb"></div>'}</td>
-      <td class="ttl"><a href="${l.listing_url}" target="_blank" rel="noopener" onclick="event.stopPropagation()">${l.title}</a></td>
+      <td class="ttl"><a href="${l.listing_url}" target="_blank" rel="noopener" onclick="event.stopPropagation()">${esc(l.title)}</a></td>
       <td class="price">${fmt(l.price_inr)}</td>
       <td><span class="badge ${cond}">${l.condition.replace(/_/g,' ')}</span></td>
       <td>${l.seller_name
@@ -766,6 +838,7 @@ document.querySelectorAll('.tab').forEach(btn => {
     document.querySelectorAll('.panel').forEach(pn =>
       pn.classList.toggle('on', pn.id === btn.dataset.panel));
     if(btn.dataset.panel === 'p-catalog'){ loadStats(); loadListings(); }
+    if(btn.dataset.panel === 'p-leads'){ loadLeads(); }
   };
 });
 
@@ -820,7 +893,7 @@ function renderRunResults(rows, label){
           <tr onclick="openDetail('${l.id}')" style="cursor:pointer">
             <td>${l.thumb_id ? `<img class="thumb" src="/api/image/${l.thumb_id}" loading="lazy">`
                              : '<div class="thumb"></div>'}</td>
-            <td class="ttl">${(l.title||'').replace(/</g,'&lt;')}</td>
+            <td class="ttl">${esc(l.title)}</td>
             <td class="price">${l.price_inr!=null ? fmt(l.price_inr) : '—'}</td>
             <td><span class="badge b-used">${(l.condition||'').replace(/_/g,' ')}</span></td>
             <td>${l.photos}</td>
@@ -1009,6 +1082,80 @@ if(catFilter){
       q ? shown + ' of ' + total + ' rows' : total + ' rows';
   };
 }
+
+// ---------------------------------------------------------------- leads ---
+// Ranked by `pipeline/lead_score.py`. The signals are shown, not just the
+// number: an operator will not work a queue of scores they cannot argue with.
+const STATUSES = ['new','contacted','replied','converted','dead'];
+
+function leadRow(x){
+  const L = x.lead || {score:0, band:'cold', signals:[]};
+  const sigs = L.signals.length
+    ? L.signals.map(s => `<span class="sig ${s.kind==='bad'?'bad':'good'}">`
+        + esc(s.label) + '</span>').join('')
+    : '<span class="sig good" style="background:none;color:var(--muted)">'
+      + 'no stated signals</span>';
+  const opts = STATUSES.map(s =>
+    `<option value="${s}"${s === (x.outreach_status||'new') ? ' selected' : ''}>`
+    + s + '</option>').join('');
+  const price = x.price_inr != null
+    ? '₹' + Number(x.price_inr).toLocaleString('en-IN') : 'no price';
+  return `<div class="lead" data-id="${x.id}">
+    <div class="score ${L.band}"><div class="num">${L.score}</div>
+      <div class="band">${L.band}</div></div>
+    ${x.thumb_id ? `<img src="/api/image/${x.thumb_id}" alt="" loading="lazy">`
+                 : '<img alt="">'}
+    <div class="mid">
+      <div class="t">${esc(x.title)}</div>
+      <div class="sub">${price} · ${esc(x.location||'—')} · ${x.image_count} photos</div>
+      <div>${sigs}</div>
+    </div>
+    <div class="acts">
+      <a href="${x.listing_url}" target="_blank" rel="noopener">Message seller</a>
+      <select class="lead-st">${opts}</select>
+    </div>
+  </div>`;
+}
+
+async function loadLeads(){
+  const st = $('#lead-status') ? $('#lead-status').value : 'new';
+  const q  = $('#lead-q') ? $('#lead-q').value.trim() : '';
+  const qs = new URLSearchParams({order:'lead', limit:'100'});
+  if(st) qs.set('outreach', st);
+  if(q)  qs.set('search', q);
+  const box = $('#lead-rows');
+  box.innerHTML = '<div class="empty">Loading…</div>';
+  try{
+    const d = await (await fetch('/api/listings?' + qs)).json();
+    const rows = d.listings || [];
+    $('#lead-n').textContent = rows.length + (rows.length === 100 ? '+ leads' : ' leads');
+    $('#t-leads').textContent = rows.length;
+    box.innerHTML = rows.length
+      ? rows.map(leadRow).join('')
+      : '<div class="empty">Nothing here. Run a search, or widen the status filter.</div>';
+    // Keep the export in step with what is on screen.
+    if($('#lead-csv')) $('#lead-csv').href = '/api/export.csv?' + qs;
+    box.querySelectorAll('.lead-st').forEach(sel => {
+      sel.onchange = async () => {
+        const id = sel.closest('.lead').dataset.id;
+        const note = sel.value === 'new' ? null
+          : prompt('Note (optional) — what did they say?') || null;
+        await fetch(`/api/listings/${id}/outreach`, {
+          method:'POST', headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({status: sel.value, note}),
+        });
+        loadLeads();
+      };
+    });
+  }catch(e){
+    box.innerHTML = '<div class="empty">Could not load leads.</div>';
+  }
+}
+
+if($('#lead-refresh')) $('#lead-refresh').onclick = loadLeads;
+if($('#lead-q')) $('#lead-q').onkeydown = e => { if(e.key === 'Enter') loadLeads(); };
+if($('#lead-status')) $('#lead-status').onchange = loadLeads;
+
 </script>
 </body>
 </html>

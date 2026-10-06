@@ -123,12 +123,17 @@ def _price_drop(history: list | None) -> tuple[int, float] | None:
 
 
 def score_listing(listing, *, price_history: list | None = None,
+                  photo_count: int | None = None,
                   now: datetime | None = None) -> LeadScore:
     """Score one listing. Pure: no database, no clock unless you pass one.
 
     `listing` may be the pydantic `Listing` or the SQLAlchemy row -- this only
     ever reads attributes both of them have, via getattr, because the two
     diverge on exactly the optional fields we care about here.
+
+    It reads only COLUMNS off the row. Relationships (`images`,
+    `price_history`) must be handed in by the caller: lazy-loading one inside
+    an async request raises MissingGreenlet.
     """
     now = now or datetime.now(UTC)
     out = LeadScore()
@@ -174,9 +179,14 @@ def score_listing(listing, *, price_history: list | None = None,
             add(f"Unsold {int(age)} days", W_AGING)
 
     # --- the seller put work in -------------------------------------------
-    images = getattr(listing, "images", None) or []
-    if len(images) >= 5:
-        add(f"{len(images)} photos", W_EFFORT)
+    # Pass `photo_count` from a caller that already has the images. Reading
+    # `listing.images` off a SQLAlchemy row is a LAZY load, and under the async
+    # engine that raises MissingGreenlet mid-request rather than quietly doing
+    # a second query -- which emptied every tab in the console once already.
+    if photo_count is None:
+        photo_count = len(getattr(listing, "images", None) or [])
+    if photo_count >= 5:
+        add(f"{photo_count} photos", W_EFFORT)
 
     quality = getattr(listing, "quality_score", None)
     if isinstance(quality, int) and quality >= 70:

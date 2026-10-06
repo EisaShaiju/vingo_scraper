@@ -652,7 +652,18 @@ async function loadListings(highlight=false){
   const el = $('#t-count'); if(el) el.textContent = d.count || 0;
   $('#tbl-n').textContent = d.count + ' rows';
   if(!d.listings.length){
-    $('#rows').innerHTML = '<tr><td colspan="9" class="empty">No listings yet — run an update.</td></tr>';
+    // "Empty" and "the query crashed" are different answers and must not look
+    // the same. Reporting a failure as an empty catalog sent someone hunting
+    // for a scraper bug twice while 237 listings sat in the database.
+    const msg = d.db_available === false
+      ? '<strong>The catalog could not be read.</strong><br>'
+        + '<span style="font-family:ui-monospace,monospace;font-size:11.5px">'
+        + esc(d.error || 'database unavailable') + '</span><br>'
+        + '<span style="font-size:11.5px">The listings are not lost — this is a '
+        + 'read failure, not an empty database.</span>'
+      : 'No listings yet — run a search.';
+    $('#rows').innerHTML =
+      '<tr><td colspan="9" class="empty">' + msg + '</td></tr>';
     return;
   }
   $('#rows').innerHTML = d.listings.map(l=>{
@@ -1132,7 +1143,11 @@ async function loadLeads(){
     $('#t-leads').textContent = rows.length;
     box.innerHTML = rows.length
       ? rows.map(leadRow).join('')
-      : '<div class="empty">Nothing here. Run a search, or widen the status filter.</div>';
+      : (d.db_available === false
+          ? '<div class="empty"><strong>Leads could not be read.</strong><br>'
+            + '<span style="font-family:ui-monospace,monospace;font-size:11.5px">'
+            + esc(d.error || 'database unavailable') + '</span></div>'
+          : '<div class="empty">Nothing here. Run a search, or widen the status filter.</div>');
     // Keep the export in step with what is on screen.
     if($('#lead-csv')) $('#lead-csv').href = '/api/export.csv?' + qs;
     box.querySelectorAll('.lead-st').forEach(sel => {

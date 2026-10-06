@@ -198,7 +198,36 @@ def test_17_a_database_failure_is_an_empty_list_not_a_500(monkeypatch) -> None:
     monkeypatch.setattr(api, "_listings", boom)
     r = TestClient(api.app).get("/api/listings")
     assert r.status_code == 200
-    assert r.json() == {"listings": [], "count": 0, "db_available": False}
+    body = r.json()
+    assert body["listings"] == [] and body["db_available"] is False
+
+
+def test_21_a_failed_read_says_WHY_rather_than_looking_empty(monkeypatch) -> None:
+    """The failure mode that cost two debugging rounds.
+
+    A crashed query and an empty catalog both rendered as "No listings yet",
+    so a MissingGreenlet on a lazy relationship looked exactly like a scraper
+    that had stored nothing -- while 237 listings sat in the database.
+    """
+    async def boom(*a, **kw):
+        raise RuntimeError("greenlet_spawn has not been called")
+
+    monkeypatch.setattr(api, "_listings", boom)
+    body = TestClient(api.app).get("/api/listings").json()
+    assert "error" in body, "a failed read must report why"
+    assert "greenlet_spawn" in body["error"]
+    assert "RuntimeError" in body["error"]
+
+
+def test_22_a_genuinely_empty_catalog_reports_no_error(monkeypatch) -> None:
+    """The other half: empty must not look like a failure either."""
+    async def empty(*a, **kw):
+        return {"listings": [], "count": 0}
+
+    monkeypatch.setattr(api, "_listings", empty)
+    body = TestClient(api.app).get("/api/listings").json()
+    assert body.get("error") is None
+    assert body.get("db_available") is not False
 
 
 # --------------------------------------------------------------------------

@@ -228,8 +228,13 @@ async def listings(
         return await _listings(limit, since_run, offset=offset, search=search,
                                outreach=outreach, order=order)
     except Exception as exc:
+        # Keep the console up when Postgres is genuinely down -- but SAY SO.
+        # Returning a bare empty list made a crashed query indistinguishable
+        # from an empty catalog, and twice sent someone hunting for a scraper
+        # bug while 237 listings sat in the database.
         log.warning("listings.db_unavailable", error=str(exc)[:160])
-        return {"listings": [], "count": 0, "db_available": False}
+        return {"listings": [], "count": 0, "db_available": False,
+                "error": type(exc).__name__ + ": " + str(exc)[:200]}
 
 
 async def _listings(limit: int, since_run: str | None, *, offset: int = 0,
@@ -301,7 +306,12 @@ async def _listings(limit: int, since_run: str | None, *, offset: int = 0,
                 "contacted_at": r.contacted_at.isoformat() if r.contacted_at else None,
                 "outreach_note": r.outreach_note,
                 "lead": lead_score.score_listing(
-                    r, price_history=list(r.price_history or [])
+                    r,
+                    price_history=list(r.price_history or []),
+                    # Already fetched above -- passing it stops the scorer
+                    # lazy-loading the relationship, which async SQLAlchemy
+                    # refuses to do mid-request.
+                    photo_count=len(stored),
                 ).to_dict(),
             })
 

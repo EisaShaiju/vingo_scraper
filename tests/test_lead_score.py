@@ -256,3 +256,46 @@ def test_28_the_scorer_never_touches_seller_identity() -> None:
     assert score(with_seller).score == score(bare).score
     labels = " ".join(s.label for s in score(with_seller).signals).lower()
     assert "phone" not in labels and "seller id" not in labels
+
+
+# --------------------------------------------------------------------------
+# it must not touch a lazy relationship
+# --------------------------------------------------------------------------
+
+class ExplodingImages:
+    """Stands in for a SQLAlchemy row under the async engine.
+
+    Touching an unloaded relationship there raises MissingGreenlet rather than
+    quietly issuing a second query. The console showed "No listings yet" for
+    237 stored listings because of exactly this.
+    """
+
+    description_facts = {"urgency": "urgent"}
+    posted_at = None
+    quality_score = 0
+
+    @property
+    def images(self):
+        raise RuntimeError("MissingGreenlet: lazy load attempted in async context")
+
+
+def test_29_a_given_photo_count_is_used_without_touching_images() -> None:
+    s = score_listing(ExplodingImages(), price_history=[], photo_count=7, now=NOW)
+    assert any("7 photos" in x.label for x in s.signals)
+
+
+def test_30_the_api_hands_the_count_in_rather_than_letting_it_lazy_load() -> None:
+    """Pins the call site, not just the capability -- the scorer supports both
+    and the endpoint must use the safe one."""
+    import inspect
+
+    from vingo_scraper.api import main
+    src = inspect.getsource(main._listings)
+    call = src[src.index("score_listing"):]
+    assert "photo_count=" in call[:400]
+
+
+def test_31_scoring_a_row_whose_relationships_are_unloaded_still_works() -> None:
+    """Everything except the photo bonus must survive an unloaded row."""
+    s = score_listing(ExplodingImages(), price_history=[], photo_count=0, now=NOW)
+    assert s.score > 0

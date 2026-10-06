@@ -382,35 +382,32 @@
         </div>
         <div class="field">
           <label>Listed within</label>
-          <select id="m-days">
+          <select id="m-age">
             <option value="" selected>Any time</option>
-            <option value="1">24 hours</option>
-            <option value="7">7 days</option>
-            <option value="30">30 days</option>
+            <option value="h6">6 hours *</option>
+            <option value="h12">12 hours *</option>
+            <option value="d1">24 hours</option>
+            <option value="d7">7 days</option>
+            <option value="d30">30 days</option>
           </select>
         </div>
         <div class="field">
           <label>Volume</label>
           <select id="m-n">
-            <option value="8">1 page · ~24 listings</option>
-            <option value="30">2 pages · ~48 listings</option>
-            <option value="60">3 pages · ~72 listings</option>
+            <option value="24">1 page · ~24 listings · $0.012</option>
+            <option value="48">2 pages · ~48 listings · $0.024</option>
+            <option value="72">3 pages · ~72 listings · $0.036</option>
           </select>
         </div>
         <label style="display:flex;align-items:center;gap:6px;font-size:12px;
                       color:var(--muted);font-weight:600;white-space:nowrap">
           <input type="checkbox" id="m-strict" checked> Title must match
         </label>
-        <div class="field">
-          <label>Fresher than</label>
-          <select id="m-hours">
-            <option value="">no extra limit</option>
-            <option value="6">6 hours</option>
-            <option value="12">12 hours</option>
-            <option value="24">24 hours</option>
-          </select>
-        </div>
         <button class="btn-sm" id="m-run">Run once</button>
+      </div>
+      <div style="padding:0 19px 4px;font-size:11px;color:var(--muted)">
+        * Facebook's finest filter is one day, so anything shorter is applied
+        after the fetch — it narrows what we keep, never what we pay for.
       </div>
 
       <div id="m-result" style="padding:0 19px"></div>
@@ -842,18 +839,24 @@ async function showRunResults(runId, label){
 function manualBody(){
   const cat = $('#m-cat').value;
   const num = id => { const v = parseInt($(id).value); return Number.isFinite(v) ? v : null; };
+  const age = $('#m-age') ? $('#m-age').value : '';
   return {
     // No silent default. A blank form must not run a whole-city browse:
     // that is unbounded on a per-result-billed API.
     query: $('#m-q').value.trim(),
     category: cat || null,
     location: $('#m-loc').value,
-    max_items: parseInt($('#m-n').value) || 8,
+    max_items: parseInt($('#m-n').value) || 24,
     min_price: num('#m-min'),
     max_price: num('#m-max'),
     sort_by: $('#m-sort').value,
-    days_since_listed: $('#m-days').value,
-    max_age_hours: num('#m-hours'),
+    // One control, two destinations. `d*` is a window Facebook can filter on,
+    // so it reduces what we pay for; `h*` is finer than Facebook offers and is
+    // applied after the fetch, so it only reduces what we keep. Sending an
+    // `h*` value as a 1-day window too means we still buy the smallest page
+    // Facebook will sell us rather than a week of it.
+    days_since_listed: age.startsWith('d') ? age.slice(1) : (age ? '1' : ''),
+    max_age_hours: age.startsWith('h') ? parseInt(age.slice(1)) : null,
     title_match: $('#m-strict') ? $('#m-strict').checked : true,
     strict: $('#m-strict') ? $('#m-strict').checked : true,
   };

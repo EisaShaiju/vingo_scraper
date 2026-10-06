@@ -258,7 +258,9 @@ def test_curious_coder_uses_pages_not_items():
     dataset while the Actor keeps scraping and billing -- measured once at
     24 charged for 3 returned."""
     assert build_run_input("x", "bengaluru", 10, actor_id=CURIOUS)["maxPagesPerUrl"] == 1
-    assert build_run_input("x", "bengaluru", 50, actor_id=CURIOUS)["maxPagesPerUrl"] == 2
+    assert build_run_input("x", "bengaluru", 24, actor_id=CURIOUS)["maxPagesPerUrl"] == 1
+    assert build_run_input("x", "bengaluru", 25, actor_id=CURIOUS)["maxPagesPerUrl"] == 2
+    assert build_run_input("x", "bengaluru", 50, actor_id=CURIOUS)["maxPagesPerUrl"] == 3
     # Hard ceiling so a large max_items cannot page forever.
     assert build_run_input("x", "bengaluru", 9999, actor_id=CURIOUS)["maxPagesPerUrl"] == 3
 

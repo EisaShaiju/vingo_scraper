@@ -1,0 +1,233 @@
+{
+  "title": "Facebook marketplace Scraper",
+  "type": "object",
+  "description": "\u26a0\ufe0f Search results vary by proxy country and login status; set proxy country to your target region and use an incognito window to search and compare the results.\n\n \u26a0\ufe0f Cookies are required to get seller information.",
+  "schemaVersion": 1,
+  "properties": {
+    "urls": {
+      "title": "Facebook marketplace URLs",
+      "type": "array",
+      "editor": "stringList",
+      "description": "Search URLs (e.g. [marketplace search](https://www.facebook.com/marketplace/nyc/cars)) or individual listing URLs (e.g. https://www.facebook.com/marketplace/item/3195892660712281/). Open in incognito to verify accessibility. Optional if Filters are set.",
+      "prefill": [
+        "https://www.facebook.com/marketplace/nyc/cars/"
+      ],
+      "sectionCaption": "URLs",
+      "sectionDescription": "Paste Marketplace search or listing URLs copied from Facebook. Use Filters below instead if you prefer to build a search from location, keyword, and radius."
+    },
+    "searchKeyword": {
+      "title": "Search keyword",
+      "type": "string",
+      "description": "Search term for Marketplace listings (e.g. couch, used bike).",
+      "editor": "textfield",
+      "prefill": "",
+      "sectionCaption": "Filters",
+      "sectionDescription": "Build a search from these filters. Filters are only used when no URLs are provided above; if you paste your own URLs, these are ignored and the URLs are scraped as-is."
+    },
+    "location": {
+      "title": "Location",
+      "type": "string",
+      "description": "To avoid matching wrong locations with similar names use location in the format \"City, State, Country\" (e.g. \"Los Angeles, California, United States\", \"Brooklyn, New York, United States\"). Also supports postal codes. Resolved to exact coordinates via Facebook's location search. For full control, set Latitude/Longitude instead.",
+      "editor": "textfield",
+      "prefill": ""
+    },
+    "radiusKm": {
+      "title": "Radius (km)",
+      "type": "integer",
+      "description": "This is always km regardless of region: Facebook's UI may display miles in mile-using regions (e.g. the US), but it converts to km for the request (selecting 80 miles becomes radius=128). So to target 80 miles, enter 128. Combine with Location (city name / postal code) or Latitude/Longitude.",
+      "editor": "number",
+      "minimum": 1
+    },
+    "latitude": {
+      "title": "Latitude",
+      "type": "number",
+      "description": "Center latitude for Filters-based searches. When set with Longitude, overrides the Location field (location name lookup is skipped). Ignored if you paste URLs above. Set Longitude too.",
+      "editor": "number"
+    },
+    "longitude": {
+      "title": "Longitude",
+      "type": "number",
+      "description": "Center longitude for Filters-based searches. Use together with Latitude (and optionally Radius) to target an exact area; overrides Location when both coordinates are set. Ignored if you paste URLs above.",
+      "editor": "number"
+    },
+    "sortBy": {
+      "title": "Sort by",
+      "type": "string",
+      "description": "Order of the search results. Applies to Filters-based searches (ignored when you paste your own URLs).",
+      "editor": "select",
+      "default": "",
+      "enum": [
+        "",
+        "creation_time_descend",
+        "price_ascend",
+        "price_descend",
+        "distance_ascend"
+      ],
+      "enumTitles": [
+        "Best match (default)",
+        "Date listed: Newest first",
+        "Price: Low to high",
+        "Price: High to low",
+        "Distance: Nearest first"
+      ]
+    },
+    "minPrice": {
+      "title": "Min price",
+      "type": "integer",
+      "description": "Minimum listing price, in the searched location's local currency (e.g. a search in India filters in \u20b9). The currency follows the location, not the proxy region.",
+      "editor": "number",
+      "minimum": 0
+    },
+    "maxPrice": {
+      "title": "Max price",
+      "type": "integer",
+      "description": "Maximum listing price, in the searched location's local currency (e.g. a search in India filters in \u20b9). The currency follows the location, not the proxy region.",
+      "editor": "number",
+      "minimum": 0
+    },
+    "condition": {
+      "title": "Condition",
+      "type": "array",
+      "description": "Item condition(s) to include. Leave empty for any condition.",
+      "editor": "select",
+      "items": {
+        "type": "string",
+        "enum": [
+          "new",
+          "used_like_new",
+          "used_good",
+          "used_fair"
+        ],
+        "enumTitles": [
+          "New",
+          "Used - like new",
+          "Used - good",
+          "Used - fair"
+        ]
+      }
+    },
+    "daysSinceListed": {
+      "title": "Date listed",
+      "type": "string",
+      "description": "Only include listings posted within this window.",
+      "editor": "select",
+      "default": "",
+      "enum": [
+        "",
+        "1",
+        "7",
+        "30"
+      ],
+      "enumTitles": [
+        "Any time",
+        "Last 24 hours",
+        "Last 7 days",
+        "Last 30 days"
+      ]
+    },
+    "availability": {
+      "title": "Availability",
+      "type": "string",
+      "description": "Filter by listing availability.",
+      "editor": "select",
+      "default": "",
+      "enum": [
+        "",
+        "in_stock",
+        "out_of_stock"
+      ],
+      "enumTitles": [
+        "All",
+        "Available",
+        "Sold"
+      ]
+    },
+    "deliveryMethod": {
+      "title": "Delivery method",
+      "type": "string",
+      "description": "Filter by how the item is delivered.",
+      "editor": "select",
+      "default": "",
+      "enum": [
+        "",
+        "local_pickup",
+        "shipping"
+      ],
+      "enumTitles": [
+        "All",
+        "Local pickup",
+        "Shipping"
+      ]
+    },
+    "getListingDetails": {
+      "title": "Get listing details",
+      "description": "Scraper will visit details page and extract more information",
+      "type": "boolean",
+      "editor": "checkbox",
+      "default": true,
+      "sectionCaption": "Options",
+      "sectionDescription": "Common options to apply for urls or filters based scraping"
+    },
+    "getAllListingPhotos": {
+      "title": "Get all listing photos",
+      "description": "When get listing details is enabled, fetch listing media (images). Set to false to skip media API calls and reduce requests by ~33%",
+      "type": "boolean",
+      "editor": "checkbox",
+      "default": true
+    },
+    "strictFiltering": {
+      "title": "Strict filtering",
+      "description": "Exclude listings that are broad matches (outside location, similar items, etc.)",
+      "type": "boolean",
+      "editor": "checkbox",
+      "default": false
+    },
+    "maxPagesPerUrl": {
+      "title": "Max pages per URL",
+      "type": "integer",
+      "description": "Maximum number of search pages to scrape per search URL.",
+      "editor": "number",
+      "minimum": 1
+    },
+    "untilDate": {
+      "title": "Until date",
+      "type": "string",
+      "description": "Scrape listings until this date (YYYY-MM-DD). Only works if Get listing details is enabled and search url is sorted by newest first or url contains `sortBy=creation_time_descend`",
+      "editor": "datepicker",
+      "pattern": "^(\\d{4})-(0[1-9]|1[0-2])-(0[1-9]|[12]\\d|3[01])$"
+    },
+    "proxy": {
+      "title": "Set proxy country",
+      "type": "object",
+      "description": "Set proxy country to your target marketplace region (e.g. US, IN, UK). Results depend on proxy region. Proxies are managed internally you only need to set proxy country in proxy input field.",
+      "editor": "proxy"
+    },
+    "cookies": {
+      "title": "Cookies",
+      "type": "string",
+      "description": "Facebook cookies for authenticated scraping. \n\nWhen provided, enables seller details scraping. \n\nRequires logged-in session cookies (`c_user` and `xs`). Accepts **Header string** (`name1=value1; name2=value2`) or **JSON** export. \n\nConcurrency is set to 1 and random delays are added when using cookies. Follow these steps to get the cookies: <ol> <li>Install [Cookie-Editor](https://chromewebstore.google.com/detail/cookie-editor/hlkenndednhfkekhgcdicdfddnkalmdm) chrome extension</li> <li> Login to your facebook account </li> <li> Click on the extension icon > Export > Header string <em>or</em> JSON </li> <li>Paste the copied contents here</li> </ol> <p> <a href=https://youtu.be/YuKp9BlVgNM target=_blank><img src=https://www.youtube.com/s/desktop/66e817d4/img/favicon_32x32.png width=16px> Video - How to get cookies (0:14)</a>",
+      "editor": "textarea",
+      "prefill": ""
+    },
+    "onlyNewListings": {
+      "title": "Scrape only new or changed listings",
+      "description": "Remember scraped search listings across runs and skip unchanged items before fetching their details. Listings are scraped again when their price, availability, or other visible search-result content changes.",
+      "type": "boolean",
+      "editor": "checkbox",
+      "default": false,
+      "sectionCaption": "Find only new listings",
+      "sectionDescription": "This feature is currently restricted to high frequency runs scraping same search multiple times per day: Push only new or changed listings from the last 24 hours.\n\n- **Billing**: Skipped unchanged listings are still charged as listing-item events, but are not written to the dataset.\n\n- **Date listed must be Last 24 hours**: Filters: set **Date listed** to \"Last 24 hours\". URLs: Every search URL must include url parameter `daysSinceListed=1`.\n\n- **Search only**: Individual listing URLs (`/marketplace/item/...`) are always scraped normally and are not covered by this feature.\n\n- **Shared cache**: Uses a key-value store shared across runs.\n\n- **Cache retention**: Listings not seen in search results for 24 hours are removed from the cache automatically."
+    },
+    "cacheStorageId": {
+      "title": "Cache storage to use for existing listings",
+      "description": "Key-value store shared by monitoring runs. Defaults to facebook-marketplace-listing-cache when empty. Use a separate store for each independent search/workflow so listings from different keywords or locations do not share one cache and get skipped",
+      "type": "string",
+      "editor": "resourcePicker",
+      "resourceType": "keyValueStore",
+      "resourcePermissions": [
+        "READ",
+        "WRITE"
+      ]
+    }
+  }
+}

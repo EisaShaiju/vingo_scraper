@@ -95,10 +95,10 @@ def test_billed_ceiling_matches_what_a_page_costs():
     from vingo_scraper.apify.client import CURIOUS_CODER, billed_item_ceiling
 
     kw = {"accept_full_page": True}
-    assert billed_item_ceiling(8, CURIOUS_CODER, **kw) == 25   # one page, 8 asked
-    assert billed_item_ceiling(26, CURIOUS_CODER, **kw) == 50  # spills to two
+    assert billed_item_ceiling(8, CURIOUS_CODER, **kw) == 24   # one page, 8 asked
+    assert billed_item_ceiling(25, CURIOUS_CODER, **kw) == 48  # spills to two
     # Never below what was asked for.
-    for asked in (1, 5, 8, 20, 24, 25, 40):
+    for asked in (1, 5, 8, 20, 24, 25, 40, 72):
         assert billed_item_ceiling(asked, CURIOUS_CODER, **kw) >= asked
 
 

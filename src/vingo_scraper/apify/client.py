@@ -99,6 +99,24 @@ FILTER_KEYS: dict[str, type | tuple] = {
     "strictFiltering": bool,
 }
 
+# Volume, in the only unit Marketplace actually sells: the PAGE.
+#
+# A page is ~24 listings and costs ~$0.012. Everything about volume is derived
+# from these two constants, because the last time items and pages were computed
+# in two places they disagreed -- the API clamped items to 25 before this file
+# turned them into pages, so all three options in the Volume selector produced
+# one page and every search returned ~24 listings regardless.
+LISTINGS_PER_PAGE = 24
+MAX_PAGES = 3
+MAX_ITEMS_CEILING = LISTINGS_PER_PAGE * MAX_PAGES
+
+
+def pages_for(max_items: int) -> int:
+    """How many Marketplace pages are needed to cover `max_items` listings."""
+    wanted = max(1, max_items)
+    return max(1, min(-(-wanted // LISTINGS_PER_PAGE), MAX_PAGES))
+
+
 SORT_NEWEST = "creation_time_descend"
 
 # Freshness defaults. The spec wants new inventory, and the default Marketplace
@@ -174,7 +192,7 @@ def build_run_input(
         # Volume is controlled by PAGES here, not items. Using Apify's
         # `max_items` instead would truncate the dataset while the Actor kept
         # scraping and billing -- measured once at 24 charged for 3 returned.
-        pages = max(1, min((max_items + 24) // 25, 3))
+        pages = pages_for(max_items)
         payload: dict[str, Any] = {
             "location": location,
             "maxPagesPerUrl": pages,
@@ -190,7 +208,19 @@ def build_run_input(
         # /marketplace/bangalore/electronics matches the category itself.
         if category:
             slug = CATEGORIES.get(category, {}).get("slug", category)
-            payload["urls"] = to_start_urls([category_url(location, slug)])
+            # PLAIN STRINGS, not [{"url": ...}]. The live build schema types
+            # `urls` as an array with editor `stringList` and prefills it with
+            # a bare URL. `to_start_urls()` wraps in {"url": ...}, which is the
+            # LEGACY actor's shape -- sending it here fails input validation,
+            # and Apify fails the whole run on one bad field. That is why every
+            # category search returned nothing.
+            payload["urls"] = [category_url(location, slug)]
+            # A keyword alongside a category scopes the browse instead of
+            # replacing it: "laptop" within /electronics, which is what you
+            # get on Marketplace itself. Dropping it silently browsed the
+            # entire category.
+            if search_query:
+                payload["searchKeyword"] = search_query
         else:
             payload["searchKeyword"] = search_query
         # Actor-side dedup. Without it a re-run re-scrapes and re-bills every
@@ -243,8 +273,7 @@ def billed_item_ceiling(
     if accept_full_page is None:
         accept_full_page = settings.apify_accept_full_page
     if accept_full_page and actor_id.startswith(CURIOUS_CODER):
-        pages = max(1, min((max_items + 24) // 25, 3))
-        return pages * 25
+        return pages_for(max_items) * LISTINGS_PER_PAGE
     return max_items
 
 

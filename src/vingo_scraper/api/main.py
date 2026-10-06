@@ -431,17 +431,26 @@ async def start_ingest(
     _require_secret(authorization, x_demo_token)
 
     from vingo_scraper.apify.budget import get_budget
-    from vingo_scraper.apify.client import EmptySearchError, start_run
+    from vingo_scraper.apify.client import (
+        MAX_ITEMS_CEILING,
+        EmptySearchError,
+        start_run,
+    )
     from vingo_scraper.db import config_store
 
     budget = await get_budget()
     if (blocked := budget.blocked_reason()):
         raise HTTPException(402, blocked)
 
-    # Apify bills per result; keep the manual button cheap regardless of input.
-    req.max_items = max(1, min(req.max_items, 25))
-    query = req.query if not req.category else None
-    label = f"{req.location} / {req.category or req.query}"
+    # Volume is decided in ONE place -- `client.build_run_input`, which turns
+    # items into PAGES because that is the unit Marketplace sells and Apify
+    # bills. This ceiling is the 3-page equivalent; clamping to 25 here pinned
+    # every option in the Volume selector to a single page, so the count came
+    # back ~24 no matter what was asked for.
+    req.max_items = max(1, min(req.max_items, MAX_ITEMS_CEILING))
+    # Both, when both are given: a keyword scopes a category browse.
+    query = req.query or None
+    label = f"{req.location} / {' / '.join(x for x in (req.category, req.query) if x)}"
 
     try:
         async with config_store.ingestion_lock("manual"):

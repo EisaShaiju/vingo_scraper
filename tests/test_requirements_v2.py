@@ -478,8 +478,11 @@ def test_7_02_every_category_has_a_slug_and_a_query():
 def test_7_03_a_category_becomes_a_browse_url():
     payload = build_run_input(None, "bangalore", 8, category="electronics",
                               actor_id=CURIOUS_CODER)
+    # Plain strings. The Actor's schema types `urls` as a stringList; the
+    # {"url": ...} wrapper belongs to the legacy Actor and fails validation
+    # here, which is what made every category search return nothing.
     assert payload["urls"] == [
-        {"url": "https://www.facebook.com/marketplace/bangalore/electronics"}
+        "https://www.facebook.com/marketplace/bangalore/electronics"
     ]
 
 
@@ -488,6 +491,15 @@ def test_7_04_a_category_does_not_also_send_a_keyword():
     payload = build_run_input(None, "bangalore", 8, category="vehicles",
                               actor_id=CURIOUS_CODER)
     assert "searchKeyword" not in payload
+
+
+def test_7_04b_a_keyword_scopes_a_category_rather_than_being_dropped():
+    """Picking Electronics and typing "laptop" used to browse ALL of
+    electronics -- the keyword was discarded before it reached the Actor."""
+    payload = build_run_input("laptop", "bangalore", 8, category="electronics",
+                              actor_id=CURIOUS_CODER)
+    assert payload["searchKeyword"] == "laptop"
+    assert payload["urls"][0].endswith("/electronics")
 
 
 def test_7_05_a_keyword_sends_no_url():
@@ -509,7 +521,7 @@ def test_7_07_the_refusal_names_the_fix():
 def test_7_08_unknown_category_falls_back_to_its_own_name():
     payload = build_run_input(None, "bangalore", 8, category="made-up",
                               actor_id=CURIOUS_CODER)
-    assert payload["urls"][0]["url"].endswith("/made-up")
+    assert payload["urls"][0].endswith("/made-up")
 
 
 def test_7_09_every_category_is_selectable_by_hand():

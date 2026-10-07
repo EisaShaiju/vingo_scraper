@@ -108,31 +108,51 @@ async def test_03_the_price_cut_is_not_read_backwards(session, wire_app) -> None
     assert "20,000" in labels              # 165,000 -> 145,000, not the reverse
 
 
-async def test_04_is_servable_does_not_lazy_load_in_a_request(session) -> None:
+async def test_04_is_servable_lazy_loads_only_for_an_approved_listing(session) -> None:
     """`Listing.is_servable` reads `self.images` -- the same unguarded lazy
     relationship that caused bug 2, still present in the model.
 
-    It is safe only while nothing calls it inside a request without eager
-    loading. This asserts the hazard is real rather than theoretical, so the
-    next person to use the property knows what it needs.
+    But the hazard is NARROWER than it looks, and this test is here because the
+    first version of it was wrong. `is_servable` is
+
+        review_status is APPROVED and any(... for img in self.images)
+
+    and `and` short-circuits. A pending_review row never reaches `self.images`,
+    so it cannot raise -- which is why asserting the hazard on a freshly
+    scraped listing failed with DID NOT RAISE. Since everything lands
+    `pending_review` and nothing in the request path approves rows inline, the
+    property is currently safe by accident rather than by design.
+
+    Approve it and the lazy load is real. Pinned in both directions so the
+    boundary is explicit for whoever calls this next.
     """
     from sqlalchemy import select
     from sqlalchemy.orm import selectinload
+
+    from vingo_scraper.extract.schema import ReviewStatus
 
     row = await _seed(session)
     await session.commit()
     session.expunge_all()
 
-    bare = await session.scalar(select(Listing).where(Listing.id == row.id))
+    # pending_review: short-circuits before the relationship, so it is safe.
+    pending = await session.scalar(select(Listing).where(Listing.id == row.id))
+    assert pending.is_servable is False
+
+    row.review_status = ReviewStatus.APPROVED
+    await session.commit()
+    session.expunge_all()
+
+    approved = await session.scalar(select(Listing).where(Listing.id == row.id))
     with pytest.raises(Exception, match="(?i)greenlet|lazy"):
-        _ = bare.is_servable
+        _ = approved.is_servable
 
     session.expunge_all()
     eager = await session.scalar(
         select(Listing).where(Listing.id == row.id)
         .options(selectinload(Listing.images))
     )
-    assert eager.is_servable is False      # pending_review, so not servable
+    assert eager.is_servable is True       # approved, and the photos are stored
 
 
 # --------------------------------------------------------------------------

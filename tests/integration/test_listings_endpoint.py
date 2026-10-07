@@ -133,23 +133,33 @@ async def test_04_is_servable_lazy_loads_only_for_an_approved_listing(session) -
 
     row = await _seed(session)
     await session.commit()
+    listing_id = row.id
     session.expunge_all()
 
     # pending_review: short-circuits before the relationship, so it is safe.
-    pending = await session.scalar(select(Listing).where(Listing.id == row.id))
+    pending = await session.scalar(select(Listing).where(Listing.id == listing_id))
     assert pending.is_servable is False
 
-    row.review_status = ReviewStatus.APPROVED
+    # Approve the ATTACHED object. The previous version set the flag on `row`,
+    # which `expunge_all()` had just detached -- so the UPDATE never ran, the
+    # re-query came back pending_review, `is_servable` short-circuited again,
+    # and the failure read as "DID NOT RAISE" rather than "your write was
+    # discarded". Two different bugs, one message.
+    pending.review_status = ReviewStatus.APPROVED
     await session.commit()
     session.expunge_all()
 
-    approved = await session.scalar(select(Listing).where(Listing.id == row.id))
+    approved = await session.scalar(select(Listing).where(Listing.id == listing_id))
+    # Prove the precondition before testing the thing. Without this, a silently
+    # dropped write is indistinguishable from the hazard being absent.
+    assert approved.review_status is ReviewStatus.APPROVED, "the approval did not persist"
+
     with pytest.raises(Exception, match="(?i)greenlet|lazy"):
         _ = approved.is_servable
 
     session.expunge_all()
     eager = await session.scalar(
-        select(Listing).where(Listing.id == row.id)
+        select(Listing).where(Listing.id == listing_id)
         .options(selectinload(Listing.images))
     )
     assert eager.is_servable is True       # approved, and the photos are stored

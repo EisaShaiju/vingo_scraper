@@ -92,14 +92,28 @@ def test_billed_ceiling_matches_what_a_page_costs():
     curious_coder is bought by the page, so the clamp must be the page
     capacity -- otherwise we discard listings already paid for.
     """
-    from vingo_scraper.apify.client import CURIOUS_CODER, billed_item_ceiling
+    from vingo_scraper.apify.client import (
+        CURIOUS_CODER,
+        LISTINGS_PER_PAGE,
+        billed_item_ceiling,
+        max_pages,
+    )
 
     kw = {"accept_full_page": True}
-    assert billed_item_ceiling(8, CURIOUS_CODER, **kw) == 24   # one page, 8 asked
-    assert billed_item_ceiling(25, CURIOUS_CODER, **kw) == 48  # spills to two
-    # Never below what was asked for.
+    page = LISTINGS_PER_PAGE
+    assert billed_item_ceiling(8, CURIOUS_CODER, **kw) == page   # one page, 8 asked
+    # Spills to a second page only where the PLAN allows one. On the free plan
+    # the Actor returns ~one page whatever is asked for.
+    expected = page * min(2, max_pages())
+    assert billed_item_ceiling(25, CURIOUS_CODER, **kw) == expected
+    # Never below what was asked for -- OR below the plan's own ceiling,
+    # whichever is smaller. Asking for 25 on a one-page plan cannot yield 25;
+    # the Actor returns ~one page whatever is requested. Asserting the old
+    # "always >= asked" would require the code to pretend otherwise.
+    from vingo_scraper.apify.client import max_items_ceiling
     for asked in (1, 5, 8, 20, 24, 25, 40, 72):
-        assert billed_item_ceiling(asked, CURIOUS_CODER, **kw) >= asked
+        got = billed_item_ceiling(asked, CURIOUS_CODER, **kw)
+        assert got >= min(asked, max_items_ceiling()), (asked, got)
 
 
 def test_full_page_is_off_by_default():

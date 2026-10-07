@@ -253,16 +253,29 @@ def test_curious_coder_input_shape():
     assert "resultsLimit" not in ri
 
 
-def test_curious_coder_uses_pages_not_items():
+def test_curious_coder_uses_pages_not_items(monkeypatch):
     """Volume is paged here. Using Apify's max_items instead truncates the
     dataset while the Actor keeps scraping and billing -- measured once at
-    24 charged for 3 returned."""
+    24 charged for 3 returned.
+
+    Exercised against a PAID ceiling, because the free plan pins everything to
+    one page and would make this assert nothing.
+    """
+    from vingo_scraper.config import settings
+    monkeypatch.setattr(settings, "apify_max_pages", 3)
+
     assert build_run_input("x", "bengaluru", 10, actor_id=CURIOUS)["maxPagesPerUrl"] == 1
     assert build_run_input("x", "bengaluru", 24, actor_id=CURIOUS)["maxPagesPerUrl"] == 1
     assert build_run_input("x", "bengaluru", 25, actor_id=CURIOUS)["maxPagesPerUrl"] == 2
     assert build_run_input("x", "bengaluru", 50, actor_id=CURIOUS)["maxPagesPerUrl"] == 3
     # Hard ceiling so a large max_items cannot page forever.
     assert build_run_input("x", "bengaluru", 9999, actor_id=CURIOUS)["maxPagesPerUrl"] == 3
+
+
+def test_free_plan_never_asks_for_more_than_one_page():
+    """The default. The Actor returns ~one page on the free plan whatever is
+    requested, so asking for more is a promise the console cannot keep."""
+    assert build_run_input("x", "bengaluru", 9999, actor_id=CURIOUS)["maxPagesPerUrl"] == 1
 
 
 def test_curious_coder_details_can_be_disabled():

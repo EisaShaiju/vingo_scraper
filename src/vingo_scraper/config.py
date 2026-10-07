@@ -46,6 +46,25 @@ class Settings(BaseSettings):
     # three times the listings at identical cost.
     apify_accept_full_page: bool = False
 
+    # How many Marketplace pages one run may ask for.
+    #
+    # MEASURED, not assumed. On the FREE Apify plan the Actor answers every
+    # request with roughly one page whatever we ask for:
+    #
+    #     pages asked -> items returned
+    #        1              25
+    #        2              21, 21, 16
+    #        3              26, 28, 21, 26
+    #
+    # and it says so: "Number of records scraped per run by this actor is
+    # limited to 10 for free users" (the stated 10 does not match the observed
+    # 16-28, but the ceiling is real and sits near one page). Cost tracks ITEMS
+    # returned, not pages requested, so asking for three is not wasteful --
+    # it is simply a promise the UI cannot keep.
+    #
+    # Raise to 3 on a paid plan and the selector grows back on its own.
+    apify_max_pages: int = 1
+
     # Actor-side dedup. The Actor keeps a key-value store of listing ids it
     # has already returned and skips them on the next run -- which is the ONLY
     # mechanism that avoids the CHARGE. Our own `fb_listing_id` check runs

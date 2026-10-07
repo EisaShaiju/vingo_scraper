@@ -28,6 +28,7 @@ from __future__ import annotations
 
 import json
 import pathlib
+import re
 
 import pytest
 
@@ -155,16 +156,36 @@ def test_10_there_is_still_no_category_parameter() -> None:
 # Volume -- the "always 24 listings" bug
 # ==========================================================================
 
-def test_11_each_volume_option_buys_a_different_number_of_pages() -> None:
-    """The regression this file exists to prevent.
+def test_11_the_page_ceiling_follows_the_PLAN_not_a_constant() -> None:
+    """Volume is a property of the Apify account, not of the code.
 
-    The API clamped max_items to 25 before this math ran, so 1/2/3 pages all
-    collapsed to one page and every search returned ~24 listings no matter
-    what was selected.
+    MEASURED on the free plan -- the Actor answers every request with roughly
+    one page whatever it is asked for:
+
+        pages asked -> items returned
+           1              25
+           2              21, 21, 16
+           3              26, 28, 21, 26
+
+    An earlier version of this test asserted 1/2/3 pages from 24/48/72, which
+    was true of our payload and false of the world: the console promised
+    "~72 listings" on a plan that cannot deliver them.
     """
     from vingo_scraper.apify.client import build_run_input as b
-    got = [b("x", "bangalore", n)["maxPagesPerUrl"] for n in (24, 48, 72)]
-    assert got == [1, 2, 3]
+    from vingo_scraper.apify.client import max_pages
+
+    for want in (24, 48, 72):
+        assert b("x", "bangalore", want)["maxPagesPerUrl"] <= max_pages()
+
+
+def test_11b_a_paid_plan_restores_the_pages(monkeypatch) -> None:
+    """The ceiling is configuration, so upgrading lifts it with no code change."""
+    from vingo_scraper.apify import client
+    from vingo_scraper.config import settings
+
+    monkeypatch.setattr(settings, "apify_max_pages", 3)
+    assert client.pages_for(72) == 3
+    assert client.build_run_input("x", "bangalore", 72)["maxPagesPerUrl"] == 3
 
 
 def test_12_the_api_ceiling_does_not_undo_the_page_math() -> None:
@@ -188,12 +209,19 @@ def test_13_volume_is_bounded() -> None:
     assert pages_for(-5) == 1
 
 
-def test_14_the_console_offers_exactly_the_page_boundaries() -> None:
-    """Option values must be real page capacities, or the label lies again."""
-    from vingo_scraper.apify.client import LISTINGS_PER_PAGE, pages_for
-    page = LISTINGS_PER_PAGE
-    for n_pages, value in ((1, page), (2, page * 2), (3, page * 3)):
-        assert pages_for(value) == n_pages
+def test_14_the_console_offers_only_what_the_plan_can_deliver() -> None:
+    """A selector option the Actor will not honour is a label that lies, which
+    is how "Items: 8" and "3 pages, ~72" both got shipped."""
+    from fastapi.testclient import TestClient
+
+    from vingo_scraper.api.main import app
+    from vingo_scraper.apify.client import LISTINGS_PER_PAGE, max_pages
+
+    html = TestClient(app).get("/").text
+    offered = re.findall(r'<option value="(\d+)">[^<]*listings', html)
+    assert offered, "no volume options found"
+    for value in offered:
+        assert int(value) <= LISTINGS_PER_PAGE * max_pages(), value
 
 
 # ==========================================================================

@@ -691,11 +691,21 @@ def test_10_03_the_search_tab_shows_only_this_runs_listings():
     assert "since_run=" in h
 
 
-def test_10_04_volume_is_offered_in_pages_not_items():
-    """"Items: 8" was a lie -- volume is bought by the ~24-listing page."""
+def test_10_04_volume_is_offered_honestly():
+    """"Items: 8" was a lie -- volume is bought by the page. So was
+    "3 pages, ~72 listings": the free plan returns ~one page whatever is
+    asked for (measured: 1 page -> 25 items, 3 pages -> 26)."""
     h = page()
-    assert "1 page · ~24 listings" in h
+    assert "~24 listings" in h
     assert 'type="number" value="8"' not in h
+    assert "~72 listings" not in h
+
+
+def test_10_04b_the_free_plan_limit_is_stated_on_screen():
+    """An unexplained ceiling reads as a broken control."""
+    h = page()
+    assert "free plan" in h
+    assert "16" in h and "28" in h       # the measured range, not a round number
 
 
 def test_10_05_recency_defaults_to_any_time():

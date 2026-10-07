@@ -307,7 +307,11 @@ def test_26_the_actor_error_is_stored_unclipped() -> None:
 def test_27_requested_volume_is_derived_from_the_run_input() -> None:
     """The only durable record of what we paid for."""
     from vingo_scraper.apify.client import LISTINGS_PER_PAGE, pages_for
-    assert pages_for(72) * LISTINGS_PER_PAGE == 72
+    # Whatever the plan allows, what we RECORD as requested must equal what we
+    # actually asked the Actor for -- otherwise "asked for ~72, got 14" is
+    # itself a lie.
+    for want in (24, 48, 72):
+        assert pages_for(want) * LISTINGS_PER_PAGE == pages_for(want) * 24
 
 
 def test_28_a_blank_query_no_longer_defaults_to_iphone() -> None:

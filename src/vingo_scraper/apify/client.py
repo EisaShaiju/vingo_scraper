@@ -107,14 +107,34 @@ FILTER_KEYS: dict[str, type | tuple] = {
 # turned them into pages, so all three options in the Volume selector produced
 # one page and every search returned ~24 listings regardless.
 LISTINGS_PER_PAGE = 24
-MAX_PAGES = 3
+
+
+def max_pages() -> int:
+    """The page ceiling this plan can actually deliver.
+
+    A function, not a constant, because it is a property of the ACCOUNT rather
+    than of the code -- and because the constant version made the UI promise
+    "3 pages, ~72 listings" on a plan that returns one page whatever it is
+    asked for. Measured: 1 page -> 25 items, 3 pages -> 26 items.
+    """
+    return max(1, settings.apify_max_pages)
+
+
+def max_items_ceiling() -> int:
+    return LISTINGS_PER_PAGE * max_pages()
+
+
+# Kept for callers that import them directly. These read the configured plan at
+# import time, so anything that must follow a runtime change calls the
+# functions above instead.
+MAX_PAGES = max(1, settings.apify_max_pages)
 MAX_ITEMS_CEILING = LISTINGS_PER_PAGE * MAX_PAGES
 
 
 def pages_for(max_items: int) -> int:
     """How many Marketplace pages are needed to cover `max_items` listings."""
     wanted = max(1, max_items)
-    return max(1, min(-(-wanted // LISTINGS_PER_PAGE), MAX_PAGES))
+    return max(1, min(-(-wanted // LISTINGS_PER_PAGE), max_pages()))
 
 
 SORT_NEWEST = "creation_time_descend"

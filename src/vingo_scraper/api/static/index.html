@@ -421,9 +421,7 @@
         <div class="field">
           <label>Volume</label>
           <select id="m-n">
-            <option value="24">1 page · ~24 listings · $0.012</option>
-            <option value="48">2 pages · ~48 listings · $0.024</option>
-            <option value="72">3 pages · ~72 listings · $0.036</option>
+            <option value="24">~24 listings · ~$0.015</option>
           </select>
         </div>
         <label style="display:flex;align-items:center;gap:6px;font-size:12px;
@@ -435,6 +433,10 @@
       <div style="padding:0 19px 4px;font-size:11px;color:var(--muted)">
         * Facebook's finest filter is one day, so anything shorter is applied
         after the fetch — it narrows what we keep, never what we pay for.
+        <br>Volume is fixed at one page: on Apify's free plan this Actor
+        returns 16–28 listings per run whatever is asked for
+        <span style="font-family:ui-monospace,monospace">(measured: 1 page →
+        25, 3 pages → 26)</span>.
       </div>
 
       <div id="m-result" style="padding:0 19px"></div>

@@ -42,12 +42,18 @@ fixture drops and recreates the public schema on every session.
 from __future__ import annotations
 
 import os
+import pathlib
 import shutil
 import subprocess
+import sys
 import time
 import uuid
 
 import pytest
+
+# Absolute, because cwd is not guaranteed when this runs on the VM.
+REPO_ROOT = pathlib.Path(__file__).resolve().parents[2]
+ALEMBIC_INI = REPO_ROOT / "alembic.ini"
 
 IMAGE = "postgres:16-alpine"
 PORT = 55432          # not 5432: must not collide with a local Postgres
@@ -178,8 +184,13 @@ def _migrate(url: str) -> None:
     """
     env = {**os.environ, "VINGO_DATABASE_URL": url, "VINGO_DATABASE_MIGRATION_URL": url}
     done = subprocess.run(
-        ["alembic", "upgrade", "head"],
-        env=env, capture_output=True, text=True,
+        # `sys.executable -m alembic`, never the bare `alembic` command: the
+        # venv's bin/ is not on PATH when pytest runs under
+        # `sudo -u comet env ... python -m pytest`, which is exactly how this
+        # runs on the VM, so the console script is simply not found. The
+        # interpreter running the tests always has the package.
+        [sys.executable, "-m", "alembic", "-c", str(ALEMBIC_INI), "upgrade", "head"],
+        env=env, capture_output=True, text=True, cwd=str(REPO_ROOT),
     )
     if done.returncode != 0:
         raise RuntimeError(f"alembic upgrade failed:\n{done.stdout}\n{done.stderr}")

@@ -110,17 +110,16 @@ def test_04_the_schemas_own_prefill_is_a_bare_string() -> None:
     assert all(isinstance(u, str) for u in PROPS["urls"]["prefill"])
 
 
-def test_05_a_keyword_scopes_a_category_instead_of_replacing_it() -> None:
-    """Electronics + "laptop" is laptops within electronics, not all of it.
-
-    The keyword now rides INSIDE the URL rather than in `searchKeyword`: the
-    Actor discards Filters-mode fields whenever `urls` is supplied, so a split
-    across both modes is a filter that silently does nothing.
-    `tests/test_actor_modes.py` owns that rule.
+def test_05_a_category_browse_carries_the_categorys_own_name() -> None:
+    """Was "a keyword scopes a category". Facebook disproved that on a paid
+    run: `?query=iphone&category_id=<musical instruments>` returned iPhones.
+    The id is a breadcrumb, not a filter, and loses to a conflicting query --
+    so the two are mutually exclusive, as they are in Facebook's own UI.
+    `tests/test_categories.py` owns the rule.
     """
-    payload = build_run_input("laptop", "bangalore", 24, category="electronics")
+    payload = build_run_input(None, "bangalore", 24, category="electronics")
     assert "searchKeyword" not in payload
-    assert "query=laptop" in payload["urls"][0]
+    assert "query=Electronics" in payload["urls"][0]
 
 
 def test_06_a_category_alone_sends_no_keyword() -> None:

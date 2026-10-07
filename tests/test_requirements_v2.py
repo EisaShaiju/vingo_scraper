@@ -499,12 +499,19 @@ def test_7_04_a_category_alone_still_narrows_the_search():
     assert "query=" in payload["urls"][0]
 
 
-def test_7_04b_a_keyword_scopes_a_category_rather_than_being_dropped():
-    """Picking Electronics and typing "laptop" used to browse ALL of
-    electronics -- the keyword was discarded before it reached the Actor."""
-    payload = build_run_input("laptop", "bangalore", 8, category="electronics",
-                              actor_id=CURIOUS_CODER)
-    assert "query=laptop" in payload["urls"][0]
+def test_7_04b_a_category_and_a_keyword_are_mutually_exclusive():
+    """Facebook cannot search inside a category -- `?query=iphone&category_id=
+    <musical instruments>` returned iPhones on a real run. The console offers
+    one or the other; the API refuses both rather than quietly altering the
+    request."""
+    from fastapi.testclient import TestClient
+
+    from vingo_scraper.api.main import app
+
+    r = TestClient(app).post("/api/ingest",
+                             json={"category": "electronics", "query": "laptop",
+                                   "location": "bangalore"})
+    assert r.status_code == 400
 
 
 def test_7_05_a_keyword_sends_no_url():

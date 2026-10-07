@@ -241,12 +241,19 @@ def build_run_input(
             # fallback: weaker than a real category id, and never silent.
             # Facebook's own category URLs pair the id WITH a query term:
             #   ?category_id=1078592699170502&query=Musical%20instruments
-            # so we send both, exactly as its sidebar does. A keyword replaces
-            # the category's name as the term and scopes the browse; without
-            # one, the category's own wording is the term. Either way the URL
-            # is never left with nothing to narrow on -- an unnarrowed browse
-            # is unbounded on a per-result-billed API.
-            term = search_query or cat.get("query") or category.replace("_", " ")
+            # so we send both, exactly as its sidebar does.
+            #
+            # The term is ALWAYS the category's own wording, never a keyword.
+            # Proven by sending both: a run with
+            #   ?query=iphone&category_id=<musical instruments>&maxPrice=50000
+            # returned iPhones under Rs 50,000. maxPrice was honoured, query
+            # was honoured, and `category_id` was DISCARDED. Facebook treats it
+            # as a breadcrumb, not a filter, whenever a query contradicts it --
+            # which is why its own UI will not let you search inside a category.
+            #
+            # The endpoint refuses the combination before we get here, so this
+            # is a second line rather than the only one.
+            term = cat.get("query") or category.replace("_", " ")
             # PLAIN STRINGS, not [{"url": ...}] -- `urls` is typed as a
             # stringList, and the object form is the legacy Actor's shape.
             payload["urls"] = [search_url(

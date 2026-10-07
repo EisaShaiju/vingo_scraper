@@ -500,6 +500,12 @@ def title_filter_term(req: IngestRequest) -> str | None:
     checkbox stayed ticked -- which is how a search for "guitar" inside
     Musical instruments returned a townhouse and two cars.
     """
+    if req.category:
+        # A category run searches for the category's own name; the keyword
+        # never reaches Facebook, so enforcing it locally would drop every
+        # genuine result. The endpoint refuses the combination anyway -- this
+        # is belt and braces on an expression that has been wrong twice.
+        return None
     if not req.title_match:
         return None
     return (req.query or "").strip() or None
@@ -531,6 +537,18 @@ async def start_ingest(
     # bills. This ceiling is the 3-page equivalent; clamping to 25 here pinned
     # every option in the Volume selector to a single page, so the count came
     # back ~24 no matter what was asked for.
+    # Facebook cannot search a keyword INSIDE a category: whichever query is
+    # sent wins and `category_id` is discarded. Measured -- Musical instruments
+    # + "iphone" returned iPhones. Refusing costs nothing; accepting and
+    # quietly altering the request costs a page of scraping and an afternoon,
+    # which is the fourth time this project has paid that price.
+    if req.category and (req.query or "").strip():
+        raise HTTPException(
+            400,
+            "category and keyword cannot be combined -- Facebook ignores the "
+            "category when a keyword is given. Send one or the other.",
+        )
+
     req.max_items = max(1, min(req.max_items, MAX_ITEMS_CEILING))
     # Both, when both are given: a keyword scopes a category browse.
     query = req.query or None

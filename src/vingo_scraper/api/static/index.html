@@ -377,7 +377,7 @@
         </div>
         <div class="field">
           <label>Keyword</label>
-          <input id="m-q" value="iphone" style="min-width:150px">
+          <input id="m-q" placeholder="e.g. iphone" style="min-width:150px">
         </div>
         <div class="field">
           <label>City</label>
@@ -432,6 +432,9 @@
       <div style="padding:0 19px 4px;font-size:11px;color:var(--muted)">
         * Facebook's finest filter is one day, so anything shorter is applied
         after the fetch — it narrows what we keep, never what we pay for.
+        <br>Pick a <strong>category</strong> or type a <strong>keyword</strong>,
+        not both — Facebook cannot search inside a category, and sending both
+        makes it ignore the category entirely.
         <br>Volume is fixed at one page: on Apify's free plan this Actor
         returns 16–28 listings per run whatever is asked for
         <span style="font-family:ui-monospace,monospace">(measured: 1 page →
@@ -1199,6 +1202,32 @@ async function loadLeads(){
 if($('#lead-refresh')) $('#lead-refresh').onclick = loadLeads;
 if($('#lead-q')) $('#lead-q').onkeydown = e => { if(e.key === 'Enter') loadLeads(); };
 if($('#lead-status')) $('#lead-status').onchange = loadLeads;
+
+
+// ---------------------------------------------------- category XOR keyword ---
+// Facebook discards `category_id` whenever a conflicting `query` is sent --
+// measured: Musical instruments + "iphone" returned iPhones. Its own UI has
+// the same restriction. Rather than let the console offer a combination that
+// silently does something else, only one of the two can be set at a time.
+(function(){
+  const cat = $('#m-cat'), kw = $('#m-q');
+  if(!cat || !kw) return;
+
+  function sync(){
+    const haveCat = !!cat.value;
+    const haveKw  = !!kw.value.trim();
+    kw.disabled  = haveCat;
+    cat.disabled = haveKw;
+    // Greyed out with no explanation reads as a broken control.
+    kw.title  = haveCat ? 'Facebook cannot search inside a category — clear the category to use a keyword' : '';
+    cat.title = haveKw  ? 'Clear the keyword to browse a category instead' : '';
+    kw.style.opacity  = haveCat ? '.45' : '';
+    cat.style.opacity = haveKw  ? '.45' : '';
+  }
+  cat.addEventListener('change', () => { if(cat.value) kw.value = ''; sync(); });
+  kw.addEventListener('input', sync);
+  sync();
+})();
 
 </script>
 </body>

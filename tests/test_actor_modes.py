@@ -84,9 +84,13 @@ def test_05_recency_rides_in_the_url_too() -> None:
                               filters=BAND))["daysSinceListed"] == "7"
 
 
-def test_06_the_keyword_rides_in_the_url() -> None:
-    assert qs(build_run_input("guitar", "bangalore", 72,
-                              category="musical_instruments"))["query"] == "guitar"
+def test_06_the_category_name_rides_in_the_url() -> None:
+    """A category run always searches for the category's own wording. A
+    keyword cannot narrow it -- Facebook discards `category_id` whenever the
+    query contradicts it, so the endpoint refuses the combination."""
+    got = qs(build_run_input(None, "bangalore", 72,
+                             category="musical_instruments"))
+    assert got["query"] == "Musical instruments"
 
 
 def test_07_strict_filtering_survives_url_mode() -> None:
@@ -146,21 +150,18 @@ def test_12_every_key_still_exists_in_the_schema() -> None:
 
 
 def test_13_a_verified_category_id_is_used_when_present(monkeypatch) -> None:
-    """Once Facebook's real ids are collected, the category stops being a
-    keyword guess and becomes the category itself."""
+    """With Facebook's real ids a category stops being a keyword guess and
+    becomes the category itself -- paired with its own name, exactly as
+    Facebook's sidebar does."""
     from vingo_scraper.apify import client
     monkeypatch.setitem(client.CATEGORIES, "musical_instruments",
-                        {"slug": "musical-instruments", "query": "musical instruments",
-                         "category_id": "10785"})
-    got = qs(build_run_input("guitar", "bangalore", 24,
+                        {"category_id": "10785", "query": "Musical instruments",
+                         "slug": "musical-instruments"})
+    got = qs(build_run_input(None, "bangalore", 24,
                              category="musical_instruments"))
     assert got["category_id"] == "10785"
-    assert got["query"] == "guitar"      # both, as Facebook's own URL does
+    assert got["query"] == "Musical instruments"
 
-
-# ==========================================================================
-# The price backstop -- because the Actor is not trustworthy with filters
-# ==========================================================================
 
 def test_14_the_volvo_is_dropped() -> None:
     """The actual listing from the actual run: Rs 9,00,000 under a Rs 50,000
@@ -222,21 +223,23 @@ def test_18_the_price_check_runs_before_rehosting() -> None:
 # The title filter that was ticked and did nothing
 # ==========================================================================
 
-def test_19_a_category_does_not_switch_the_title_filter_off() -> None:
-    """The regression, asserted by BEHAVIOUR.
+def test_19_the_title_filter_follows_what_was_actually_searched() -> None:
+    """Twice wrong, for opposite reasons.
 
-    The first version of this test grepped the endpoint source for the old
-    expression -- and matched the comment explaining why it was removed. Third
-    time that trap has appeared in this project. The logic now lives in a named
-    function so it can be called instead of read.
+    First it read `and not req.category`, silently disabling the filter
+    whenever a category was chosen -- the checkbox stayed ticked and did
+    nothing. Fixed to always enforce the keyword.
+
+    Then Facebook showed a category run never sends the keyword at all: it
+    searches for the category's own name. Enforcing an unsent keyword would
+    drop every genuine result, so a category run enforces nothing.
     """
     from vingo_scraper.api.main import IngestRequest, title_filter_term
 
-    with_cat = IngestRequest(query="guitar", category="musical_instruments",
-                             title_match=True)
-    without = IngestRequest(query="guitar", title_match=True)
-    assert title_filter_term(with_cat) == "guitar"
-    assert title_filter_term(with_cat) == title_filter_term(without)
+    assert title_filter_term(
+        IngestRequest(query="guitar", title_match=True)) == "guitar"
+    assert title_filter_term(
+        IngestRequest(category="musical_instruments", title_match=True)) is None
 
 
 def test_20_unticking_the_box_really_disables_it() -> None:

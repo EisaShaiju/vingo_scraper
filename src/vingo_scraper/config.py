@@ -161,34 +161,88 @@ INDIA_CITIES: dict[str, str] = {
 
 # Candidate categories for Vingo's launch catalog. `slug` is the Marketplace
 # category path; `query` is the free-text search fallback.
+# Facebook's real Marketplace categories, verified by walking every entry in
+# the Bengaluru sidebar by hand on 2026-10-07 and reading the URL it produced.
+#
+# THE CATEGORY IS A NUMERIC `category_id` IN A SEARCH URL, NOT A PATH SLUG.
+# Sixteen of seventeen resolve to
+#     /marketplace/<loc>/search/?category_id=<id>&query=<name>
+# Only `property_rent` has a working path form. Every hyphenated slug this file
+# used to carry -- musical-instruments, home-goods, sporting-goods and the rest
+# -- was invented, and a wrong path does NOT 404: Facebook serves the generic
+# Marketplace feed, which is why a search for Musical instruments returned IBC
+# totes, a townhouse and a Rs 9,00,000 Volvo.
+#
+# `query` is the exact wording Facebook pairs with each id, used as the search
+# term and as the fallback for any entry without an id.
+#
+# `slug` is LEGACY ONLY -- the non-curious_coder branch still builds a path
+# from it (`apify/urls.py::category_url`). It is not used by the primary Actor
+# and should not be trusted as a real Facebook path.
+#
+# Do not edit an id by hand. They came from a manual pass that should not have
+# to be repeated, and `tests/test_categories.py` pins every one.
 CATEGORIES: dict[str, dict[str, str]] = {
-    # `slug` is the real Marketplace category path -- these are the categories
-    # Facebook's own sidebar lists, so a browse URL built from one returns what
-    # a human would see. `query` is the keyword fallback for Actors that cannot
-    # take a URL.
-    #
-    # There is NO `categoryIds` input on the Actor (verified against the live
-    # build schema), so category selection happens through the URL, not a
-    # parameter. See apify/urls.py::category_url.
-    "vehicles":            {"slug": "vehicles",            "query": "vehicles"},
-    "property_rent":       {"slug": "propertyrentals",     "query": "property for rent"},
-    "classifieds":         {"slug": "classifieds",         "query": "classifieds"},
-    "clothing":            {"slug": "apparel",             "query": "clothing"},
-    "electronics":         {"slug": "electronics",         "query": "electronics"},
-    "entertainment":       {"slug": "entertainment",       "query": "entertainment"},
-    "family":              {"slug": "family",              "query": "family"},
-    "garden_outdoor":      {"slug": "garden",              "query": "garden and outdoor"},
-    "hobbies":             {"slug": "hobbies",             "query": "hobbies"},
-    "home_goods":          {"slug": "home-goods",          "query": "home goods"},
-    "home_improvement":    {"slug": "home-improvement",    "query": "home improvement"},
-    "musical_instruments": {"slug": "musical-instruments", "query": "musical instruments"},
-    "office_supplies":     {"slug": "office-supplies",     "query": "office supplies"},
-    "pet_supplies":        {"slug": "pet-supplies",        "query": "pet supplies"},
-    "property_sale":       {"slug": "propertyforsale",     "query": "property for sale"},
-    "sporting_goods":      {"slug": "sporting-goods",      "query": "sporting goods"},
-    "toys_games":          {"slug": "toys",                "query": "toys and games"},
-    # Kept because the automation grid and older runs reference it.
-    "mobile_phones":       {"slug": "mobile-phones",       "query": "mobile phone"},
+    "vehicles": {
+        "category_id": "546583916084032",
+        "query": "Vehicles", "slug": "vehicles"},
+    "classifieds": {
+        "category_id": "759201041254543",
+        "query": "Classifieds", "slug": "classifieds"},
+    "clothing": {
+        "category_id": "677457442746983",
+        "query": "Clothing", "slug": "apparel"},
+    "electronics": {
+        "category_id": "479353692612078",
+        "query": "Electronics", "slug": "electronics"},
+    "entertainment": {
+        "category_id": "529595287638583",
+        "query": "Entertainment", "slug": "entertainment"},
+    "family": {
+        "category_id": "891748581240437",
+        "query": "Family", "slug": "family"},
+    "garden_outdoor": {
+        "category_id": "1109541402725436",
+        "query": "Garden and outdoors", "slug": "garden"},
+    "hobbies": {
+        "category_id": "459026188375950",
+        "query": "Hobbies", "slug": "hobbies"},
+    "home_goods": {
+        "category_id": "753380185098614",
+        "query": "Home goods", "slug": "home-goods"},
+    "home_improvement": {
+        "category_id": "476291743038859",
+        "query": "Home improvement supplies", "slug": "home-improvement"},
+    "musical_instruments": {
+        "category_id": "1078592699170502",
+        "query": "Musical instruments", "slug": "musical-instruments"},
+    "office_supplies": {
+        "category_id": "586894672179024",
+        "query": "Office supplies", "slug": "office-supplies"},
+    "pet_supplies": {
+        "category_id": "197143151659643",
+        "query": "Pet supplies", "slug": "pet-supplies"},
+    "property_sale": {
+        "category_id": "1270772586445798",
+        "query": "Property for sale", "slug": "propertyforsale"},
+    "sporting_goods": {
+        "category_id": "391335928190702",
+        "query": "Sporting goods", "slug": "sporting-goods"},
+    "toys_games": {
+        "category_id": "199404184572737",
+        "query": "Toys and games", "slug": "toys"},
+
+    # The exception. Facebook gave a PATH for this one and no id:
+    #   /marketplace/bangalore/propertyrentals
+    # It runs as a search for its own name instead, so the price and recency
+    # filters ride in a query string Facebook demonstrably honours. Appending
+    # filters to a bare path is untested, and one unverified mechanism in this
+    # file is enough.
+    "property_rent":       {"query": "Property for rent",      "slug": "propertyrentals"},
+
+    # REMOVED: `mobile_phones`. It is not in Facebook's category menu at all --
+    # phones live under Electronics. Offering it would have silently returned
+    # the generic feed, which is worse than not offering it.
 }
 
 # What the automated sweep walks. Deliberately a subset: these are the

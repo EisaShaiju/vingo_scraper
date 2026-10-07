@@ -534,8 +534,17 @@ def test_7_08_unknown_category_falls_back_to_its_own_name():
 
 
 def test_7_09_every_category_is_selectable_by_hand():
-    """With no sweep, the operator picks -- so all 18 must be reachable."""
-    assert len(CATEGORIES) >= 18
+    """With no sweep, the operator picks -- so every category Facebook HAS
+    must be reachable.
+
+    Was `>= 18`. It is 17 now, and the missing one is the point: `mobile_phones`
+    does not exist in Facebook's category menu -- phones live under Electronics
+    -- so offering it returned the generic Marketplace feed. A count is the
+    wrong assertion when the right number is "however many Facebook has";
+    `tests/test_categories.py` pins the identities instead.
+    """
+    assert len(CATEGORIES) == 17
+    assert "mobile_phones" not in CATEGORIES
 
 
 def test_7_10_every_category_is_offered_in_the_ui():

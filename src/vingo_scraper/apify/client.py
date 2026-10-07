@@ -239,9 +239,14 @@ def build_run_input(
             # URL carries no narrowing term at all -- an unbounded browse on a
             # per-page-billed API. The category's own words are the documented
             # fallback: weaker than a real category id, and never silent.
-            term = search_query or None
-            if term is None and not cat.get("category_id"):
-                term = cat.get("query") or category.replace("_", " ")
+            # Facebook's own category URLs pair the id WITH a query term:
+            #   ?category_id=1078592699170502&query=Musical%20instruments
+            # so we send both, exactly as its sidebar does. A keyword replaces
+            # the category's name as the term and scopes the browse; without
+            # one, the category's own wording is the term. Either way the URL
+            # is never left with nothing to narrow on -- an unnarrowed browse
+            # is unbounded on a per-result-billed API.
+            term = search_query or cat.get("query") or category.replace("_", " ")
             # PLAIN STRINGS, not [{"url": ...}] -- `urls` is typed as a
             # stringList, and the object form is the legacy Actor's shape.
             payload["urls"] = [search_url(

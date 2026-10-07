@@ -128,13 +128,44 @@ def _wait_ready(exe: str, timeout_s: int = 60) -> None:
 
 
 def _reset_schema(url: str) -> None:
-    """Start from nothing, so a half-migrated leftover cannot mask a failure."""
+    """Start from nothing, so a half-migrated leftover cannot mask a failure.
+
+    Dropping the schema outright is the clean way, but it requires OWNERSHIP of
+    `public` -- and since Postgres 15 that schema belongs to
+    `pg_database_owner`, which `GRANT ALL ON SCHEMA public` does not confer. So
+    a perfectly well-granted role still gets InsufficientPrivilege here.
+
+    The fallback drops only what we own, which is everything alembic created.
+    Enum types have to go too: they are not dropped with their tables, and a
+    re-run of the migrations fails on "type already exists".
+    """
     import psycopg
+    from psycopg import sql
 
     sync = url.replace("postgresql+psycopg://", "postgresql://")
     with psycopg.connect(sync, autocommit=True) as conn:
-        conn.execute("DROP SCHEMA IF EXISTS public CASCADE")
-        conn.execute("CREATE SCHEMA public")
+        try:
+            conn.execute("DROP SCHEMA IF EXISTS public CASCADE")
+            conn.execute("CREATE SCHEMA public")
+            return
+        except psycopg.errors.InsufficientPrivilege:
+            pass
+
+        tables = conn.execute(
+            "SELECT tablename FROM pg_tables WHERE schemaname = 'public'"
+        ).fetchall()
+        for (name,) in tables:
+            conn.execute(sql.SQL("DROP TABLE IF EXISTS public.{} CASCADE")
+                         .format(sql.Identifier(name)))
+
+        types = conn.execute(
+            "SELECT t.typname FROM pg_type t "
+            "JOIN pg_namespace n ON n.oid = t.typnamespace "
+            "WHERE n.nspname = 'public' AND t.typtype = 'e'"
+        ).fetchall()
+        for (name,) in types:
+            conn.execute(sql.SQL("DROP TYPE IF EXISTS public.{} CASCADE")
+                         .format(sql.Identifier(name)))
 
 
 def _migrate(url: str) -> None:

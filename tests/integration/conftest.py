@@ -93,7 +93,12 @@ def pg_url() -> str:
             )
         _reset_schema(given)
         _migrate(given)
-        return given
+        # `yield`, not `return`. The Docker branch below yields, which makes
+        # this whole function a generator -- so a `return` here raises
+        # StopIteration without ever producing a value, and pytest reports
+        # "pg_url did not yield a value".
+        yield given
+        return
 
     exe = _docker()
     if exe is None:
@@ -210,6 +215,44 @@ async def session(pg_url):
         yield s
         await s.rollback()
     await engine.dispose()
+
+
+@pytest.fixture(autouse=True)
+def clean_tables(pg_url):
+    """Empty every table before each test.
+
+    The `session` fixture rolls back, but each test calls `commit()` --
+    the rows are durable by then and accumulate across the file. The tests
+    asserting exact counts would fail against earlier tests' leftovers, and
+    `test_12` would fail in the most misleading way available: the test written
+    to prove "an empty database is empty, not broken" raising a false alarm
+    because the database was not empty.
+
+    The table list is read from the catalogue rather than hard-coded, so a new
+    migration's table is included without anyone remembering to add it.
+    `alembic_version` is kept -- truncating it would strip the migration state
+    the schema tests check.
+    """
+    import psycopg
+    from psycopg import sql
+
+    sync = pg_url.replace("postgresql+psycopg://", "postgresql://")
+    with psycopg.connect(sync, autocommit=True) as conn:
+        names = [
+            r[0] for r in conn.execute(
+                "SELECT tablename FROM pg_tables "
+                "WHERE schemaname = 'public' AND tablename <> 'alembic_version'"
+            ).fetchall()
+        ]
+        if names:
+            # One statement: CASCADE handles the foreign keys between them,
+            # and truncating them separately would fight the ordering.
+            conn.execute(
+                sql.SQL("TRUNCATE {} RESTART IDENTITY CASCADE").format(
+                    sql.SQL(", ").join(sql.Identifier("public", n) for n in names)
+                )
+            )
+    yield
 
 
 @pytest.fixture

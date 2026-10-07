@@ -100,8 +100,8 @@ def test_03_urls_is_a_list_of_plain_strings() -> None:
     """
     assert PROPS["urls"]["editor"] == "stringList"
     payload = build_run_input(None, "bangalore", 24, category="vehicles")
-    assert payload["urls"] == ["https://www.facebook.com/marketplace/bangalore/vehicles"]
     assert all(isinstance(u, str) for u in payload["urls"])
+    assert payload["urls"][0].startswith("https://www.facebook.com/marketplace/")
 
 
 def test_04_the_schemas_own_prefill_is_a_bare_string() -> None:
@@ -110,10 +110,16 @@ def test_04_the_schemas_own_prefill_is_a_bare_string() -> None:
 
 
 def test_05_a_keyword_scopes_a_category_instead_of_replacing_it() -> None:
-    """Electronics + "laptop" is laptops within electronics, not all of it."""
+    """Electronics + "laptop" is laptops within electronics, not all of it.
+
+    The keyword now rides INSIDE the URL rather than in `searchKeyword`: the
+    Actor discards Filters-mode fields whenever `urls` is supplied, so a split
+    across both modes is a filter that silently does nothing.
+    `tests/test_actor_modes.py` owns that rule.
+    """
     payload = build_run_input("laptop", "bangalore", 24, category="electronics")
-    assert payload["searchKeyword"] == "laptop"
-    assert payload["urls"][0].endswith("/electronics")
+    assert "searchKeyword" not in payload
+    assert "query=laptop" in payload["urls"][0]
 
 
 def test_06_a_category_alone_sends_no_keyword() -> None:

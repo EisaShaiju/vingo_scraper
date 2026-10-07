@@ -907,7 +907,7 @@ function renderRunResults(rows, label){
             <td class="ttl">${esc(l.title)}</td>
             <td class="price">${l.price_inr!=null ? fmt(l.price_inr) : '—'}</td>
             <td><span class="badge b-used">${(l.condition||'').replace(/_/g,' ')}</span></td>
-            <td>${l.photos}</td>
+            <td>${l.image_count}</td>
           </tr>`).join('')}</tbody>
       </table></div>
     </div>`;
@@ -1001,14 +1001,42 @@ async function collectManual(){
     if(out.ran){
       showProgress(false);
       if(out.run_id) showRunResults(out.run_id, lastQueryLabel);
+      // What we PAID for versus what Marketplace actually had. Without both,
+      // "14 listings" after asking for ~72 is unexplainable, and the operator
+      // is left guessing whether the scraper broke or Facebook ran out.
+      const got = (out.items_returned != null) ? out.items_returned : out.listings;
+      const want = out.requested || 0;
+      const filtered = Math.max(0, got - out.listings);
+      let volume = `<b>${out.listings} listings</b>`;
+      if(want && got < want * 0.9){
+        volume += ` · asked for ~${want}, Marketplace had ${got} — that is all there was`;
+      } else if(want){
+        volume += ` of ~${want} requested`;
+      }
+      if(filtered) volume += ` · ${filtered} filtered out`;
+
+      const drops = [
+        out.rejected   ? `<b>${out.rejected} rejected</b> (under 2 photos or a junk price)` : '',
+        out.off_topic  ? `<b>${out.off_topic} off-topic</b> (title did not match)` : '',
+        out.overpriced ? `<b>${out.overpriced} outside the price range</b>` : '',
+        out.stale_dropped ? `${out.stale_dropped} too old` : '',
+      ].filter(Boolean).join(' · ');
+
+      // A run can succeed AND carry a warning. This branch ignored out.error
+      // entirely, so the Actor's own message was unreachable on every run that
+      // returned data -- which is how "Number of records scraped per run by
+      // this actor is li…" sat on screen with no way to read the rest.
       $('#m-result').innerHTML = `
         <div class="inv"><span>✓</span><span>
-          <b>${out.listings} listings</b> · ${out.created} new · ${out.updated} updated ·
-          ${out.images_stored} images · ${out.skipped_duplicates} already held ·
-          ${out.rejected ? `<b>${out.rejected} rejected</b> (under 2 photos or a junk price)` : '0 rejected'}${out.stale_dropped ? ` · ${out.stale_dropped} too old` : ''} ·
-          ${out.off_topic ? `· <b>${out.off_topic} off-topic</b> (title did not match)` : ''}
+          ${volume} · ${out.created} new · ${out.updated} updated ·
+          ${out.images_stored} images · ${out.skipped_duplicates} already held
+          ${drops ? ' · ' + drops : ''}
           · $${Number(out.cost_usd || 0).toFixed(4)}
-        </span></div>`;
+        </span></div>` + (out.error
+          ? `<div class="inv bad" style="margin-top:8px"><span>⚠</span><span>
+               <b>Actor warning:</b> ${esc(out.error)}</span></div>`
+          : '');
+
       loadStats(); loadListings(true); loadBudget();
     } else if(out.error){
       $('#m-result').innerHTML =

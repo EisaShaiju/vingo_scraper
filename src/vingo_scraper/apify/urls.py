@@ -26,22 +26,42 @@ LOCATION = BASE + "/{location}/"
 
 def search_url(
     location: str,
-    query: str,
+    query: str | None = None,
     *,
     min_price: int | None = None,
     max_price: int | None = None,
-    days_since_listed: int | None = None,
+    days_since_listed: int | str | None = None,
+    sort_by: str | None = None,
+    category_id: str | None = None,
     sort_by_new: bool = True,
 ) -> str:
-    """URL for a keyword search within one location."""
-    params: dict[str, str] = {"query": query}
+    """URL for a search within one location, with every filter embedded.
+
+    Embedded rather than passed as Actor fields, and that is the whole point.
+    The Actor has TWO input modes and its schema says so: `sortBy` is
+    "ignored when you paste your own URLs", `urls` is "optional if Filters are
+    set", `latitude`/`longitude` are "ignored if you paste URLs above". Supply
+    `urls` and every Filters-mode field is discarded.
+
+    We were sending both. A run capped at Rs 50,000 came back with a
+    Rs 9,00,000 Volvo, sorted by nothing in particular. Putting the filters in
+    the URL hands them to Facebook itself, which is the one party that
+    certainly applies them.
+    """
+    params: dict[str, str] = {}
+    if query:
+        params["query"] = query
+    if category_id:
+        params["category_id"] = str(category_id)
     if min_price is not None:
         params["minPrice"] = str(min_price)
     if max_price is not None:
         params["maxPrice"] = str(max_price)
-    if days_since_listed is not None:
+    if days_since_listed not in (None, ""):
         params["daysSinceListed"] = str(days_since_listed)
-    if sort_by_new:
+    if sort_by:
+        params["sortBy"] = sort_by
+    elif sort_by_new:
         params["sortBy"] = "creation_time_descend"
     return f"{SEARCH.format(location=location)}?{urlencode(params)}"
 

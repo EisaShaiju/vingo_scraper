@@ -84,7 +84,12 @@ class AutomationRequest(BaseModel):
 
 
 class IngestRequest(BaseModel):
-    query: str = "iphone"
+    # No default search term. A leftover "iphone" here meant a request that
+    # omitted `query` silently bought a page of iPhones -- and with a category
+    # selected it would also have become the term the title filter enforced,
+    # dropping every genuine result that did not say "iphone". The endpoint
+    # already refuses a request with neither a category nor a keyword.
+    query: str = ""
     # Bengaluru first, per the client spec. This defaulted to Mumbai long
     # after that decision was made.
     location: str = "bangalore"
@@ -482,6 +487,24 @@ async def _runs(limit: int) -> dict:
 # Automation worked only because it had already been rebuilt this way.
 # --------------------------------------------------------------------------
 
+def title_filter_term(req: IngestRequest) -> str | None:
+    """The keyword the title filter should enforce, or None to skip it.
+
+    A named function rather than an expression inline, because the inline
+    version was wrong and the test that should have caught it matched the
+    comment explaining the wrongness instead of the behaviour.
+
+    A keyword given ALONGSIDE a category is still a keyword. The earlier
+    version read `req.query if req.title_match and not req.category else None`,
+    so selecting a category silently switched the filter off while the
+    checkbox stayed ticked -- which is how a search for "guitar" inside
+    Musical instruments returned a townhouse and two cars.
+    """
+    if not req.title_match:
+        return None
+    return (req.query or "").strip() or None
+
+
 @app.post("/api/ingest")
 async def start_ingest(
     req: IngestRequest,
@@ -529,8 +552,11 @@ async def start_ingest(
             await config_store.set_manual_pending(
                 run.run_id,
                 {**run.run_input, "_max_age_hours": req.max_age_hours,
-                 "_search_term": (req.query if req.title_match and not req.category
-                                  else None)},
+                 "_search_term": title_filter_term(req),
+                 # Enforced after the fetch because the Actor discards its own
+                 # price fields whenever we drive it with `urls`.
+                 "_min_price": req.min_price,
+                 "_max_price": req.max_price},
                 label,
             )
     except EmptySearchError as exc:
@@ -580,6 +606,8 @@ async def collect_ingest(
             run, location=city, trigger="manual",
             max_age_hours=(run_input or {}).get("_max_age_hours"),
             search_term=(run_input or {}).get("_search_term"),
+            min_price=(run_input or {}).get("_min_price"),
+            max_price=(run_input or {}).get("_max_price"),
         )
         await config_store.clear_manual(
             "failed: " + result.error if result.error else "ok"
@@ -595,6 +623,12 @@ async def collect_ingest(
             "rejected": result.rejected,
             "rejected_reasons": result.rejected_reasons,
             "stale_dropped": result.stale_dropped,
+            "overpriced": result.overpriced,
+            # What Marketplace handed back, versus what we paid to receive.
+            # Without both, "14 listings" cannot be told apart from
+            # "we asked for 72 and Facebook only had 14".
+            "items_returned": result.items_returned,
+            "requested": result.requested,
             "off_topic": result.off_topic,
             "off_topic_examples": result.off_topic_examples,
             "cost_usd": result.cost_usd,

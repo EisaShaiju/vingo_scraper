@@ -201,28 +201,50 @@ def build_run_input(
             "getAllListingPhotos": True,
         }
 
-        # A category is a Marketplace URL, not a parameter -- the Actor has no
-        # `categoryIds` input. Browsing the real category path returns what a
-        # human sees in Facebook's own sidebar, which a keyword search does
-        # not: "electronics" as a search term matches listing TEXT, while
-        # /marketplace/bangalore/electronics matches the category itself.
+        # ONE MODE AT A TIME. The Actor's schema describes two ways in and
+        # says plainly that they do not compose: `sortBy` is "ignored when you
+        # paste your own URLs", `urls` is "optional if Filters are set",
+        # lat/long are "ignored if you paste URLs above".
+        #
+        # We used to send `urls` AND minPrice/maxPrice/sortBy/daysSinceListed,
+        # which put it in URL mode and threw every filter away. A Rs 50,000 cap
+        # returned a Rs 9,00,000 Volvo, unsorted.
+        merged = merge_filters(filters)
+
         if category:
-            slug = CATEGORIES.get(category, {}).get("slug", category)
-            # PLAIN STRINGS, not [{"url": ...}]. The live build schema types
-            # `urls` as an array with editor `stringList` and prefills it with
-            # a bare URL. `to_start_urls()` wraps in {"url": ...}, which is the
-            # LEGACY actor's shape -- sending it here fails input validation,
-            # and Apify fails the whole run on one bad field. That is why every
-            # category search returned nothing.
-            payload["urls"] = [category_url(location, slug)]
-            # A keyword alongside a category scopes the browse instead of
-            # replacing it: "laptop" within /electronics, which is what you
-            # get on Marketplace itself. Dropping it silently browsed the
-            # entire category.
-            if search_query:
-                payload["searchKeyword"] = search_query
+            # URL MODE. Everything goes IN the URL, because Facebook applies
+            # what is in its own query string and the Actor does not.
+            cat = CATEGORIES.get(category, {})
+            # Without a verified `category_id` and without a keyword, a search
+            # URL carries no narrowing term at all -- an unbounded browse on a
+            # per-page-billed API. The category's own words are the documented
+            # fallback: weaker than a real category id, and never silent.
+            term = search_query or None
+            if term is None and not cat.get("category_id"):
+                term = cat.get("query") or category.replace("_", " ")
+            # PLAIN STRINGS, not [{"url": ...}] -- `urls` is typed as a
+            # stringList, and the object form is the legacy Actor's shape.
+            payload["urls"] = [search_url(
+                location,
+                term,
+                category_id=cat.get("category_id"),
+                min_price=merged.get("minPrice"),
+                max_price=merged.get("maxPrice"),
+                days_since_listed=merged.get("daysSinceListed"),
+                sort_by=merged.get("sortBy"),
+                sort_by_new=False,
+            )]
+            # Deliberately NOT merged in: in URL mode the Actor discards them,
+            # and sending them anyway is what made the filters look functional
+            # while doing nothing. `strictFiltering` is kept because it is not
+            # a search filter -- it narrows how loosely Facebook matches.
+            if merged.get("strictFiltering") is not None:
+                payload["strictFiltering"] = merged["strictFiltering"]
         else:
+            # FILTERS MODE. No `urls` at all, so every filter field applies.
             payload["searchKeyword"] = search_query
+            payload.update(merged)
+
         # Actor-side dedup. Without it a re-run re-scrapes and re-bills every
         # listing we already hold; our database check only avoids the image
         # work. Both keys are in the live build schema.
@@ -230,7 +252,6 @@ def build_run_input(
             payload["onlyNewListings"] = True
             payload["cacheStorageId"] = settings.apify_cache_store_id
 
-        payload.update(merge_filters(filters))
         return payload
 
     # apify/facebook-marketplace-scraper and compatible.

@@ -13,7 +13,11 @@ from dataclasses import dataclass, field
 
 import structlog
 
-from vingo_scraper.apify.client import ApifyRunError, run_actor
+from vingo_scraper.apify.client import (
+    LISTINGS_PER_PAGE,
+    ApifyRunError,
+    run_actor,
+)
 from vingo_scraper.extract.fb_payload import parse_payloads
 from vingo_scraper.extract.schema import Listing
 from vingo_scraper.media.rehost import rehost_all
@@ -43,6 +47,10 @@ class IngestResult:
     # Dropped for being older than the caller asked for. Separate from
     # `rejected` because stale is not the same failure as low quality.
     stale_dropped: int = 0
+    overpriced: int = 0
+    # What we PAID for, so a short result can be explained instead of guessed
+    # at. Derived from the run input, which is the only durable record of it.
+    requested: int = 0
     # Dropped because only the DESCRIPTION matched the search, not the title.
     off_topic: int = 0
     off_topic_examples: list = field(default_factory=list)
@@ -176,9 +184,46 @@ def _drop_stale(listings, max_age_hours: int) -> tuple[list, int]:
     return fresh, dropped
 
 
+def _drop_overpriced(listings, min_minor: int | None, max_minor: int | None):
+    """Enforce the price band on what actually came back.
+
+    This exists because the Actor silently did not. Its schema splits input
+    into two modes -- Filters, or `urls` you supply -- and in URL mode the
+    price fields are discarded. A run capped at Rs 50,000 returned a
+    Rs 9,00,000 Volvo and a Rs 2,49,999 Mahindra, and nothing anywhere in this
+    codebase compared a listing's price to the cap. Recency had a backstop;
+    price never did.
+
+    A listing with NO readable price is KEPT, for the same reason `_drop_stale`
+    keeps an undated one: unknown is not the same as out of range, and
+    discarding on missing data throws away listings whose price we merely
+    failed to parse.
+    """
+    if min_minor is None and max_minor is None:
+        return listings, 0
+
+    kept, dropped = [], 0
+    for item in listings:
+        price = getattr(item, "price_minor", None)
+        if price is None:
+            kept.append(item)
+            continue
+        too_cheap = min_minor is not None and price < min_minor
+        too_dear = max_minor is not None and price > max_minor
+        if too_cheap or too_dear:
+            dropped += 1
+        else:
+            kept.append(item)
+    if dropped:
+        log.info("ingest.overpriced_dropped", count=dropped,
+                 min_minor=min_minor, max_minor=max_minor)
+    return kept, dropped
+
+
 async def ingest_collected(
     run, *, location: str, trigger: str = "automation",
     max_age_hours: int | None = None, search_term: str | None = None,
+    min_price: int | None = None, max_price: int | None = None,
 ) -> IngestResult:
     """Parse, rehost and persist a run that has already finished.
 
@@ -201,7 +246,11 @@ async def ingest_collected(
     # listings the parser mysteriously dropped -- the console showed
     # "1 listings, 0 new" for what was actually an error message.
     actor_errors = [
-        str(x.get("error"))[:300] for x in run.items
+        # Not clipped. `ScrapeRun.error` is a Text column, and the only other
+        # copy -- `config.manual_status` -- is varchar(64), which cut the
+        # Actor's own warning off mid-word: "Number of records scraped per run
+        # by this actor is li…". A warning you cannot read is not a warning.
+        str(x.get("error")) for x in run.items
         if isinstance(x, dict) and x.get("error") and not x.get("id")
     ]
     if actor_errors:
@@ -239,6 +288,14 @@ async def ingest_collected(
     # cheap run yields one image and an empty description on every listing, so
     # the gate has to be told what was fetched or it scores our cost setting.
     details_known = bool((run.run_input or {}).get("getListingDetails"))
+
+    # Pages x page size is what we bought. `maxPagesPerUrl` is the curious_coder
+    # knob; `resultsLimit` belongs to the legacy Actor.
+    _input = run.run_input or {}
+    if _input.get("maxPagesPerUrl"):
+        result.requested = int(_input["maxPagesPerUrl"]) * LISTINGS_PER_PAGE
+    elif _input.get("resultsLimit"):
+        result.requested = int(_input["resultsLimit"])
     result.listings, quality_summary = assess_all(
         result.listings, details_known=details_known
     )
@@ -253,6 +310,15 @@ async def ingest_collected(
         result.listings, rel = filter_relevant(result.listings, search_term)
         result.off_topic = rel.dropped
         result.off_topic_examples = rel.examples
+
+    # 2a-ii. Price. The Actor accepts minPrice/maxPrice and then ignores them
+    #     whenever we drive it with `urls`, so the cap is enforced here too.
+    #     Prices arrive in rupees from the form and are held in paise.
+    result.listings, result.overpriced = _drop_overpriced(
+        result.listings,
+        None if min_price is None else min_price * 100,
+        None if max_price is None else max_price * 100,
+    )
 
     # 2b. Freshness. The Actor's finest window is one day, so anything tighter
     #     is applied here -- it narrows what we KEEP, never what we paid for.
@@ -379,6 +445,9 @@ async def _persist(result: IngestResult, run, *, trigger: str = "manual") -> tup
             images_failed=result.images_failed,
             cost_usd=result.cost_usd,
             finished_at=run.finished_at,
+            # Never written until now, so every Actor warning was lost the
+            # moment the 64-char status was overwritten.
+            error=result.error,
         )
 
     return created, updated

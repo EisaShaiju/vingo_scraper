@@ -8,11 +8,15 @@ bicycles, and Facebook considers them genuine matches.
 That is Facebook's relevance, not a scraper bug. This filter is ours: keep a
 listing when the **title** matches, drop it when only the description did.
 
-Two things it deliberately does not do:
+Two things worth knowing:
 
-* **It does not run for category browses.** A category URL asks Facebook for
-  the category itself, so there is no keyword to match and nothing to second-
-  guess.
+* **It runs whenever a keyword was given -- category or not.** An earlier
+  version skipped category browses, reasoning that "a category URL asks
+  Facebook for the category itself, so there is no keyword to match". True
+  when written; false once keyword and category started travelling together.
+  The checkbox stayed ticked while the filter quietly stopped running, which
+  is how "guitar" inside Musical instruments returned a townhouse and two
+  cars.
 * **It does not save money.** Apify charges by the page before any of this
   runs. This narrows what we KEEP, and the UI says so -- a filter that looks
   like a saving and is not would be worse than no filter.

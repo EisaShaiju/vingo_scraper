@@ -477,22 +477,26 @@ def test_7_02_every_category_has_a_slug_and_a_query():
         assert spec["slug"] and spec["query"], name
 
 
-def test_7_03_a_category_becomes_a_browse_url():
+def test_7_03_a_category_becomes_a_search_url_carrying_its_filters():
+    """A category used to be a bare browse path with no query string at all,
+    so every filter rode in Actor fields that URL mode discards. A run capped
+    at Rs 50,000 returned a Rs 9,00,000 Volvo."""
     payload = build_run_input(None, "bangalore", 8, category="electronics",
-                              actor_id=CURIOUS_CODER)
-    # Plain strings. The Actor's schema types `urls` as a stringList; the
-    # {"url": ...} wrapper belongs to the legacy Actor and fails validation
-    # here, which is what made every category search return nothing.
-    assert payload["urls"] == [
-        "https://www.facebook.com/marketplace/bangalore/electronics"
-    ]
+                              actor_id=CURIOUS_CODER,
+                              filters={"maxPrice": 50000})
+    url = payload["urls"][0]
+    assert isinstance(url, str)          # stringList, not [{"url": ...}]
+    assert "maxPrice=50000" in url
+    assert "maxPrice" not in payload     # not ALSO as a field -- one mode only
 
 
-def test_7_04_a_category_does_not_also_send_a_keyword():
-    """Browsing the category path and searching its name are different things."""
+def test_7_04_a_category_alone_still_narrows_the_search():
+    """A search URL with no term and no category id is an unbounded browse on
+    a per-page-billed API."""
     payload = build_run_input(None, "bangalore", 8, category="vehicles",
                               actor_id=CURIOUS_CODER)
     assert "searchKeyword" not in payload
+    assert "query=" in payload["urls"][0]
 
 
 def test_7_04b_a_keyword_scopes_a_category_rather_than_being_dropped():
@@ -500,8 +504,7 @@ def test_7_04b_a_keyword_scopes_a_category_rather_than_being_dropped():
     electronics -- the keyword was discarded before it reached the Actor."""
     payload = build_run_input("laptop", "bangalore", 8, category="electronics",
                               actor_id=CURIOUS_CODER)
-    assert payload["searchKeyword"] == "laptop"
-    assert payload["urls"][0].endswith("/electronics")
+    assert "query=laptop" in payload["urls"][0]
 
 
 def test_7_05_a_keyword_sends_no_url():
@@ -523,7 +526,11 @@ def test_7_07_the_refusal_names_the_fix():
 def test_7_08_unknown_category_falls_back_to_its_own_name():
     payload = build_run_input(None, "bangalore", 8, category="made-up",
                               actor_id=CURIOUS_CODER)
-    assert payload["urls"][0].endswith("/made-up")
+    # An unverified category falls back to its own words as the search term,
+    # rather than a path Facebook may not have -- a wrong category path does
+    # not 404, it serves the generic feed, which is indistinguishable from a
+    # working search until you read the results.
+    assert "query=made-up" in payload["urls"][0]
 
 
 def test_7_09_every_category_is_selectable_by_hand():

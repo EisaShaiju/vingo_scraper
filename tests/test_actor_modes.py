@@ -323,3 +323,43 @@ def test_28_a_blank_query_no_longer_defaults_to_iphone() -> None:
     title filter enforced, dropping every genuine result."""
     from vingo_scraper.api.main import IngestRequest
     assert IngestRequest().query == ""
+
+
+# ==========================================================================
+# The run history must say what was searched, and not call a warning a failure
+# ==========================================================================
+
+def test_29_a_category_run_is_named_in_the_history() -> None:
+    """It showed "bangalore / -". A category run is URL mode and carries no
+    `searchKeyword`, so reading only that field left the feed unable to say
+    what had been scraped."""
+    from vingo_scraper.db.config_store import _searched_for
+
+    url = ("https://www.facebook.com/marketplace/bangalore/search/"
+           "?query=Musical+instruments&category_id=1078592699170502&maxPrice=50000")
+    assert _searched_for({"urls": [url]}) == "Musical instruments"
+
+
+def test_30_a_keyword_run_is_still_named() -> None:
+    from vingo_scraper.db.config_store import _searched_for
+    assert _searched_for({"searchKeyword": "guitar"}) == "guitar"
+
+
+def test_31_an_unidentifiable_run_says_so() -> None:
+    """A dash is honest. Inventing a label would be worse."""
+    from vingo_scraper.db.config_store import _searched_for
+    assert _searched_for({}) == "-"
+    assert _searched_for(None) == "-"
+
+
+def test_32_a_successful_run_with_a_warning_shows_its_counts() -> None:
+    """The row replaced the counts with the error text, so a run that returned
+    18 listings read as a failure -- the same empty-versus-broken confusion
+    that cost two debugging sessions, in a new place.
+
+    The free-plan notice arrives on EVERY run, so without this every row in
+    the history looked red.
+    """
+    h = page()
+    assert "x.error && !x.listings ? 'bad' : ''" in h
+    assert "${x.listings} listings · ${x.created} new" in h

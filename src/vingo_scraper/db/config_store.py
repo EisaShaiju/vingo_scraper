@@ -435,7 +435,7 @@ async def recent_ticks(limit: int = 12, trigger: str = "automation") -> list[dic
             # `run_input` is the actor payload, whose key names differ per
             # actor -- hence the spelling tuples rather than direct access.
             "city": _from_input(r.run_input, "location", "city"),
-            "category": _from_input(r.run_input, "searchKeyword", "query", "search"),
+            "category": _searched_for(r.run_input),
             "listings": r.items_returned or 0,
             "created": r.items_ingested or 0,
             "images": r.images_stored or 0,
@@ -451,6 +451,29 @@ def _from_input(run_input: dict | None, *names: str) -> str:
         value = (run_input or {}).get(name)
         if value:
             return str(value)
+    return "-"
+
+
+def _searched_for(run_input: dict | None) -> str:
+    """What this run actually looked for, in either Actor mode.
+
+    A keyword run carries `searchKeyword`. A CATEGORY run does not -- it is
+    URL mode, and the term lives inside the URL's query string. Reading only
+    `searchKeyword` made every category run show up in the history as
+    "bangalore / -", so the feed could not say what had been scraped.
+    """
+    direct = _from_input(run_input, "searchKeyword", "query", "search")
+    if direct != "-":
+        return direct
+
+    urls = (run_input or {}).get("urls") or []
+    if urls:
+        from urllib.parse import parse_qs, urlparse
+
+        params = parse_qs(urlparse(str(urls[0])).query)
+        for key in ("query", "q"):
+            if params.get(key):
+                return params[key][0]
     return "-"
 
 

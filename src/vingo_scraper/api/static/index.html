@@ -979,11 +979,15 @@ async function loadManual(){
   const hist = d.history || [];
   $('#m-ticks').innerHTML = hist.length
     ? hist.map(x => `
-        <div class="tick ${x.error ? 'bad' : ''}">
-          <span class="cell">${x.city} / ${String(x.category).replace(/_/g,' ')}</span>
-          ${x.error
-            ? `<span class="num" style="color:var(--err)">${String(x.error).slice(0,60)}</span>`
-            : `<span class="num">${x.listings} listings · ${x.created} new · ${x.images} images · $${Number(x.cost_usd).toFixed(4)}</span>`}
+        <div class="tick ${x.error && !x.listings ? 'bad' : ''}">
+          <span class="cell">${esc(String(x.category).replace(/_/g,' '))}</span>
+          <span class="num">
+            ${x.listings} listings · ${x.created} new · ${x.images} images
+            · $${Number(x.cost_usd).toFixed(4)}
+            ${x.error
+              ? `<span style="color:var(--err)" title="${esc(x.error)}">⚠</span>`
+              : ''}
+          </span>
           <span class="when">${ago(x.at)}</span>
         </div>`).join('')
     : '<div class="tick"><span class="num">No manual runs yet.</span></div>';

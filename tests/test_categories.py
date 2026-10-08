@@ -115,48 +115,117 @@ def test_08_mobile_phones_is_gone() -> None:
     assert "mobile_phones" not in CATEGORIES
 
 
-def test_09_the_dropdown_matches_the_config_exactly() -> None:
-    """A label with no backing entry is a button that silently misbehaves; an
-    entry with no label is a category nobody can reach."""
-    import re
+# ==========================================================================
+# One box, two meanings
+# ==========================================================================
+#
+# Facebook has ONE search box, and picking a category fills it. Two separate
+# controls invited a combination the platform cannot honour -- sending
+# `?query=iphone&category_id=<musical instruments>` returned iPhones, because
+# `category_id` loses to a conflicting query. An earlier fix greyed one control
+# out when the other was set; this removes the ability to express it at all.
 
+
+def console() -> str:
     from fastapi.testclient import TestClient
 
     from vingo_scraper.api.main import app
-
-    html = TestClient(app).get("/").text
-    block = html[html.index('<select id="m-cat">'):]
-    block = block[:block.index("</select>")]
-    offered = {v for v in re.findall(r'<option value="([a-z_]*)"', block) if v}
-
-    assert offered == set(CATEGORIES), {
-        "in the dropdown only": sorted(offered - set(CATEGORIES)),
-        "in the config only": sorted(set(CATEGORIES) - offered),
-    }
+    return TestClient(app).get("/").text
 
 
-# ==========================================================================
-# Category XOR keyword -- Facebook cannot search inside a category
-# ==========================================================================
+def label_map() -> dict[str, str]:
+    """`CATEGORY_BY_LABEL` as the browser receives it."""
+    import re
 
-def test_10_a_category_run_uses_the_categorys_own_name() -> None:
-    """Never a leftover keyword.
-
-    The run that proved this sent
-        ?query=iphone&category_id=<musical instruments>&maxPrice=50000
-    and got iPhones under Rs 50,000. maxPrice was honoured, query was honoured,
-    `category_id` was discarded -- Facebook treats it as a breadcrumb, not a
-    filter, whenever a query contradicts it.
-    """
-    got = qs("musical_instruments", q="iphone")
-    assert got["query"] == "Musical instruments"
-    assert "iphone" not in got["query"].lower()
-    assert got["category_id"] == VERIFIED_IDS["musical_instruments"]
+    block = console()
+    block = block[block.index("const CATEGORY_BY_LABEL = {"):]
+    block = block[:block.index("};")]
+    return {m[0].lower(): m[1]
+            for m in re.findall(r"'([^']+)':\s*'([^']+)'", block)}
 
 
-def test_11_the_api_refuses_both_rather_than_guessing() -> None:
-    """A rejected request costs nothing. A silently altered one costs a page
-    of scraping -- which this project has now paid for four times."""
+def datalist() -> set[str]:
+    import re
+
+    html = console()
+    block = html[html.index('<datalist id="m-cats">'):]
+    block = block[:block.index("</datalist>")]
+    return set(re.findall(r'<option value="([^"]+)">', block))
+
+
+# --------------------------------------------------------------------------
+# the control itself
+# --------------------------------------------------------------------------
+
+def test_10_there_is_one_search_field_not_two() -> None:
+    """Two controls for one decision invite the combination, then block it."""
+    html = console()
+    assert 'id="m-search"' in html
+    assert 'id="m-cat"' not in html
+    assert 'id="m-q"' not in html
+
+
+def test_11_the_box_is_not_pre_filled() -> None:
+    """It carried `value="iphone"`. Picking a category and pressing Run sent
+    that leftover along, which is how a Musical-instruments search returned
+    iPhones."""
+    html = console()
+    assert 'value="iphone"' not in html
+    assert 'placeholder="Type a keyword, or pick a category"' in html
+
+
+# --------------------------------------------------------------------------
+# the resolver -- what the typed value means
+# --------------------------------------------------------------------------
+
+def test_12_every_category_is_pickable() -> None:
+    """The whole contract: picking "Musical instruments" must browse the
+    category, not search for the words."""
+    want = {v["query"] for v in CATEGORIES.values()}
+    assert datalist() == want
+
+
+def test_13_every_label_resolves_to_its_config_key() -> None:
+    """All 17, so a pick can never silently become a keyword search."""
+    got = label_map()
+    for key, meta in CATEGORIES.items():
+        assert got.get(meta["query"].lower()) == key, meta["query"]
+
+
+def test_14_the_map_and_the_config_cannot_drift() -> None:
+    """A label with no key is a pick that quietly searches instead of
+    browsing; a key with no label is a category nobody can reach."""
+    assert set(label_map().values()) == set(CATEGORIES)
+
+
+def test_15_matching_is_case_insensitive() -> None:
+    """The box is typed into as well as picked from."""
+    html = console()
+    assert "text.toLowerCase()" in html
+
+
+def test_16_anything_else_is_a_keyword() -> None:
+    """"guitar" and "Musical instrument" (singular) are searches, not browses
+    -- only an exact category name selects the category."""
+    got = label_map()
+    for typed in ("guitar", "musical instrument", "musical", "iphone", "xbox"):
+        assert typed not in got, typed
+
+
+def test_17_an_empty_box_selects_nothing() -> None:
+    """So the endpoint's 400 still guards a blank run."""
+    html = console()
+    assert "if (!text) return { category: null, query: '' };" in html
+
+
+# --------------------------------------------------------------------------
+# the API guard behind it
+# --------------------------------------------------------------------------
+
+def test_18_the_api_still_refuses_both() -> None:
+    """The console can no longer send both, but a stale tab or a direct call
+    can. Four inputs have now been accepted and quietly altered in this
+    project; the guard costs nothing."""
     from fastapi.testclient import TestClient
 
     from vingo_scraper.api.main import app
@@ -168,63 +237,10 @@ def test_11_the_api_refuses_both_rather_than_guessing() -> None:
     assert "cannot be combined" in r.text
 
 
-def test_12_the_refusal_explains_why() -> None:
-    """"Invalid input" sends someone to the code. Naming the cause does not."""
-    from fastapi.testclient import TestClient
-
-    from vingo_scraper.api.main import app
-
-    body = TestClient(app).post("/api/ingest",
-                                json={"category": "vehicles", "query": "honda",
-                                      "location": "bangalore"}).text
-    assert "ignores the category" in body
-
-
-def test_13_either_one_alone_is_accepted() -> None:
-    """The refusal must not break the two cases that do work."""
+def test_19_the_title_filter_never_enforces_an_unsent_keyword() -> None:
+    """A category run searches for the category's own name, so the keyword
+    never reaches Facebook. Enforcing it locally would drop every result."""
     from vingo_scraper.api.main import IngestRequest, title_filter_term
 
     assert title_filter_term(IngestRequest(query="guitar")) == "guitar"
     assert title_filter_term(IngestRequest(category="vehicles")) is None
-
-
-def test_14_the_title_filter_never_enforces_an_unsent_keyword() -> None:
-    """A category run searches for the category's name, so the keyword never
-    reaches Facebook. Enforcing it locally would drop every genuine result."""
-    from vingo_scraper.api.main import IngestRequest, title_filter_term
-
-    both = IngestRequest(category="musical_instruments", query="guitar",
-                         title_match=True)
-    assert title_filter_term(both) is None
-
-
-def test_15_the_keyword_box_is_not_pre_filled() -> None:
-    """It carried `value="iphone"`. Selecting a category and pressing Run sent
-    that leftover along, which is how a Musical-instruments search returned
-    iPhones. The API-side default was removed earlier; this is its other half.
-    """
-    from fastapi.testclient import TestClient
-
-    from vingo_scraper.api.main import app
-
-    html = TestClient(app).get("/").text
-    assert 'value="iphone"' not in html
-    assert 'id="m-q" placeholder=' in html
-
-
-def test_16_the_console_enforces_the_exclusivity() -> None:
-    html = page_html()
-    assert "category XOR keyword" in html
-    assert "kw.disabled" in html and "cat.disabled" in html
-
-
-def test_17_the_console_explains_the_restriction() -> None:
-    """A control that greys out with no reason reads as a bug."""
-    assert "Facebook cannot search inside a category" in page_html()
-
-
-def page_html() -> str:
-    from fastapi.testclient import TestClient
-
-    from vingo_scraper.api.main import app
-    return TestClient(app).get("/").text

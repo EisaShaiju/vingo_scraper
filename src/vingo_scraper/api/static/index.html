@@ -352,32 +352,30 @@
       </div>
 
       <div class="auto-ctl" style="flex-wrap:wrap">
-        <div class="field">
-          <label>Category</label>
-          <select id="m-cat">
-            <option value="">— keyword search —</option>
-            <option value="vehicles">Vehicles</option>
-            <option value="property_rent">Property for rent</option>
-            <option value="property_sale">Property for sale</option>
-            <option value="classifieds">Classifieds</option>
-            <option value="clothing">Clothing</option>
-            <option value="electronics">Electronics</option>
-            <option value="entertainment">Entertainment</option>
-            <option value="family">Family</option>
-            <option value="garden_outdoor">Garden and outdoors</option>
-            <option value="hobbies">Hobbies</option>
-            <option value="home_goods">Home goods</option>
-            <option value="home_improvement">Home improvement supplies</option>
-            <option value="musical_instruments">Musical instruments</option>
-            <option value="office_supplies">Office supplies</option>
-            <option value="pet_supplies">Pet supplies</option>
-            <option value="sporting_goods">Sporting goods</option>
-            <option value="toys_games">Toys and games</option>
-          </select>
-        </div>
-        <div class="field">
-          <label>Keyword</label>
-          <input id="m-q" placeholder="e.g. iphone" style="min-width:150px">
+        <div class="field" style="flex:1 1 320px">
+          <label>Search</label>
+          <input id="m-search" list="m-cats" autocomplete="off"
+                 placeholder="Type a keyword, or pick a category"
+                 style="min-width:260px;width:100%">
+          <datalist id="m-cats">
+            <option value="Vehicles">
+            <option value="Classifieds">
+            <option value="Clothing">
+            <option value="Electronics">
+            <option value="Entertainment">
+            <option value="Family">
+            <option value="Garden and outdoors">
+            <option value="Hobbies">
+            <option value="Home goods">
+            <option value="Home improvement supplies">
+            <option value="Musical instruments">
+            <option value="Office supplies">
+            <option value="Pet supplies">
+            <option value="Property for sale">
+            <option value="Sporting goods">
+            <option value="Toys and games">
+            <option value="Property for rent">
+          </datalist>
         </div>
         <div class="field">
           <label>City</label>
@@ -432,9 +430,9 @@
       <div style="padding:0 19px 4px;font-size:11px;color:var(--muted)">
         * Facebook's finest filter is one day, so anything shorter is applied
         after the fetch — it narrows what we keep, never what we pay for.
-        <br>Pick a <strong>category</strong> or type a <strong>keyword</strong>,
-        not both — Facebook cannot search inside a category, and sending both
-        makes it ignore the category entirely.
+        <br>One box: type anything to search, or pick a <strong>category</strong>
+        from the list. Facebook cannot do both at once — choosing a category
+        and adding words makes it ignore the category entirely.
         <br>Volume is fixed at one page: on Apify's free plan this Actor
         returns 16–28 listings per run whatever is asked for
         <span style="font-family:ui-monospace,monospace">(measured: 1 page →
@@ -925,14 +923,14 @@ async function showRunResults(runId, label){
 }
 
 function manualBody(){
-  const cat = $('#m-cat').value;
+  const picked = resolveSearch($('#m-search') ? $('#m-search').value : '');
   const num = id => { const v = parseInt($(id).value); return Number.isFinite(v) ? v : null; };
   const age = $('#m-age') ? $('#m-age').value : '';
   return {
     // No silent default. A blank form must not run a whole-city browse:
     // that is unbounded on a per-result-billed API.
-    query: $('#m-q').value.trim(),
-    category: cat || null,
+    query: picked.query,
+    category: picked.category,
     location: $('#m-loc').value,
     max_items: parseInt($('#m-n').value) || 24,
     min_price: num('#m-min'),
@@ -1204,30 +1202,42 @@ if($('#lead-q')) $('#lead-q').onkeydown = e => { if(e.key === 'Enter') loadLeads
 if($('#lead-status')) $('#lead-status').onchange = loadLeads;
 
 
-// ---------------------------------------------------- category XOR keyword ---
-// Facebook discards `category_id` whenever a conflicting `query` is sent --
-// measured: Musical instruments + "iphone" returned iPhones. Its own UI has
-// the same restriction. Rather than let the console offer a combination that
-// silently does something else, only one of the two can be set at a time.
-(function(){
-  const cat = $('#m-cat'), kw = $('#m-q');
-  if(!cat || !kw) return;
+// -------------------------------------------------- one box, two meanings ---
+// Facebook has ONE search box, and picking a category fills it. Two separate
+// controls invited a combination the platform cannot honour: sending
+// `?query=iphone&category_id=<musical instruments>` returned iPhones, because
+// `category_id` loses to a conflicting query. So there is one field, and what
+// you typed decides what it means.
+//
+// Generated from config.CATEGORIES -- `tests/test_categories.py` fails if this
+// map and the config ever disagree.
+const CATEGORY_BY_LABEL = {
+  'vehicles': 'vehicles',
+  'classifieds': 'classifieds',
+  'clothing': 'clothing',
+  'electronics': 'electronics',
+  'entertainment': 'entertainment',
+  'family': 'family',
+  'garden and outdoors': 'garden_outdoor',
+  'hobbies': 'hobbies',
+  'home goods': 'home_goods',
+  'home improvement supplies': 'home_improvement',
+  'musical instruments': 'musical_instruments',
+  'office supplies': 'office_supplies',
+  'pet supplies': 'pet_supplies',
+  'property for sale': 'property_sale',
+  'sporting goods': 'sporting_goods',
+  'toys and games': 'toys_games',
+  'property for rent': 'property_rent'
+};
 
-  function sync(){
-    const haveCat = !!cat.value;
-    const haveKw  = !!kw.value.trim();
-    kw.disabled  = haveCat;
-    cat.disabled = haveKw;
-    // Greyed out with no explanation reads as a broken control.
-    kw.title  = haveCat ? 'Facebook cannot search inside a category — clear the category to use a keyword' : '';
-    cat.title = haveKw  ? 'Clear the keyword to browse a category instead' : '';
-    kw.style.opacity  = haveCat ? '.45' : '';
-    cat.style.opacity = haveKw  ? '.45' : '';
-  }
-  cat.addEventListener('change', () => { if(cat.value) kw.value = ''; sync(); });
-  kw.addEventListener('input', sync);
-  sync();
-})();
+function resolveSearch(raw) {
+  const text = (raw || '').trim();
+  if (!text) return { category: null, query: '' };
+  const key = CATEGORY_BY_LABEL[text.toLowerCase()];
+  // An exact category name browses the category; anything else is a keyword.
+  return key ? { category: key, query: '' } : { category: null, query: text };
+}
 
 </script>
 </body>

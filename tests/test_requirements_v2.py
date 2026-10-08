@@ -177,7 +177,9 @@ def test_2_08_no_automation_markup_remains():
 
 def test_2_09_the_ingest_form_is_the_whole_control_surface():
     h = page()
-    assert 'id="m-run"' in h and 'id="m-cat"' in h and 'id="m-q"' in h
+    # One search field, not a category select beside a keyword box: Facebook
+    # cannot honour both, so the console no longer lets them be expressed.
+    assert 'id="m-run"' in h and 'id="m-search"' in h and 'id="m-cats"' in h
 
 
 def test_2_10_page_is_served_at_root(tmp_path):
@@ -555,16 +557,16 @@ def test_7_09_every_category_is_selectable_by_hand():
 
 
 def test_7_10_every_category_is_offered_in_the_ui():
+    """Reachable from the single search box rather than a separate select --
+    the two controls were merged because Facebook cannot honour both at once.
+    `tests/test_categories.py` owns the label/key mapping."""
     h = page()
-    for name in CATEGORIES:
-        assert f'value="{name}"' in h, name
+    block = h[h.index('<datalist id="m-cats">'):]
+    block = block[:block.index("</datalist>")]
+    for meta in CATEGORIES.values():
+        assert f'<option value="{meta["query"]}">' in block, meta["query"]
 
 
-# ==========================================================================
-# Actor errors arrive as dataset items, not as a failed run
-# ==========================================================================
-
-@pytest.mark.anyio
 async def test_8_01_an_actor_error_item_is_reported_not_counted_as_a_listing(
     monkeypatch,
 ):

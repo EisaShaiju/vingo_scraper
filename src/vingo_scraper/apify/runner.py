@@ -162,6 +162,10 @@ async def ingest(
     return result
 
 
+# How far past the requested window a listing may still be kept.
+STALE_GRACE = 1.3
+
+
 def _drop_stale(listings, max_age_hours: int) -> tuple[list, int]:
     """Keep only listings posted within `max_age_hours`.
 
@@ -171,7 +175,12 @@ def _drop_stale(listings, max_age_hours: int) -> tuple[list, int]:
     """
     from datetime import UTC, datetime, timedelta
 
-    cutoff = datetime.now(UTC) - timedelta(hours=max_age_hours)
+    # 30% grace. The ACTOR-side window cannot be relaxed -- `daysSinceListed`
+    # is an enum ('' | 1 | 7 | 30) and anything else fails the whole run -- so
+    # the tolerance lives here, on the sub-day filter we apply ourselves. A
+    # listing minutes outside a 6h window is not meaningfully staler than one
+    # just inside it, and dropping it costs a lead we already paid to fetch.
+    cutoff = datetime.now(UTC) - timedelta(hours=max_age_hours * STALE_GRACE)
     fresh, dropped = [], 0
     for item in listings:
         posted = getattr(item, "posted_at", None)

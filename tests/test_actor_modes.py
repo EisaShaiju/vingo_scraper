@@ -363,3 +363,61 @@ def test_32_a_successful_run_with_a_warning_shows_its_counts() -> None:
     h = page()
     assert "x.error && !x.listings ? 'bad' : ''" in h
     assert "${x.listings} listings · ${x.created} new" in h
+
+
+# ==========================================================================
+# Relaxed filters, and a zero result that explains itself
+# ==========================================================================
+
+def test_33_one_photo_is_kept_but_zero_is_not() -> None:
+    """Relaxed 2 -> 1. A nike search in Pune returned one genuine listing and
+    the gate dropped it, leaving a bare "0 listings" on screen. Zero photos is
+    still a reject -- a listing with no image cannot be shown to a buyer."""
+    from vingo_scraper.pipeline.quality import MIN_PHOTOS
+    assert MIN_PHOTOS == 1
+
+
+def test_34_the_recency_grace_keeps_a_near_miss() -> None:
+    """A listing minutes outside a 6h window is not meaningfully staler than
+    one just inside it, and dropping it wastes a lead already paid for."""
+    from datetime import UTC, datetime, timedelta
+
+    from vingo_scraper.apify.runner import _drop_stale
+
+    class L:
+        def __init__(self, hours):
+            self.posted_at = (None if hours is None
+                              else datetime.now(UTC) - timedelta(hours=hours))
+
+    kept, dropped = _drop_stale([L(7.5), L(9), L(None), L(1)], 6)
+    assert dropped == 1                      # 9h is past 6h x 1.3
+    assert len(kept) == 3                    # 7.5h, undated and 1h survive
+
+
+def test_35_an_undated_listing_is_never_dropped_for_age() -> None:
+    """Unknown age is not the same as too old."""
+    from vingo_scraper.apify.runner import _drop_stale
+
+    class L:
+        posted_at = None
+
+    kept, dropped = _drop_stale([L()], 1)
+    assert dropped == 0 and len(kept) == 1
+
+
+def test_36_the_grace_never_reaches_the_actor() -> None:
+    """`daysSinceListed` is an enum -- anything outside it fails the whole run,
+    so the tolerance must stay client-side."""
+    from vingo_scraper.api.main import IngestRequest
+    from vingo_scraper.apify.client import DAYS_SINCE_LISTED_CHOICES
+
+    for choice in DAYS_SINCE_LISTED_CHOICES:
+        sent = IngestRequest(days_since_listed=choice).to_filters()
+        assert sent.get("daysSinceListed", "") in DAYS_SINCE_LISTED_CHOICES
+
+
+def test_37_a_filtered_to_empty_run_names_the_cause() -> None:
+    """"0 listings · $0.0001" with a tick reads as a dead button."""
+    h = page()
+    assert "0 kept</b> of ${got} returned" in h
+    assert "Nothing matched" in h

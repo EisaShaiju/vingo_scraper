@@ -31,6 +31,12 @@ class Settings(BaseSettings):
     apify_max_items_hard_cap: int = 2_000
     # Second, independent guard: Apify enforces this server-side, so even a
     # runaway Actor cannot spend past it.
+    # The Actor STOPS when its own event accounting reaches this, reporting
+    # "Stopping the actor because we reached the max total charge of 1 USD" --
+    # observed after only 25 listing-items, so its per-event accounting is far
+    # coarser than the store page's "$0.50 / 1,000". LOWERING this truncates
+    # runs sooner; raising it buys more listings per run. A local .env or
+    # /etc/comet.env override wins over this default.
     apify_max_charge_usd: float = 1.00
     apify_timeout_s: int = 900
 

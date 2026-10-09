@@ -1021,6 +1021,17 @@ async function collectManual(){
       }
       if(filtered) volume += ` · ${filtered} filtered out`;
 
+      // A zero result must say WHY. "0 listings · 0 new · $0.0001" with a tick
+      // reads as a dead button, and it was not: a nike search in Pune returned
+      // one genuine listing that the quality gate then dropped. Empty and
+      // filtered-to-empty are different answers.
+      if(out.listings === 0){
+        volume = got === 0
+          ? `<b>Nothing matched</b> — Marketplace had no listings for this `
+            + `search. Try a wider price range, a longer window, or a bigger city.`
+          : `<b>0 kept</b> of ${got} returned — every listing was filtered out`;
+      }
+
       const drops = [
         out.rejected   ? `<b>${out.rejected} rejected</b> (under 2 photos or a junk price)` : '',
         out.off_topic  ? `<b>${out.off_topic} off-topic</b> (title did not match)` : '',

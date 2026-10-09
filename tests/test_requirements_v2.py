@@ -265,12 +265,16 @@ def test_3_10_busy_is_409_not_500():
 # 4. Quality: >= 2 photos required, description optional
 # ==========================================================================
 
-def test_4_01_two_photos_is_the_floor():
-    assert MIN_PHOTOS == 2
+def test_4_01_one_photo_is_the_floor():
+    """Relaxed from 2 after real listings were seen being discarded: a nike
+    search in Pune returned one genuine listing and the gate dropped it,
+    leaving a bare "0 listings" on screen."""
+    assert MIN_PHOTOS == 1
 
 
-def test_4_02_one_photo_is_rejected():
-    assert assess(L(photos=1)).hard_reject is True
+def test_4_02_one_photo_is_kept():
+    """The listing the old floor was throwing away."""
+    assert assess(L(photos=1)).hard_reject is False
 
 
 def test_4_03_zero_photos_is_rejected():
@@ -300,14 +304,14 @@ def test_4_07_placeholder_price_is_rejected():
 
 
 def test_4_08_rejected_listings_never_reach_the_caller():
-    kept, summary = assess_all([L(fid="a"), L(fid="b", photos=1)])
+    kept, summary = assess_all([L(fid="a"), L(fid="b", photos=0)])
     assert [x.fb_listing_id for x in kept] == ["a"]
     assert summary["rejected"] == 1
 
 
 def test_4_09_reject_reasons_are_tallied():
     """Discarding makes the rate invisible unless the count survives."""
-    _, summary = assess_all([L(fid=str(i), photos=1) for i in range(3)])
+    _, summary = assess_all([L(fid=str(i), photos=0) for i in range(3)])
     assert sum(summary["rejected_reasons"].values()) == 3
 
 

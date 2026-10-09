@@ -30,7 +30,11 @@ log = structlog.get_logger(__name__)
 
 # Hard floor. A single-photo listing is the clearest signal of a low-effort
 # post, and the spec asks for photos.
-MIN_PHOTOS = 2
+# Relaxed 2 -> 1 after real listings were seen being discarded: a nike search
+# in Pune returned one genuine listing and the gate dropped it, leaving a bare
+# "0 listings" on screen. Zero photos is still a reject -- a listing with no
+# image cannot be shown to a buyer.
+MIN_PHOTOS = 1
 
 # NOT a rejection. Scores lower without one, but a listing with no description
 # is a listing whose seller we contact -- that is the business process, so

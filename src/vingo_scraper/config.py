@@ -63,7 +63,7 @@ class Settings(BaseSettings):
     # it is simply a promise the UI cannot keep.
     #
     # Raise to 3 on a paid plan and the selector grows back on its own.
-    apify_max_pages: int = 1
+    apify_max_pages: int = 3
 
     # Actor-side dedup. The Actor keeps a key-value store of listing ids it
     # has already returned and skips them on the next run -- which is the ONLY

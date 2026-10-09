@@ -272,10 +272,13 @@ def test_curious_coder_uses_pages_not_items(monkeypatch):
     assert build_run_input("x", "bengaluru", 9999, actor_id=CURIOUS)["maxPagesPerUrl"] == 3
 
 
-def test_free_plan_never_asks_for_more_than_one_page():
-    """The default. The Actor returns ~one page on the free plan whatever is
-    requested, so asking for more is a promise the console cannot keep."""
-    assert build_run_input("x", "bengaluru", 9999, actor_id=CURIOUS)["maxPagesPerUrl"] == 1
+def test_the_configured_ceiling_is_what_gets_requested():
+    """The ceiling is a setting, not a constant. It was 1 on the free plan,
+    where the Actor returned ~one page whatever was asked for."""
+    from vingo_scraper.apify.client import max_pages
+
+    assert build_run_input("x", "bengaluru", 9999,
+                           actor_id=CURIOUS)["maxPagesPerUrl"] == max_pages()
 
 
 def test_curious_coder_details_can_be_disabled():

@@ -418,7 +418,9 @@
         <div class="field">
           <label>Volume</label>
           <select id="m-n">
-            <option value="24">~24 listings · ~$0.015</option>
+            <option value="24">1 page · ~24 listings · ~$0.015</option>
+            <option value="48">2 pages · ~48 listings · ~$0.030</option>
+            <option value="72">3 pages · ~72 listings · ~$0.045</option>
           </select>
         </div>
         <label style="display:flex;align-items:center;gap:6px;font-size:12px;
@@ -433,10 +435,8 @@
         <br>One box: type anything to search, or pick a <strong>category</strong>
         from the list. Facebook cannot do both at once — choosing a category
         and adding words makes it ignore the category entirely.
-        <br>Volume is fixed at one page: on Apify's free plan this Actor
-        returns 16–28 listings per run whatever is asked for
-        <span style="font-family:ui-monospace,monospace">(measured: 1 page →
-        25, 3 pages → 26)</span>.
+        <br>Volume is bought by the page (~24 listings each). The run summary
+        reports what Marketplace actually returned, which can be fewer.
       </div>
 
       <div id="m-result" style="padding:0 19px"></div>

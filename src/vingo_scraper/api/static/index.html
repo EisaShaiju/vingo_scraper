@@ -331,6 +331,7 @@
     <button class="tab on" data-panel="p-manual">Search</button>
     <button class="tab" data-panel="p-leads">Leads
       <span class="badge-n" id="t-leads">0</span></button>
+    <button class="tab" data-panel="p-bulk">Bulk</button>
     <button class="tab" data-panel="p-catalog">Catalog
       <span class="badge-n" id="t-count">0</span></button>
   </nav>
@@ -484,6 +485,40 @@
         on Marketplace, where its own composer is.
       </div>
       <div id="lead-rows"></div>
+    </div>
+  </section>
+
+  <section class="panel" id="p-bulk">
+    <div class="auto">
+      <div class="auto-h">
+        <h2>Bulk sweep</h2>
+        <span class="n" id="bulk-state" style="margin-left:auto">idle</span>
+      </div>
+      <div class="auto-ctl" style="flex-wrap:wrap">
+        <div class="field">
+          <label>Target</label>
+          <select id="bulk-target">
+            <option value="250">250 listings · ~$0.35</option>
+            <option value="500">500 listings · ~$0.70</option>
+            <option value="1000">1000 listings · ~$1.40</option>
+          </select>
+        </div>
+        <button class="btn-sm" id="bulk-start">Start sweep</button>
+        <button class="btn-sm" id="bulk-resume" style="display:none">Resume</button>
+        <button class="btn-sm" id="bulk-abandon" style="display:none">Abandon</button>
+      </div>
+      <div style="padding:0 19px 6px;font-size:11px;color:var(--muted)"
+           id="bulk-note"></div>
+      <div id="bulk-progress"></div>
+      <div id="bulk-cells"></div>
+    </div>
+
+    <div class="auto" style="margin-top:14px">
+      <div class="auto-h">
+        <h2>Swept listings</h2>
+        <span class="n" id="bulk-n" style="margin-left:auto"></span>
+      </div>
+      <div id="bulk-rows"></div>
     </div>
   </section>
 
@@ -852,6 +887,7 @@ document.querySelectorAll('.tab').forEach(btn => {
       pn.classList.toggle('on', pn.id === btn.dataset.panel));
     if(btn.dataset.panel === 'p-catalog'){ loadStats(); loadListings(); }
     if(btn.dataset.panel === 'p-leads'){ loadLeads(); }
+    if(btn.dataset.panel === 'p-bulk'){ loadSweep(); }
   };
 });
 
@@ -1253,6 +1289,101 @@ function resolveSearch(raw) {
   // An exact category name browses the category; anything else is a keyword.
   return key ? { category: key, query: '' } : { category: null, query: text };
 }
+
+
+// ----------------------------------------------------------------- bulk ---
+// A 1000-listing sweep is ~42 sequential Actor pages, 15-40 minutes, holding
+// the ingestion lock throughout. State is read from the database every few
+// seconds rather than held here, so a reload or a closed tab loses nothing --
+// and so a sweep that died can be resumed instead of re-bought.
+let bulkTimer = null;
+
+function sweepCellRow(c){
+  const warn = c.error
+    ? ` <span style="color:var(--err)" title="${esc(c.error)}">⚠</span>` : '';
+  return `<div class="tick">
+    <span class="cell">${esc(c.category.replace(/_/g,' '))}</span>
+    <span class="num">${c.pages} page${c.pages > 1 ? 's' : ''}
+      · <b>${c.new_rows} new</b> · $${Number(c.cost_usd).toFixed(4)}${warn}</span>
+  </div>`;
+}
+
+async function loadSweep(){
+  let d;
+  try { d = await (await fetch('/api/sweep/state')).json(); }
+  catch(e){ return; }
+
+  const running = !!d.running;
+  $('#bulk-state').textContent = running ? 'sweeping…' : (d.stopped_reason ? 'stopped' : 'idle');
+  $('#bulk-start').disabled = running;
+  $('#bulk-resume').style.display =
+    (!running && d.stopped_reason && d.obtained < d.target) ? '' : 'none';
+  $('#bulk-abandon').style.display = (d.cells && d.cells.length) ? '' : 'none';
+
+  // An allocator running on assumed yields spends real money on guesses. Say
+  // so rather than letting the numbers look measured.
+  $('#bulk-note').innerHTML = d.yields_measured
+    ? 'Allocation uses <strong>measured</strong> per-category yields from the supply baseline.'
+    : '<strong>No supply baseline yet</strong> — allocation assumes every category '
+      + 'yields the same, which is almost certainly wrong. Run '
+      + '<code>scripts/measure_supply.py</code> first.';
+
+  if(d.target){
+    const pct = Math.min(100, Math.round(100 * (d.obtained || 0) / d.target));
+    $('#bulk-progress').innerHTML = `
+      <div style="padding:10px 19px">
+        <div style="font-size:13px;margin-bottom:6px">
+          <b>${d.obtained || 0}</b> of ${d.target} listings
+          · $${Number(d.spent_usd || 0).toFixed(4)}
+          · ${(d.cells || []).length} cells
+        </div>
+        <div style="height:8px;background:var(--brand-soft);border-radius:999px">
+          <div style="height:8px;width:${pct}%;background:var(--brand);
+                      border-radius:999px;transition:width .3s"></div>
+        </div>
+        ${d.stopped_reason
+          ? `<div style="margin-top:8px;font-size:12px"><b>Stopped:</b> ${esc(d.stopped_reason)}</div>`
+          : ''}
+      </div>`;
+    $('#bulk-cells').innerHTML = (d.cells || []).map(sweepCellRow).join('');
+  } else {
+    $('#bulk-progress').innerHTML = '';
+    $('#bulk-cells').innerHTML = '';
+  }
+
+  loadSweptListings();
+  clearTimeout(bulkTimer);
+  if(running) bulkTimer = setTimeout(loadSweep, 5000);
+}
+
+async function loadSweptListings(){
+  try {
+    const d = await (await fetch('/api/listings?trigger=bulk&limit=100&order=lead')).json();
+    const rows = d.listings || [];
+    $('#bulk-n').textContent = rows.length + ' listings';
+    $('#bulk-rows').innerHTML = rows.length
+      ? rows.map(leadRow).join('')
+      : '<div class="empty">Nothing swept yet.</div>';
+  } catch(e){ /* the sweep panel above already reports failures */ }
+}
+
+if($('#bulk-start')) $('#bulk-start').onclick = async () => {
+  const target = parseInt($('#bulk-target').value);
+  const r = await fetch('/api/sweep/start', {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({target, location: $('#m-loc') ? $('#m-loc').value : 'bangalore'}),
+  });
+  if(!r.ok){ $('#bulk-state').textContent = (await r.json()).detail || 'could not start'; return; }
+  loadSweep();
+};
+if($('#bulk-resume')) $('#bulk-resume').onclick = async () => {
+  await fetch('/api/sweep/resume', {method:'POST'});
+  loadSweep();
+};
+if($('#bulk-abandon')) $('#bulk-abandon').onclick = async () => {
+  await fetch('/api/sweep/abandon', {method:'POST'});
+  loadSweep();
+};
 
 </script>
 </body>

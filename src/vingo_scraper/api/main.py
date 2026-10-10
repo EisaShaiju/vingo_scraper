@@ -22,6 +22,7 @@ quietly disagrees with itself.
 
 from __future__ import annotations
 
+import asyncio
 import csv
 import io
 import uuid
@@ -220,6 +221,7 @@ async def listings(
     since_run: str | None = None,
     search: str | None = None,
     outreach: str | None = None,
+    trigger: str | None = None,
     order: str = "recent",
 ) -> dict:
     """The catalog, the results of one run, or the lead queue.
@@ -231,7 +233,7 @@ async def listings(
     """
     try:
         return await _listings(limit, since_run, offset=offset, search=search,
-                               outreach=outreach, order=order)
+                               outreach=outreach, trigger=trigger, order=order)
     except Exception as exc:
         # Keep the console up when Postgres is genuinely down -- but SAY SO.
         # Returning a bare empty list made a crashed query indistinguishable
@@ -244,6 +246,7 @@ async def listings(
 
 async def _listings(limit: int, since_run: str | None, *, offset: int = 0,
                     search: str | None = None, outreach: str | None = None,
+                    trigger: str | None = None,
                     order: str = "recent") -> dict:
     async with session_scope() as s:
         q = select(models.Listing)
@@ -259,6 +262,16 @@ async def _listings(limit: int, since_run: str | None, *, offset: int = 0,
             q = q.where(models.Listing.title.ilike(f"%{search}%"))
         if outreach:
             q = q.where(models.Listing.outreach_status == outreach)
+        if trigger:
+            # Bulk sweeps are tagged on their ScrapeRun, so the Bulk tab can
+            # show only its own catalog while Search and Catalog keep showing
+            # exactly what they always did.
+            q = q.where(
+                models.Listing.scrape_run_id.in_(
+                    select(models.ScrapeRun.id)
+                    .where(models.ScrapeRun.trigger == trigger)
+                )
+            )
 
         # Scoring needs a pool to score. Ordering by lead score in SQL is not
         # possible without storing it, so take a wider slice and sort after.
@@ -509,6 +522,184 @@ def title_filter_term(req: IngestRequest) -> str | None:
     if not req.title_match:
         return None
     return (req.query or "").strip() or None
+
+
+# --------------------------------------------------------------------------
+# Bulk sweeps
+# --------------------------------------------------------------------------
+
+SWEEP_TARGETS = (250, 500, 1000)
+
+# Fallback yields when no supply baseline has been measured yet. Deliberately
+# FLAT: an even split is the honest thing to do when nothing is known, and the
+# numbers being identical makes it obvious on screen that they are assumed
+# rather than measured.
+ASSUMED_YIELD_PER_PAGE = 12.0
+
+
+def measured_yields() -> tuple[dict[str, float], bool]:
+    """(yields, measured) -- net-new rows per page, per category.
+
+    Reads `docs/supply-baseline.md` if `scripts/measure_supply.py` has been
+    run. Returns `measured=False` when falling back to assumptions, so the UI
+    can say which it is: an allocator running on guesses spends real money on
+    them.
+    """
+    import re
+
+    from vingo_scraper.config import CATEGORIES
+
+    path = Path(__file__).resolve().parents[3] / "docs" / "supply-baseline.md"
+    try:
+        text = path.read_text(encoding="utf-8")
+    except OSError:
+        return ({k: ASSUMED_YIELD_PER_PAGE for k in CATEGORIES}, False)
+
+    found: dict[str, float] = {}
+    for key in CATEGORIES:
+        # "| `vehicles` | 28 | **26** | 4% | 41 | $0.0015 |"
+        m = re.search(rf"\|\s*`{re.escape(key)}`\s*\|\s*\d+\s*\|\s*\*\*(\d+)\*\*", text)
+        if m:
+            found[key] = float(m.group(1))
+    if not found:
+        return ({k: ASSUMED_YIELD_PER_PAGE for k in CATEGORIES}, False)
+    return (found, True)
+
+
+class SweepRequest(BaseModel):
+    target: int = 250
+    location: str = "bangalore"
+
+
+async def _run_one_cell(category: str, pages: int, location: str):
+    """One cell, through the same path a manual run takes.
+
+    Returns what the cell ACTUALLY produced. The loop never assumes a cell
+    delivered what was planned -- that assumption is what the rebalancing
+    exists to correct.
+    """
+    from vingo_scraper.apify.client import LISTINGS_PER_PAGE, collect_run, start_run
+    from vingo_scraper.apify.runner import ingest_collected
+    from vingo_scraper.pipeline.sweep import CellOutcome
+
+    try:
+        started = await start_run(
+            None, location, pages * LISTINGS_PER_PAGE,
+            category=category, include_details=True,
+            filters={"daysSinceListed": "7", "sortBy": "creation_time_descend"},
+        )
+        run = await collect_run(started.run_id, run_input=started.run_input)
+        if run is None:
+            return CellOutcome(category, pages, error="run did not finish")
+        result = await ingest_collected(run, location=location, trigger="bulk")
+        return CellOutcome(
+            category, pages,
+            new_rows=result.created,
+            cost_usd=float(result.cost_usd or 0.0),
+            error=result.error,
+        )
+    except Exception as exc:                 # noqa: BLE001
+        # One bad cell must not lose the cells already paid for.
+        return CellOutcome(category, pages, error=f"{type(exc).__name__}: {exc}"[:160])
+
+
+async def _drive_sweep(target: int, location: str, resume) -> None:
+    """Run the sweep to completion, saving state after every cell."""
+    from vingo_scraper.apify.budget import get_budget
+    from vingo_scraper.db import config_store
+    from vingo_scraper.pipeline.sweep import run_quota_sweep
+
+    yields, _ = measured_yields()
+    budget = await get_budget()
+    headroom = max(0.0, float(budget.total_cap_usd) - float(budget.monthly_used_usd))
+
+    async def on_progress(state) -> None:
+        await config_store.save_sweep(state.to_dict())
+
+    async with config_store.ingestion_lock("bulk"):
+        await run_quota_sweep(
+            target=target, location=location, yields=yields,
+            budget_usd=headroom, run_cell=_run_one_cell,
+            resume=resume, on_progress=on_progress,
+        )
+
+
+@app.post("/api/sweep/start")
+async def sweep_start(req: SweepRequest) -> dict:
+    from vingo_scraper.apify.budget import get_budget
+    from vingo_scraper.db import config_store
+    from vingo_scraper.pipeline.sweep import SweepState
+
+    if req.target not in SWEEP_TARGETS:
+        raise HTTPException(400, f"target must be one of {SWEEP_TARGETS}")
+
+    existing = SweepState.from_dict(await config_store.load_sweep())
+    if existing and not existing.stopped_reason:
+        # Never silently restart: every completed cell is already paid for.
+        raise HTTPException(
+            409,
+            f"a sweep is already in flight ({existing.obtained} of "
+            f"{existing.target}). Resume it or abandon it.",
+        )
+
+    budget = await get_budget()
+    if (blocked := budget.blocked_reason()):
+        raise HTTPException(402, blocked)
+
+    state = SweepState(target=req.target, location=req.location)
+    await config_store.save_sweep(state.to_dict())
+    asyncio.create_task(_drive_sweep(req.target, req.location, None))
+    return {"started": True, "target": req.target}
+
+
+@app.post("/api/sweep/resume")
+async def sweep_resume() -> dict:
+    """Continue a sweep that died. Explicit, because the alternative --
+    starting fresh -- re-buys every cell already paid for."""
+    from vingo_scraper.db import config_store
+    from vingo_scraper.pipeline.sweep import SweepState
+
+    state = SweepState.from_dict(await config_store.load_sweep())
+    if state is None:
+        raise HTTPException(404, "no sweep to resume")
+
+    state.stopped_reason = None
+    asyncio.create_task(_drive_sweep(state.target, state.location, state))
+    return {"resumed": True, "from_cells": len(state.completed)}
+
+
+@app.post("/api/sweep/abandon")
+async def sweep_abandon() -> dict:
+    from vingo_scraper.db import config_store
+    await config_store.clear_sweep()
+    return {"ok": True}
+
+
+@app.get("/api/sweep/state")
+async def sweep_state() -> dict:
+    from vingo_scraper.db import config_store
+    from vingo_scraper.pipeline.sweep import SweepState
+
+    raw = await config_store.load_sweep()
+    state = SweepState.from_dict(raw)
+    yields, measured = measured_yields()
+    if state is None:
+        return {"running": False, "yields_measured": measured,
+                "targets": list(SWEEP_TARGETS)}
+    return {
+        "running": state.stopped_reason is None,
+        "target": state.target,
+        "obtained": state.obtained,
+        "spent_usd": round(state.spent_usd, 4),
+        "cells": [
+            {"category": c.category, "pages": c.pages, "new_rows": c.new_rows,
+             "cost_usd": round(c.cost_usd, 4), "error": c.error}
+            for c in state.completed
+        ],
+        "stopped_reason": state.stopped_reason,
+        "yields_measured": measured,
+        "targets": list(SWEEP_TARGETS),
+    }
 
 
 @app.post("/api/ingest")

@@ -118,7 +118,7 @@ def test_1_10_private_keys_never_reach_apify():
 # ==========================================================================
 
 def test_2_01_one_tab_per_question():
-    """Search, Leads and Catalog answer three different questions.
+    """Search, Leads, Bulk and Catalog answer four different questions.
 
     The earlier Manual/Automated split was wrong for the opposite reason: those
     were the SAME question split in half. A tab earns its place by answering
@@ -126,8 +126,8 @@ def test_2_01_one_tab_per_question():
     first", "what do we hold".
     """
     h = page()
-    assert h.count('class="tab ') + h.count('class="tab"') == 3
-    for panel in ("p-manual", "p-leads", "p-catalog"):
+    assert h.count('class="tab ') + h.count('class="tab"') == 4
+    for panel in ("p-manual", "p-leads", "p-bulk", "p-catalog"):
         assert f'data-panel="{panel}"' in h
     # Automation is gone, not hidden behind another tab.
     assert 'data-panel="p-auto"' not in h
@@ -727,7 +727,10 @@ def test_10_04b_no_option_exceeds_the_plan_ceiling():
 
     from vingo_scraper.apify.client import LISTINGS_PER_PAGE, max_pages
 
-    offered = re.findall(r'<option value="(\d+)">[^<]*listings', page())
+    html = page()
+    block = html[html.index('<select id="m-n">'):]
+    block = block[:block.index("</select>")]
+    offered = re.findall(r'<option value="(\d+)">', block)
     assert offered
     for value in offered:
         assert int(value) <= LISTINGS_PER_PAGE * max_pages(), value

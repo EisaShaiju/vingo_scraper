@@ -643,3 +643,32 @@ async def get_filters() -> dict:
     async with session_scope() as s:
         row = await _row(s)
         return row.filters or {}
+
+
+# --------------------------------------------------------------------------
+# Bulk sweep state -- a 40-minute run has to outlive the request and the tab
+# --------------------------------------------------------------------------
+
+async def save_sweep(state: dict | None) -> None:
+    """Record sweep progress after every cell.
+
+    Written to the database rather than held in memory because the sweep
+    outlives the request that started it, survives a page reload, and must be
+    resumable after a service restart -- each completed cell is a real charge
+    that must not be paid twice.
+    """
+    async with session_scope() as s:
+        row = await _row(s, lock=True)
+        row.sweep_state = state
+
+
+async def load_sweep() -> dict | None:
+    async with session_scope() as s:
+        row = await _row(s)
+        return row.sweep_state
+
+
+async def clear_sweep() -> None:
+    """Abandon a sweep. Deliberate, never automatic: a half-finished sweep is
+    worth resuming, and discarding it silently throws away paid-for work."""
+    await save_sweep(None)

@@ -188,3 +188,101 @@ async def test_12_progress_is_reported_after_every_cell() -> None:
                           on_progress=on_progress)
     assert len(seen) >= 2
     assert seen == sorted(seen)          # monotonic: never reports going backwards
+
+
+# ==========================================================================
+# The API around the sweep
+# ==========================================================================
+
+def client():
+    from fastapi.testclient import TestClient
+
+    from vingo_scraper.api.main import app
+    return TestClient(app)
+
+
+def console() -> str:
+    return client().get("/").text
+
+
+def test_13_only_the_three_targets_are_accepted() -> None:
+    """A typo'd target is a sweep that costs an unplanned amount."""
+    r = client().post("/api/sweep/start", json={"target": 9999})
+    assert r.status_code == 400
+    assert "250" in r.text
+
+
+def test_14_the_console_offers_exactly_those_targets() -> None:
+    from vingo_scraper.api.main import SWEEP_TARGETS
+
+    html = console()
+    block = html[html.index('<select id="bulk-target">'):]
+    block = block[:block.index("</select>")]
+    for t in SWEEP_TARGETS:
+        assert f'value="{t}"' in block
+
+
+def test_15_an_unmeasured_baseline_is_declared_not_hidden() -> None:
+    """An allocator running on assumed yields spends real money on guesses.
+    The tab has to say which it is."""
+    from vingo_scraper.api.main import measured_yields
+
+    _, measured = measured_yields()
+    html = console()
+    assert "yields_measured" in html
+    if not measured:
+        assert "No supply baseline yet" in html
+
+
+def test_16_assumed_yields_are_flat_and_cover_every_category() -> None:
+    """Flat on purpose: an even split is the honest thing when nothing is
+    known, and identical numbers make the assumption visible."""
+    from vingo_scraper.api.main import measured_yields
+    from vingo_scraper.config import CATEGORIES
+
+    yields, measured = measured_yields()
+    assert set(yields) == set(CATEGORIES)
+    if not measured:
+        assert len(set(yields.values())) == 1
+
+
+def test_17_the_bulk_catalog_is_filtered_by_trigger() -> None:
+    """Search and Catalog must keep showing exactly what they showed before."""
+    assert "trigger=bulk" in console()
+
+
+def test_18_the_listings_endpoint_accepts_a_trigger_filter(monkeypatch) -> None:
+    from vingo_scraper.api import main as api
+
+    async def fake(limit, since_run, **kw):
+        fake.seen = kw
+        return {"listings": [], "count": 0}
+
+    monkeypatch.setattr(api, "_listings", fake)
+    client().get("/api/listings?trigger=bulk")
+    assert fake.seen["trigger"] == "bulk"
+
+
+def test_19_resuming_with_no_sweep_is_a_404_not_a_fresh_start() -> None:
+    """Starting fresh when a resume was asked for would re-buy every cell
+    already paid for."""
+    import vingo_scraper.db.config_store as cs
+
+    async def none():
+        return None
+
+    original = cs.load_sweep
+    cs.load_sweep = none
+    try:
+        assert client().post("/api/sweep/resume").status_code == 404
+    finally:
+        cs.load_sweep = original
+
+
+def test_20_the_tab_polls_rather_than_holding_state() -> None:
+    """A 40-minute sweep outlives the tab. State lives in the database, and
+    in-process state is what made the console flicker between two
+    self-consistent answers once already."""
+    html = console()
+    assert "/api/sweep/state" in html
+    assert "setTimeout(loadSweep" in html

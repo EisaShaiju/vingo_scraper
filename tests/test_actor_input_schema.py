@@ -217,7 +217,12 @@ def test_14_the_console_offers_only_what_the_plan_can_deliver() -> None:
     from vingo_scraper.apify.client import LISTINGS_PER_PAGE, max_pages
 
     html = TestClient(app).get("/").text
-    offered = re.findall(r'<option value="(\d+)">[^<]*listings', html)
+    # Scope to the VOLUME selector. The Bulk tab's target options are listing
+    # counts, not page capacities, and are bounded by the sweep rather than by
+    # one Actor run.
+    block = html[html.index('<select id="m-n">'):]
+    block = block[:block.index("</select>")]
+    offered = re.findall(r'<option value="(\d+)">', block)
     assert offered, "no volume options found"
     for value in offered:
         assert int(value) <= LISTINGS_PER_PAGE * max_pages(), value

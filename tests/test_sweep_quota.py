@@ -324,3 +324,27 @@ def test_23_a_timed_out_cell_names_its_run_id() -> None:
     src = inspect.getsource(main._run_one_cell)
     assert "started.run_id" in src
     assert "collect it rather than re-run" in src
+
+
+def test_24_the_swept_catalog_can_be_grown_past_the_first_page() -> None:
+    """It showed 100 with no way to see the rest, and no sign there WAS a
+    rest -- "100 listings" reads as a total."""
+    html = console()
+    assert "bulk-more" in html
+    assert "Load more" in html
+
+
+def test_25_growing_it_raises_the_limit_rather_than_paging_by_offset() -> None:
+    """`order=lead` sorts in Python over the rows the query returned, so an
+    offset would page through a recency-ordered set and re-sort each page --
+    a ranking that is wrong in a way that looks entirely plausible."""
+    html = console()
+    assert "bulkLimit += 100" in html
+    assert "trigger=bulk&limit=${bulkLimit}" in html
+
+
+def test_26_a_full_page_is_marked_as_possibly_incomplete() -> None:
+    """Exactly `limit` rows means there are probably more. Saying "100
+    listings" when it is 100-of-487 is the same class of lie as the volume
+    label that promised ~72."""
+    assert "'+ listings'" in console()

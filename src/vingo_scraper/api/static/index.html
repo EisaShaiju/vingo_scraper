@@ -1356,14 +1356,35 @@ async function loadSweep(){
   if(running) bulkTimer = setTimeout(loadSweep, 5000);
 }
 
+// How many swept listings to show. Grows on demand rather than loading
+// everything: /api/listings runs an image query and a seller query PER ROW, so
+// a thousand rows is a couple of thousand round trips.
+//
+// "Load more" raises the LIMIT and refetches rather than paging by offset.
+// `order=lead` sorts in Python over the rows the query returned, so an offset
+// would page through a recency-ordered set and then re-sort each page -- the
+// ranking would be wrong in a way that looks plausible.
+let bulkLimit = 100;
+
 async function loadSweptListings(){
   try {
-    const d = await (await fetch('/api/listings?trigger=bulk&limit=100&order=lead')).json();
+    const d = await (await fetch(
+      `/api/listings?trigger=bulk&limit=${bulkLimit}&order=lead`)).json();
     const rows = d.listings || [];
-    $('#bulk-n').textContent = rows.length + ' listings';
+    const more = rows.length >= bulkLimit;
+    $('#bulk-n').textContent = rows.length + (more ? '+ listings' : ' listings');
     $('#bulk-rows').innerHTML = rows.length
       ? rows.map(leadRow).join('')
+        + (more
+            ? `<div style="padding:14px;text-align:center">
+                 <button class="btn-sm" id="bulk-more">Load more</button>
+               </div>`
+            : `<div class="empty" style="padding:12px">
+                 That is all ${rows.length} of them.</div>`)
       : '<div class="empty">Nothing swept yet.</div>';
+
+    const more_btn = $('#bulk-more');
+    if(more_btn) more_btn.onclick = () => { bulkLimit += 100; loadSweptListings(); };
   } catch(e){ /* the sweep panel above already reports failures */ }
 }
 

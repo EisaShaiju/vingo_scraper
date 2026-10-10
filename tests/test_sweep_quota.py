@@ -348,3 +348,17 @@ def test_26_a_full_page_is_marked_as_possibly_incomplete() -> None:
     listings" when it is 100-of-487 is the same class of lie as the volume
     label that promised ~72."""
     assert "'+ listings'" in console()
+
+
+def test_27_a_lead_row_opens_the_full_listing() -> None:
+    """Same modal the Catalog tab uses. A second detail view would drift from
+    the first, and then two places would need fixing."""
+    html = console()
+    assert html.count("openDetail(row.dataset.id)") == 2   # Leads and Bulk
+    assert 'title="Click for the full listing"' in html
+
+
+def test_28_the_rows_own_controls_still_work() -> None:
+    """A click on the status select or the Message-seller link is about THAT
+    control, not the listing behind it."""
+    assert "ev.target.closest('a, select, button, option')" in console()

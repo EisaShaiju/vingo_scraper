@@ -1192,7 +1192,8 @@ function leadRow(x){
     + s + '</option>').join('');
   const price = x.price_inr != null
     ? '₹' + Number(x.price_inr).toLocaleString('en-IN') : 'no price';
-  return `<div class="lead" data-id="${x.id}">
+  return `<div class="lead" data-id="${x.id}" style="cursor:pointer"
+    title="Click for the full listing">
     <div class="score ${L.band}"><div class="num">${L.score}</div>
       <div class="band">${L.band}</div></div>
     ${x.thumb_id ? `<img src="/api/image/${x.thumb_id}" alt="" loading="lazy">`
@@ -1231,6 +1232,17 @@ async function loadLeads(){
           : '<div class="empty">Nothing here. Run a search, or widen the status filter.</div>');
     // Keep the export in step with what is on screen.
     if($('#lead-csv')) $('#lead-csv').href = '/api/export.csv?' + qs;
+    // Open the full listing on click, using the same modal the Catalog tab
+    // uses rather than a second one that would drift from it.
+    box.querySelectorAll('.lead').forEach(row => {
+      row.onclick = ev => {
+        // The row carries its own controls. A click on the status select or
+        // the Message-seller link is about THAT control, not the listing.
+        if(ev.target.closest('a, select, button, option')) return;
+        openDetail(row.dataset.id);
+      };
+    });
+
     box.querySelectorAll('.lead-st').forEach(sel => {
       sel.onchange = async () => {
         const id = sel.closest('.lead').dataset.id;
@@ -1385,6 +1397,26 @@ async function loadSweptListings(){
 
     const more_btn = $('#bulk-more');
     if(more_btn) more_btn.onclick = () => { bulkLimit += 100; loadSweptListings(); };
+
+    $('#bulk-rows').querySelectorAll('.lead').forEach(row => {
+      row.onclick = ev => {
+        if(ev.target.closest('a, select, button, option')) return;
+        openDetail(row.dataset.id);
+      };
+    });
+
+    $('#bulk-rows').querySelectorAll('.lead-st').forEach(sel => {
+      sel.onchange = async () => {
+        const id = sel.closest('.lead').dataset.id;
+        const note = sel.value === 'new' ? null
+          : prompt('Note (optional) — what did they say?') || null;
+        await fetch(`/api/listings/${id}/outreach`, {
+          method:'POST', headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({status: sel.value, note}),
+        });
+        loadSweptListings();
+      };
+    });
   } catch(e){ /* the sweep panel above already reports failures */ }
 }
 

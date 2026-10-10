@@ -114,14 +114,19 @@ fi
 
 # ----------------------------------------------------------- the console ---
 HTML="$(get /)"
-TABS="$(printf '%s' "$HTML" | grep -o 'data-panel="p-[a-z]*"' | sort -u | wc -l)"
-# Count PANELS, not `class="tab` -- the nav wrapper is class="tabs", which
-# matches the same substring and makes the obvious grep report one too many.
-if [ "$TABS" -eq 3 ]; then
-  ok "console serves 3 tabs"
+# Check the panels are PRESENT by name, not that there are N of them. A count
+# goes stale the moment a tab is added -- which it did, reporting "an old build
+# is deployed" about a build that was brand new and correct. Naming them means
+# the failure says which one is missing.
+MISSING=""
+for panel in p-manual p-leads p-bulk p-catalog; do
+  printf '%s' "$HTML" | grep -q "data-panel=\"$panel\"" || MISSING="$MISSING $panel"
+done
+if [ -z "$MISSING" ]; then
+  ok "console serves every tab (Search, Leads, Bulk, Catalog)"
 else
-  bad "console has $TABS tabs, expected 3 (Search, Leads, Catalog)"
-  note "an old build is deployed"
+  bad "console is missing tab(s):$MISSING"
+  note "an older build is deployed, or a panel was renamed"
 fi
 
 # ------------------------------------------------------------ invariant ---

@@ -347,3 +347,152 @@ def main() -> int:
     print(result.summary())
     print()
     return exit_code(result)
+
+
+# ==========================================================================
+# Quota-driven bulk sweeps
+# ==========================================================================
+#
+# A target (250 / 500 / 1000) is filled by running cells until `quota` says
+# stop. Three things make this different from a manual run:
+#
+#   1. It is long. ~42 sequential pages for 1,000 listings, 15-40 minutes,
+#      holding the ingestion lock throughout -- because two Actors at once is
+#      paying twice.
+#   2. It is RESUMABLE. Dedup stops a listing being stored twice; it does not
+#      stop it being billed twice, since the Actor charges when it scrapes.
+#      A crash at cell 9 of 14 must not re-buy cells 1-8.
+#   3. It stops for a REASON, and says which. Target met, budget reached and
+#      Marketplace exhausted need different responses and look identical
+#      otherwise.
+#
+# `run_cell` is injected so the loop can be exercised offline, without network
+# and without spending. The resume path in particular is only trustworthy if
+# it has been watched working.
+
+from collections.abc import Awaitable, Callable  # noqa: E402
+
+from vingo_scraper.pipeline import quota  # noqa: E402
+
+
+@dataclass
+class CellOutcome:
+    """What one cell actually returned. Measured, never predicted."""
+
+    category: str
+    pages: int
+    new_rows: int = 0
+    cost_usd: float = 0.0
+    error: str | None = None
+
+
+@dataclass
+class SweepState:
+    """Everything needed to resume. Serialises straight to JSONB."""
+
+    target: int
+    location: str
+    completed: list[CellOutcome] = field(default_factory=list)
+    stopped_reason: str | None = None
+
+    @property
+    def obtained(self) -> int:
+        return sum(c.new_rows for c in self.completed)
+
+    @property
+    def spent_usd(self) -> float:
+        return sum(c.cost_usd for c in self.completed)
+
+    @property
+    def done_cells(self) -> set[str]:
+        """Categories already paid for. Resume must not buy them again."""
+        return {c.category for c in self.completed}
+
+    def to_dict(self) -> dict:
+        return {
+            "target": self.target,
+            "location": self.location,
+            "stopped_reason": self.stopped_reason,
+            "completed": [
+                {"category": c.category, "pages": c.pages, "new_rows": c.new_rows,
+                 "cost_usd": c.cost_usd, "error": c.error}
+                for c in self.completed
+            ],
+        }
+
+    @classmethod
+    def from_dict(cls, raw: dict | None) -> SweepState | None:
+        if not raw:
+            return None
+        return cls(
+            target=raw.get("target", 0),
+            location=raw.get("location", ""),
+            stopped_reason=raw.get("stopped_reason"),
+            completed=[CellOutcome(**c) for c in raw.get("completed", [])],
+        )
+
+
+async def run_quota_sweep(
+    *,
+    target: int,
+    location: str,
+    yields: dict[str, float],
+    budget_usd: float,
+    run_cell: Callable[[str, int, str], Awaitable[CellOutcome]],
+    resume: SweepState | None = None,
+    on_progress: Callable[[SweepState], Awaitable[None]] | None = None,
+) -> SweepState:
+    """Fill `target` net-new listings, rebalancing as cells report back.
+
+    `yields` are measured net-new rows per page from the supply baseline.
+    `run_cell(category, pages, location)` performs one cell and returns what it
+    actually got -- the loop never assumes a cell delivered what was planned.
+
+    Passing `resume` continues a sweep that died: its completed cells are
+    skipped, so nothing already paid for is bought again.
+    """
+    state = resume or SweepState(target=target, location=location)
+
+    while True:
+        why = quota.should_stop(
+            obtained=state.obtained,
+            target=state.target,
+            spent_usd=state.spent_usd,
+            budget_usd=budget_usd,
+            # A cell already paid for is not a cell still available.
+            cells_left=len([k for k in yields if k not in state.done_cells]),
+        )
+        if why:
+            state.stopped_reason = why
+            break
+
+        # Plan only from what is left to buy. Feeding the allocator the full
+        # yield map made it keep proposing a category the sweep had already
+        # swept -- highest yield, already paid for -- and the loop dead-ended
+        # on its own first choice.
+        #
+        # THIS is the rebalancing: the remaining target is recomputed from what
+        # cells actually returned, so a category that under-delivered leaves a
+        # larger remainder for the ones still producing.
+        available = {k: y for k, y in yields.items() if k not in state.done_cells}
+        remaining = state.target - state.obtained
+        plan = quota.plan_cells(remaining, available)
+
+        nxt = plan.allocations[0] if plan.allocations else None
+        if nxt is None:
+            # The allocator has nothing left to suggest that we have not
+            # already bought. Say so rather than looping.
+            state.stopped_reason = (
+                f"no categories left to try at {state.obtained} of "
+                f"{state.target} -- every usable one has been swept"
+            )
+            break
+
+        outcome = await run_cell(nxt.category, nxt.pages, location)
+        state.completed.append(outcome)
+        if on_progress:
+            await on_progress(state)
+
+    if on_progress:
+        await on_progress(state)
+    return state

@@ -337,6 +337,12 @@ class SystemConfig(Base):
     manual_started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     manual_input: Mapped[dict | None] = mapped_column(JSONB)
 
+    # Bulk sweep progress: which cells are done, what they returned, what they
+    # cost. A 1,000-listing sweep is ~42 sequential pages; without this a crash
+    # partway through means re-billing every completed cell, because the Actor
+    # charges when it scrapes rather than when we store.
+    sweep_state: Mapped[dict | None] = mapped_column(JSONB)
+
     # Marketplace filters, shared by both runners. Stored rather than passed
     # per call so a sequence keeps the filters it was armed with across ticks
     # and restarts.

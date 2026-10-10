@@ -25,6 +25,7 @@ from __future__ import annotations
 import asyncio
 import csv
 import io
+import time
 import uuid
 from contextlib import asynccontextmanager
 from datetime import UTC, datetime
@@ -530,6 +531,12 @@ def title_filter_term(req: IngestRequest) -> str | None:
 
 SWEEP_TARGETS = (250, 500, 1000)
 
+# How long one cell may take before we stop waiting. The Actor measured
+# 10.8s-47.1s for a single page and a cell is up to 3, so this is generous on
+# purpose: giving up early is what threw away ~$1 of paid-for scraping.
+CELL_TIMEOUT_S = 300
+CELL_POLL_S = 3.0
+
 # Fallback yields when no supply baseline has been measured yet. Deliberately
 # FLAT: an even split is the honest thing to do when nothing is known, and the
 # numbers being identical makes it obvious on screen that they are assumed
@@ -588,9 +595,33 @@ async def _run_one_cell(category: str, pages: int, location: str):
             category=category, include_details=True,
             filters={"daysSinceListed": "7", "sortBy": "creation_time_descend"},
         )
-        run = await collect_run(started.run_id, run_input=started.run_input)
+
+        # POLL. `collect_run` is a single-shot check that returns None while
+        # the run is still RUNNING -- it exists for the serverless pattern
+        # where the browser polls. Calling it once here treated every live run
+        # as a failure: 17 cells each started an Actor, were charged, and had
+        # their results discarded a second later. ~$1 bought nothing.
+        #
+        # A cell is 1-3 pages and the Actor has measured 10.8s-47.1s for one
+        # page, so the ceiling is generous and the interval short enough to
+        # not add minutes across a 14-cell sweep.
+        run = None
+        deadline = time.monotonic() + CELL_TIMEOUT_S
+        while time.monotonic() < deadline:
+            run = await collect_run(started.run_id, run_input=started.run_input)
+            if run is not None:
+                break
+            await asyncio.sleep(CELL_POLL_S)
+
         if run is None:
-            return CellOutcome(category, pages, error="run did not finish")
+            # Timed out, not failed. The run may still finish and bill, so the
+            # id goes in the message -- it can be collected later rather than
+            # paid for again.
+            return CellOutcome(
+                category, pages,
+                error=f"timed out after {CELL_TIMEOUT_S}s; run {started.run_id} "
+                      f"may still be charging -- collect it rather than re-run",
+            )
         result = await ingest_collected(run, location=location, trigger="bulk")
         return CellOutcome(
             category, pages,

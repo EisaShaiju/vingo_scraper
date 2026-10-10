@@ -286,3 +286,41 @@ def test_20_the_tab_polls_rather_than_holding_state() -> None:
     html = console()
     assert "/api/sweep/state" in html
     assert "setTimeout(loadSweep" in html
+
+
+def test_21_a_cell_waits_for_its_run_to_finish() -> None:
+    """The bug that cost ~$1 on the first sweep.
+
+    `collect_run` is a single-shot check that returns None while a run is still
+    RUNNING -- it exists for the serverless pattern where the browser polls.
+    Calling it once treated every live run as a failure: 17 cells each started
+    an Actor, were charged, and had their results discarded a second later.
+    """
+    import inspect
+
+    from vingo_scraper.api import main
+
+    src = inspect.getsource(main._run_one_cell)
+    assert "while" in src, "the cell must poll, not check once"
+    assert "CELL_TIMEOUT_S" in src
+
+
+def test_22_the_timeout_is_longer_than_a_slow_cell() -> None:
+    """The Actor measured 10.8s-47.1s for ONE page and a cell is up to 3.
+    Giving up early is exactly what threw the money away."""
+    from vingo_scraper.api.main import CELL_TIMEOUT_S
+    from vingo_scraper.pipeline.quota import MAX_PAGES_PER_CELL
+
+    assert CELL_TIMEOUT_S >= 60 * MAX_PAGES_PER_CELL
+
+
+def test_23_a_timed_out_cell_names_its_run_id() -> None:
+    """A run that timed out may still finish and bill. Reporting the id means
+    it can be collected later rather than paid for twice."""
+    import inspect
+
+    from vingo_scraper.api import main
+
+    src = inspect.getsource(main._run_one_cell)
+    assert "started.run_id" in src
+    assert "collect it rather than re-run" in src

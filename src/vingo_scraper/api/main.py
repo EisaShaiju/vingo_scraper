@@ -35,7 +35,7 @@ import structlog
 from fastapi import FastAPI, Header, HTTPException
 from fastapi.responses import FileResponse, Response
 from pydantic import BaseModel
-from sqlalchemy import func, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.orm import selectinload
 
 from vingo_scraper.config import settings
@@ -215,6 +215,55 @@ async def _stats() -> dict:
     }
 
 
+# --------------------------------------------------------------------------
+# outreach: addressing the person, and what to say
+# --------------------------------------------------------------------------
+# Both of these live here rather than in the browser so one definition is
+# shared by the UI, the CSV and the tests. The UI used to be the only place a
+# contact route existed, which is how it kept drifting from what we hold.
+
+MESSENGER_THREAD = "https://www.facebook.com/messages/t/{}"
+
+
+def messenger_url(fb_seller_id: str | None) -> str | None:
+    """The Messenger conversation with that seller, or None if we cannot build
+    one.
+
+    Only a NUMERIC user id addresses a thread. Facebook also hands out
+    `pfbid...` profile tokens, which rotate and do not resolve under
+    /messages/t/ -- so a button built from one lands nowhere. Returning None
+    lets the caller fall back to the listing URL and SAY it is doing that; a
+    "Message seller" that silently opens a listing page is a small lie the
+    operator pays for on every row.
+    """
+    if not fb_seller_id or not fb_seller_id.isdigit():
+        return None
+    return MESSENGER_THREAD.format(fb_seller_id)
+
+
+def draft_message(title: str, price_inr: float | None,
+                  seller_name: str | None = None) -> str:
+    """The opener, built from this listing's own facts.
+
+    The ask for a phone number is IN the message because that is the one thing
+    we cannot scrape -- Facebook publishes phone on 0% of listings, so the
+    seller volunteering it is the only route to one.
+
+    Copied, never sent: automated sending needs a logged-in account driven by
+    code, which breaks Facebook's terms and realistically ends in a ban that
+    costs the scraping too.
+    """
+    greeting = f"Hi {seller_name.split()[0]}!" if seller_name else "Hi!"
+    item = f'"{title}"' if title else "your listing"
+    priced = f" listed at ₹{int(price_inr):,}" if price_inr else ""
+    return (
+        f"{greeting} Saw your {item}{priced} on Marketplace. "
+        "Would you like to sell it on Vingo? We can get it in front of buyers "
+        "quickly, at no cost to you. If you're interested, reply with your "
+        "phone number and I'll set the listing up for you."
+    )
+
+
 @app.get("/api/listings")
 async def listings(
     limit: int = 60,
@@ -223,6 +272,7 @@ async def listings(
     search: str | None = None,
     outreach: str | None = None,
     trigger: str | None = None,
+    has_contact: bool = False,
     order: str = "recent",
 ) -> dict:
     """The catalog, the results of one run, or the lead queue.
@@ -234,7 +284,8 @@ async def listings(
     """
     try:
         return await _listings(limit, since_run, offset=offset, search=search,
-                               outreach=outreach, trigger=trigger, order=order)
+                               outreach=outreach, trigger=trigger,
+                               has_contact=has_contact, order=order)
     except Exception as exc:
         # Keep the console up when Postgres is genuinely down -- but SAY SO.
         # Returning a bare empty list made a crashed query indistinguishable
@@ -247,7 +298,7 @@ async def listings(
 
 async def _listings(limit: int, since_run: str | None, *, offset: int = 0,
                     search: str | None = None, outreach: str | None = None,
-                    trigger: str | None = None,
+                    trigger: str | None = None, has_contact: bool = False,
                     order: str = "recent") -> dict:
     async with session_scope() as s:
         q = select(models.Listing)
@@ -263,6 +314,19 @@ async def _listings(limit: int, since_run: str | None, *, offset: int = 0,
             q = q.where(models.Listing.title.ilike(f"%{search}%"))
         if outreach:
             q = q.where(models.Listing.outreach_status == outreach)
+        if has_contact:
+            # "Sellers who gave us a number" -- the only segment that matters
+            # once outreach is running. Contact lives on the Seller, not the
+            # listing, so one captured number qualifies every listing by that
+            # person.
+            q = q.where(
+                models.Listing.seller_id.in_(
+                    select(models.Seller.id).where(
+                        or_(models.Seller.phone.isnot(None),
+                            models.Seller.email.isnot(None))
+                    )
+                )
+            )
         if trigger:
             # Bulk sweeps are tagged on their ScrapeRun, so the Bulk tab can
             # show only its own catalog while Search and Catalog keep showing
@@ -301,6 +365,20 @@ async def _listings(limit: int, since_run: str | None, *, offset: int = 0,
                 "seller_name": seller.name if seller else None,
                 "seller_url": seller.profile_url if seller else None,
                 "seller_phone": seller.phone if seller else None,
+                "seller_email": seller.email if seller else None,
+                # The numeric Facebook user id. Present on ~91% of listings
+                # (measured 2026-10-11 with include_details on) and the only
+                # thing that can address a Messenger thread directly --
+                # /messages/t/<id> opens the conversation with that person,
+                # where the listing URL opens Marketplace's own composer.
+                "fb_seller_id": seller.fb_seller_id if seller else None,
+                "messenger_url": messenger_url(
+                    seller.fb_seller_id if seller else None),
+                "draft_message": draft_message(
+                    r.title,
+                    (r.price_minor / 100) if r.price_minor is not None else None,
+                    seller.name if seller else None,
+                ),
                 "attributes": r.attributes or {},
                 "is_sold": r.is_sold,
                 "title": r.title,
@@ -390,9 +468,21 @@ async def _listing(listing_id: str) -> dict:
             "review_status": row.review_status.value,
             "is_sold": row.is_sold,
             "is_pending": row.is_pending,
-            # Present for ~6% of listings: Facebook withholds seller identity
-            # from anonymous reads. Absence is normal, not an error.
+            "outreach_status": row.outreach_status or "new",
+            "outreach_note": row.outreach_note,
+            # Present on ~91% of listings -- measured 2026-10-11 over 96 items
+            # from six runs, with `include_details` on. The 6.4% this project
+            # quoted for weeks came from 47 fixtures captured BEFORE that flag
+            # and was never re-measured. Absence is still normal on the
+            # remaining ~9%, so it is not an error.
+            "messenger_url": messenger_url(seller.fb_seller_id if seller else None),
+            "draft_message": draft_message(
+                row.title,
+                (row.price_minor / 100) if row.price_minor is not None else None,
+                seller.name if seller else None,
+            ),
             "seller": {
+                "fb_seller_id": seller.fb_seller_id,
                 "name": seller.name,
                 "profile_url": seller.profile_url,
                 "phone": seller.phone,
@@ -942,9 +1032,62 @@ async def set_outreach(listing_id: str, req: OutreachRequest) -> dict:
         }
 
 
+class ContactRequest(BaseModel):
+    """What a seller replied with, typed in by whoever read the reply.
+
+    MANUAL on purpose. We cannot read a Messenger inbox: detecting replies
+    automatically needs a logged-in Facebook account driven by code, which is
+    the same automation that gets accounts banned -- and an `outreach_status`
+    that updated itself without anyone checking is a number nobody can trust.
+    """
+
+    phone: str | None = None
+    email: str | None = None
+    note: str | None = None
+
+
+@app.post("/api/listings/{listing_id}/contact")
+async def capture_contact(listing_id: str, req: ContactRequest) -> dict:
+    """Record a reply: contact on the SELLER, the note on the listing.
+
+    Contact goes on the seller row because one person has several listings.
+    Capture a number once and every other listing by them shows it, so nobody
+    messages the same seller twice asking for details they already gave.
+    """
+    if not (req.phone or req.email):
+        raise HTTPException(400, "a phone or an email is required")
+    async with session_scope() as s:
+        row = await s.get(models.Listing, uuid.UUID(listing_id))
+        if row is None:
+            raise HTTPException(404, "no such listing")
+        if row.seller_id is None:
+            # The ~9% with no seller identity. There is no row to hang a
+            # number on, and inventing one would key it to a listing instead
+            # of a person -- which is the thing this endpoint exists to avoid.
+            raise HTTPException(
+                409, "this listing has no seller identity, so a contact "
+                     "cannot be attached to a person"
+            )
+        seller = await s.get(models.Seller, row.seller_id)
+        if req.phone:
+            seller.phone = req.phone.strip()[:32]
+        if req.email:
+            seller.email = req.email.strip()[:255]
+        if req.note is not None:
+            row.outreach_note = req.note[:2000]
+        row.outreach_status = "replied"
+        if row.contacted_at is None:
+            row.contacted_at = datetime.now(UTC)
+        return {
+            "ok": True, "status": row.outreach_status,
+            "seller_phone": seller.phone, "seller_email": seller.email,
+        }
+
+
 @app.get("/api/export.csv")
 async def export_csv(
     search: str | None = None, outreach: str | None = None,
+    has_contact: bool = False,
     order: str = "lead", limit: int = 1000,
 ) -> Response:
     """The lead queue as a file, for whoever works it outside this console.
@@ -952,13 +1095,16 @@ async def export_csv(
     Same filters as /api/listings so the export is what you are looking at,
     not a different question answered separately.
     """
-    data = await _listings(limit, None, search=search, outreach=outreach, order=order)
+    data = await _listings(limit, None, search=search, outreach=outreach,
+                           has_contact=has_contact, order=order)
     buf = io.StringIO()
     w = csv.writer(buf)
     w.writerow([
         "lead_score", "band", "signals", "title", "price_inr", "location",
         "category", "posted_at", "photos", "quality_score",
-        "outreach_status", "contacted_at", "note", "listing_url",
+        "outreach_status", "contacted_at", "note",
+        "seller_name", "seller_phone", "seller_email",
+        "messenger_url", "listing_url",
     ])
     for row in data["listings"]:
         lead = row.get("lead") or {}
@@ -970,9 +1116,15 @@ async def export_csv(
             row["image_count"], row.get("quality_score") or 0,
             row.get("outreach_status") or "new", row.get("contacted_at") or "",
             row.get("outreach_note") or "",
-            # Last, because it is long -- and it is the column that matters:
-            # with no seller phone or email anywhere, this URL IS the contact
-            # route. It opens Marketplace's own message composer.
+            # Whatever the seller volunteered in reply. Facebook publishes
+            # neither, so an empty phone column means nobody has answered yet
+            # -- not that the scrape missed it.
+            row.get("seller_name") or "", row.get("seller_phone") or "",
+            row.get("seller_email") or "",
+            # The two contact routes, longest last. Messenger addresses the
+            # PERSON; the listing URL only opens Marketplace's composer under
+            # that one item, and is all there is for the ~9% with no id.
+            messenger_url(row.get("fb_seller_id")) or "",
             row["listing_url"],
         ])
     return Response(

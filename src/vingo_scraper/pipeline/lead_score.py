@@ -5,11 +5,15 @@ the business actually has: **of these, who is most likely to say yes?**
 
 Two constraints shape the whole design.
 
-**The unit is the LISTING, not the person.** Seller identity is populated on
-~6.4% of listings and phone/email on none at all -- a Facebook platform limit,
-not a scraping gap (`docs/seller-data-problem.md`). So a lead is a listing, and
-the contact route is the listing URL, which opens Marketplace's own composer.
-Nothing here is keyed on a human.
+**The unit is the LISTING, not the person.** The reason given here used to be
+"seller identity is populated on ~6.4% of listings, so a seller-keyed record
+would be null for 19 of 20 rows". **That was false** -- it is 91% (measured
+2026-10-11, 88/96 items, `include_details` on). The decision stands, but on the
+true reason: one seller often has several listings and you message about a
+*specific item*, so the queue has to be per-listing even though the person is
+known. Phone and email are still 0% from Facebook, which is why the contact
+details we hold are the ones a seller volunteered in reply
+(`docs/seller-data-problem.md`).
 
 **Every point is traceable.** The score is useless on its own -- an operator
 will not work a queue of bare numbers they cannot argue with. So each rule

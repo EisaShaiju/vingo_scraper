@@ -237,3 +237,5 @@ docs/
 
 .vercel
 .env*
+claude.md
+session-notes.md

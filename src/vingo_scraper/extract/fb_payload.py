@@ -256,9 +256,15 @@ def extract_contacts(*texts: str | None) -> tuple[str | None, str | None]:
 def _extract_seller(node: dict[str, Any]) -> Seller | None:
     """Seller identity, where Facebook exposes it.
 
-    Measured coverage on a real 47-listing Bengaluru capture: 3/47 (6.4%).
-    Facebook nulls this for most anonymous reads, so absence is normal and
-    must not be treated as a parse failure.
+    Measured 2026-10-11 over 96 live items with `include_details` on:
+    **88/96 = 91%** carry `marketplace_listing_seller` with a numeric `id`,
+    `name` and profile `url`. The 6.4% (3/47) figure this docstring used to
+    state was taken BEFORE that flag was enabled and stayed uncorrected for
+    weeks -- it under-reported the field by 14x and argued one design decision
+    on a false premise.
+
+    Facebook still nulls it on the remaining ~9%, so absence is normal and must
+    not be treated as a parse failure.
     """
     phone, email = extract_contacts(
         _extract_description(node),

@@ -27,6 +27,10 @@ ROW = {
     "contacted_at": "2026-10-05T09:00:00+00:00",
     "outreach_note": "asked for pickup Sat",
     "listing_url": "https://www.facebook.com/marketplace/item/123",
+    "seller_name": "Prashanth Maruru",
+    "fb_seller_id": "100000494167942",
+    "seller_phone": "+91 98450 11223",
+    "seller_email": None,
     "lead": {
         "score": 72, "band": "hot",
         "signals": [
@@ -275,3 +279,176 @@ def test_20_the_listings_payload_reads_only_columns_that_exist() -> None:
                  "outreach_status", "contacted_at", "outreach_note",
                  "price_history"):
         assert hasattr(Listing, attr), f"Listing has no {attr}"
+
+
+# ==========================================================================
+# messaging the seller directly
+# --------------------------------------------------------------------------
+# For weeks this project stated seller identity was present on 6.4% of
+# listings and that a Messenger link therefore could not be built. Measured
+# 2026-10-11 over 96 live items with `include_details` on: 88/96 = 91% carry a
+# numeric id. The old figure came from fixtures captured before that flag and
+# was never re-measured, so the data was in the database and only the UI was
+# behind.
+# ==========================================================================
+
+def test_23_a_numeric_seller_id_addresses_a_messenger_thread() -> None:
+    """/messages/t/<id> opens the conversation with that PERSON. The listing
+    URL only opens Marketplace's composer under one item."""
+    url = api.messenger_url("100000494167942")
+    assert url == "https://www.facebook.com/messages/t/100000494167942"
+
+
+def test_24_a_missing_id_builds_no_link_rather_than_a_broken_one() -> None:
+    assert api.messenger_url(None) is None
+    assert api.messenger_url("") is None
+
+
+def test_25_a_pfbid_token_is_refused() -> None:
+    """A `pfbid` is a rotating profile token, not a user id -- /messages/t/
+    does not resolve it. Returning None lets the caller fall back to the
+    listing and SAY so; a button that silently lands elsewhere is a lie the
+    operator pays for on every row.
+    """
+    assert api.messenger_url("pfbid02aBcDeFgHiJkLmNoPqRsTuVwXyZ") is None
+
+
+# --------------------------------------------------------------------------
+# the draft
+# --------------------------------------------------------------------------
+
+def test_26_the_draft_names_the_item_and_its_price() -> None:
+    """A generic opener reads as a mass message and gets ignored."""
+    draft = api.draft_message("Harley Davidson Street 750", 235000.0)
+    assert "Harley Davidson Street 750" in draft
+    assert "2,35,000" in draft or "235,000" in draft
+
+
+def test_27_the_draft_asks_for_a_phone_number() -> None:
+    """The one thing we cannot scrape -- Facebook publishes phone on 0% of
+    listings, so the seller volunteering it is the only route to one."""
+    assert "phone number" in api.draft_message("Sofa", 8000.0).lower()
+
+
+def test_28_the_draft_makes_the_actual_ask() -> None:
+    assert "vingo" in api.draft_message("Sofa", 8000.0).lower()
+
+
+def test_29_a_known_name_is_used_once_and_only_the_first() -> None:
+    draft = api.draft_message("Sofa", 8000.0, "Prashanth Maruru")
+    assert draft.startswith("Hi Prashanth!")
+    assert "Maruru" not in draft
+
+
+def test_30_a_missing_price_does_not_print_a_blank_or_a_zero() -> None:
+    draft = api.draft_message("Sofa", None)
+    assert "₹" not in draft and "listed at" not in draft
+    assert "Sofa" in draft
+
+
+# --------------------------------------------------------------------------
+# capturing what came back -- manual, on purpose
+# --------------------------------------------------------------------------
+
+def test_31_a_capture_with_neither_phone_nor_email_is_refused() -> None:
+    """Saving an empty form would set `replied` on a listing nobody replied
+    to, which is exactly the kind of number this console must not invent."""
+    c = TestClient(api.app)
+    r = c.post("/api/listings/11111111-1111-1111-1111-111111111111/contact",
+               json={"note": "they seemed keen"})
+    assert r.status_code == 400
+    assert "phone" in r.text and "email" in r.text
+
+
+def test_32_the_contact_endpoint_takes_phone_email_and_note() -> None:
+    fields = api.ContactRequest.model_fields
+    assert set(fields) == {"phone", "email", "note"}
+
+
+def test_33_contact_is_stored_on_the_seller_not_the_listing() -> None:
+    """One person has several listings. Capture a number once and every other
+    listing by them shows it, so nobody asks the same seller twice."""
+    from vingo_scraper.db.models import Listing, Seller
+
+    assert hasattr(Seller, "phone") and hasattr(Seller, "email")
+    assert not hasattr(Listing, "phone")
+
+
+def test_34_no_migration_is_needed_for_the_contact_columns() -> None:
+    """`Seller.phone` and `Seller.email` were already in the schema and
+    unused. If that stops being true this test says so before a deploy does.
+    """
+    from vingo_scraper.db.models import Seller
+    assert "phone" in Seller.__table__.columns
+    assert "email" in Seller.__table__.columns
+
+
+# --------------------------------------------------------------------------
+# making the captured contacts usable
+# --------------------------------------------------------------------------
+
+def test_35_export_carries_the_contact_details(client) -> None:
+    """The point of capturing a number is that it can leave the console and
+    reach whoever builds the Vingo listing."""
+    c, _ = client
+    row = next(csv.DictReader(io.StringIO(c.get("/api/export.csv").text)))
+    assert row["seller_phone"] == ROW["seller_phone"]
+    assert row["seller_name"] == ROW["seller_name"]
+    assert row["seller_email"] == ""
+
+
+def test_36_export_carries_both_contact_routes(client) -> None:
+    c, _ = client
+    row = next(csv.DictReader(io.StringIO(c.get("/api/export.csv").text)))
+    assert row["messenger_url"].endswith(ROW["fb_seller_id"])
+    assert row["listing_url"] == ROW["listing_url"]
+
+
+def test_37_a_seller_with_no_id_exports_an_empty_messenger_column(monkeypatch) -> None:
+    """Blank, not a URL that goes nowhere."""
+    async def fake(limit, since_run, **kw):
+        return {"listings": [{**ROW, "fb_seller_id": None}], "count": 1}
+
+    monkeypatch.setattr(api, "_listings", fake)
+    text = TestClient(api.app).get("/api/export.csv").text
+    row = next(csv.DictReader(io.StringIO(text)))
+    assert row["messenger_url"] == ""
+    assert row["listing_url"].startswith("https://")
+
+
+def test_38_the_has_contact_filter_reaches_the_query(client) -> None:
+    """"Sellers who gave us a number" is the only segment that matters once
+    outreach is running."""
+    c, fake = client
+    c.get("/api/listings?has_contact=true")
+    assert fake.seen["has_contact"] is True
+
+
+def test_39_has_contact_is_off_unless_asked_for(client) -> None:
+    c, fake = client
+    c.get("/api/listings")
+    assert fake.seen["has_contact"] is False
+
+
+def test_40_export_passes_has_contact_through(client) -> None:
+    c, fake = client
+    c.get("/api/export.csv?has_contact=true")
+    assert fake.seen["has_contact"] is True
+
+
+def test_41_the_listings_payload_carries_the_route_and_the_draft() -> None:
+    """The UI must not build either itself -- it did, and drifted from what we
+    actually hold."""
+    import inspect
+    src = inspect.getsource(api._listings)
+    for key in ("fb_seller_id", "messenger_url", "draft_message",
+                "seller_email"):
+        assert f'"{key}"' in src, f"/api/listings does not expose {key}"
+
+
+def test_42_the_console_never_claims_to_read_a_messenger_inbox() -> None:
+    """Reply capture is manual and the UI has to say so. An outreach status
+    that updated itself without anyone checking would be a number nobody
+    could trust."""
+    html = TestClient(api.app).get("/").text
+    assert "cannot read your Messenger inbox" in html

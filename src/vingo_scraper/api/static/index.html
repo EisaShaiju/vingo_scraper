@@ -473,6 +473,13 @@
           <label>Title contains</label>
           <input id="lead-q" placeholder="e.g. iphone" style="min-width:180px">
         </div>
+        <div class="field">
+          <label>Contact</label>
+          <select id="lead-contact" title="Sellers who replied with a number">
+            <option value="">Any</option>
+            <option value="1">Has phone or email</option>
+          </select>
+        </div>
         <button class="btn-sm" id="lead-refresh">Refresh</button>
         <a class="btn-sm" id="lead-csv" href="/api/export.csv?order=lead"
            style="text-decoration:none;display:inline-flex;align-items:center">
@@ -805,20 +812,52 @@ async function openDetail(id){
   const stored = (d.images||[]).filter(i => i.url);
   const attrs = Object.entries(d.attributes || {});
 
-  // Seller is present on ~6% of listings: Facebook withholds identity from
-  // anonymous reads. Explain that rather than showing a broken blank.
+  // Seller identity is present on ~91% of listings (measured 2026-10-11).
+  // The ~9% without it get the listing URL instead -- and the button SAYS
+  // which route it is, because "Message seller" landing on a listing page is
+  // a lie the operator pays for on every row.
+  window.__draft = d.draft_message || '';
+  const contactRoute = d.messenger_url
+    ? '<a class="btn-sm" style="display:block;text-align:center;margin-top:9px"'
+      + ' href="'+d.messenger_url+'" target="_blank" rel="noopener">Message seller</a>'
+      + '<button class="btn-sm" style="width:100%;margin-top:6px;background:#475569"'
+      + ' onclick="copyDraft(this)">Copy message</button>'
+    : '<a class="btn-sm" style="display:block;text-align:center;margin-top:9px;background:#475569"'
+      + ' href="'+d.listing_url+'" target="_blank" rel="noopener">Open listing to message</a>'
+      + '<div class="seller-none" style="margin-top:5px">No Facebook user id on this '
+      + 'listing, so a direct Messenger thread cannot be addressed.</div>';
+
   const sellerBlock = (d.seller && (d.seller.name || d.seller.phone))
     ? '<div class="seller-card">'
       + '<div class="nm">' + (d.seller.name || 'Contact found') + '</div>'
       + (d.seller.profile_url ? '<a href="'+d.seller.profile_url+'" target="_blank" rel="noopener">View profile</a>' : '')
       + (d.seller.phone ? '<div class="kv"><span class="k">Phone</span><span class="v">'+d.seller.phone+'</span></div>' : '')
       + (d.seller.email ? '<div class="kv"><span class="k">Email</span><span class="v">'+d.seller.email+'</span></div>' : '')
+      + contactRoute
       + '</div>'
     : '<div class="seller-card none"><div class="seller-none">'
       + '<strong>Not published by Facebook.</strong><br>'
-      + 'Seller identity is withheld from anonymous reads, and is available on '
-      + 'about 6% of listings. This is not a scrape failure.'
-      + '</div></div>';
+      + 'Seller identity is withheld on about 9% of listings. This is not a '
+      + 'scrape failure.'
+      + '</div>' + contactRoute + '</div>';
+
+  // Reply capture is MANUAL. The console cannot read a Messenger inbox and
+  // will not pretend to -- an outreach status that updated itself without
+  // anyone checking is a number nobody could trust.
+  const captureBlock = (d.seller && d.seller.name)
+    ? '<div class="seller-none" style="margin-bottom:7px">Typed in by hand -- we '
+      + 'cannot read your Messenger inbox. Saves to the seller, so every other '
+      + 'listing by them shows it too.</div>'
+      + '<input id="c-phone" placeholder="Phone number" value="'
+      + (d.seller.phone||'') + '" style="width:100%;margin-bottom:5px">'
+      + '<input id="c-email" placeholder="Email (optional)" value="'
+      + (d.seller.email||'') + '" style="width:100%;margin-bottom:5px">'
+      + '<input id="c-note" placeholder="What they said" value="'
+      + (d.outreach_note||'').replace(/"/g,'&quot;') + '" style="width:100%;margin-bottom:6px">'
+      + '<button class="btn-sm" style="width:100%" onclick="saveContact(\''+d.id+'\',this)">'
+      + 'Save reply</button><div id="c-msg" class="seller-none" style="margin-top:5px"></div>'
+    : '<div class="seller-none">No seller identity on this listing, so a contact '
+      + 'cannot be attached to a person.</div>';
 
   const gallery = stored.length
     ? '<div class="gal">' + stored.map(i =>
@@ -850,6 +889,7 @@ async function openDetail(id){
          + factChips(d) + '</div>' : '')
     + history + '</div><div>'
     + '<div class="m-sec"><h3>Seller</h3>' + sellerBlock + '</div>'
+    + '<div class="m-sec"><h3>Their reply</h3>' + captureBlock + '</div>'
     + '<div class="m-sec"><h3>Quality</h3>' + qualityBlock(d) + '</div>'
     + '<div class="m-sec"><h3>Attributes</h3>' + attrBlock + '</div>'
     + '<div class="m-sec"><h3>Details</h3>'
@@ -861,6 +901,47 @@ async function openDetail(id){
     + '<div class="kv"><span class="k">Category id</span><span class="v">' + (d.fb_category_id||'-') + '</span></div>'
     + '<div class="kv"><span class="k">Source</span><span class="v"><a href="' + d.listing_url + '" target="_blank" rel="noopener" style="color:var(--brand);text-decoration:none">Facebook</a></span></div>'
     + '</div></div></div>';
+}
+
+// Copied, never sent. Sending needs a logged-in Facebook account driven by
+// code, which breaks their terms and realistically ends in a ban -- and that
+// would cost the scraping as well as the outreach.
+async function copyDraft(btn){
+  const text = window.__draft || '';
+  try { await navigator.clipboard.writeText(text); }
+  catch {
+    // Clipboard API needs a secure context. Fall back to a selectable box
+    // rather than failing silently.
+    const ta = document.createElement('textarea');
+    ta.value = text; document.body.appendChild(ta); ta.select();
+    try { document.execCommand('copy'); } catch {}
+    ta.remove();
+  }
+  const was = btn.textContent;
+  btn.textContent = 'Copied';
+  setTimeout(() => { btn.textContent = was; }, 1600);
+}
+
+async function saveContact(id, btn){
+  const phone = ($('#c-phone')||{}).value || '';
+  const email = ($('#c-email')||{}).value || '';
+  const note  = ($('#c-note')||{}).value || '';
+  const msg = $('#c-msg');
+  if(!phone.trim() && !email.trim()){
+    msg.textContent = 'A phone number or an email is needed.'; return;
+  }
+  btn.disabled = true;
+  try {
+    const r = await fetch('/api/listings/' + id + '/contact', {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({phone, email, note}),
+    });
+    const b = await r.json();
+    msg.textContent = r.ok
+      ? 'Saved to the seller - marked replied.'
+      : (b.detail || 'Could not save.');
+  } catch(e) { msg.textContent = 'Could not save: ' + e; }
+  btn.disabled = false;
 }
 
 function closeDetail(){
@@ -1192,6 +1273,19 @@ function leadRow(x){
     + s + '</option>').join('');
   const price = x.price_inr != null
     ? '₹' + Number(x.price_inr).toLocaleString('en-IN') : 'no price';
+  // The queue has to separate "messaged" from "replied with details", because
+  // only the second is actionable. A number on file is the whole point of the
+  // outreach, so it gets a chip rather than being buried in the modal.
+  const contact = (x.seller_phone || x.seller_email)
+    ? `<span class="sig good">☎ ${esc(x.seller_phone || x.seller_email)}</span>`
+    : '';
+  // Messenger addresses the PERSON. The listing URL only opens Marketplace's
+  // composer under that one item, and is all there is for the ~9% with no id
+  // -- so the label says which route this row actually has.
+  const route = x.messenger_url
+    ? `<a href="${x.messenger_url}" target="_blank" rel="noopener">Message seller</a>`
+    : `<a href="${x.listing_url}" target="_blank" rel="noopener"
+         title="No Facebook user id on this listing">Open listing</a>`;
   return `<div class="lead" data-id="${x.id}" style="cursor:pointer"
     title="Click for the full listing">
     <div class="score ${L.band}"><div class="num">${L.score}</div>
@@ -1201,10 +1295,10 @@ function leadRow(x){
     <div class="mid">
       <div class="t">${esc(x.title)}</div>
       <div class="sub">${price} · ${esc(x.location||'—')} · ${x.image_count} photos</div>
-      <div>${sigs}</div>
+      <div>${contact}${sigs}</div>
     </div>
     <div class="acts">
-      <a href="${x.listing_url}" target="_blank" rel="noopener">Message seller</a>
+      ${route}
       <select class="lead-st">${opts}</select>
     </div>
   </div>`;
@@ -1214,8 +1308,10 @@ async function loadLeads(){
   const st = $('#lead-status') ? $('#lead-status').value : 'new';
   const q  = $('#lead-q') ? $('#lead-q').value.trim() : '';
   const qs = new URLSearchParams({order:'lead', limit:'100'});
+  const hc = $('#lead-contact') ? $('#lead-contact').value : '';
   if(st) qs.set('outreach', st);
   if(q)  qs.set('search', q);
+  if(hc) qs.set('has_contact', 'true');
   const box = $('#lead-rows');
   box.innerHTML = '<div class="empty">Loading…</div>';
   try{
@@ -1263,6 +1359,7 @@ async function loadLeads(){
 if($('#lead-refresh')) $('#lead-refresh').onclick = loadLeads;
 if($('#lead-q')) $('#lead-q').onkeydown = e => { if(e.key === 'Enter') loadLeads(); };
 if($('#lead-status')) $('#lead-status').onchange = loadLeads;
+if($('#lead-contact')) $('#lead-contact').onchange = loadLeads;
 
 
 // -------------------------------------------------- one box, two meanings ---

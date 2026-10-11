@@ -31,7 +31,7 @@ def _cutoff(spec: str) -> datetime:
 async def recover(since: str, dry_run: bool, location: str) -> int:
     from apify_client import ApifyClientAsync
 
-    from vingo_scraper.apify.client import collect_run
+    from vingo_scraper.apify.client import _attr, collect_run
     from vingo_scraper.apify.runner import ingest_collected
     from vingo_scraper.config import settings
 
@@ -41,14 +41,16 @@ async def recover(since: str, dry_run: bool, location: str) -> int:
 
     candidates = []
     for item in page.items:
-        started = item.get("startedAt")
+        # `runs().list()` hands back a typed RunShort, not a dict -- the
+        # same split `_attr` already absorbs for `run().get()`.
+        started = _attr(item, "started_at", "startedAt")
         if isinstance(started, str):
             started = datetime.fromisoformat(started.replace("Z", "+00:00"))
         if started and started < cutoff:
             continue
-        if item.get("status") != "SUCCEEDED":
+        if str(_attr(item, "status") or "") != "SUCCEEDED":
             continue
-        candidates.append(item["id"])
+        candidates.append(_attr(item, "id"))
 
     print(f"{len(candidates)} succeeded run(s) since {since}")
     if dry_run:

@@ -326,8 +326,15 @@ def test_26_the_draft_names_the_item_and_its_price() -> None:
 
 def test_27_the_draft_asks_for_a_phone_number() -> None:
     """The one thing we cannot scrape -- Facebook publishes phone on 0% of
-    listings, so the seller volunteering it is the only route to one."""
-    assert "phone number" in api.draft_message("Sofa", 8000.0).lower()
+    listings, so the seller volunteering it is the only route to one.
+
+    Asserts the ask, not one spelling of it. This test pinned the literal
+    "phone number" and failed the moment WhatsApp was named alongside it --
+    a wording change breaking a test that was never about wording.
+    """
+    draft = api.draft_message("Sofa", 8000.0).lower()
+    assert "phone" in draft
+    assert "reply" in draft
 
 
 def test_28_the_draft_makes_the_actual_ask() -> None:
@@ -452,3 +459,63 @@ def test_42_the_console_never_claims_to_read_a_messenger_inbox() -> None:
     could trust."""
     html = TestClient(api.app).get("/").text
     assert "cannot read your Messenger inbox" in html
+
+
+# --------------------------------------------------------------------------
+# The fallback route had the link but no message -- the regression that sent
+# an operator to a listing page with nothing to paste.
+# --------------------------------------------------------------------------
+
+def test_43_the_opener_says_who_is_writing_before_anything_else() -> None:
+    """The first version led with "Saw your <item>", which reads like a
+    haggling buyer. A stranger needs to know who this is to answer at all."""
+    draft = api.draft_message("Sofa", 8000.0, "Prashanth Maruru")
+    intro, _, rest = draft.partition("\n\n")
+    assert "team vingo" in intro.lower()
+    assert "Sofa" not in intro and "Sofa" in rest
+
+
+def test_44_the_opener_says_what_vingo_does() -> None:
+    """"Would you like to sell on Vingo?" from an unknown party is a question
+    nobody answers. The offer has to be in the message."""
+    intro = api.draft_message("Sofa", 8000.0).split("\n\n")[0].lower()
+    assert "buyers" in intro
+    assert "free" in intro
+
+
+def test_45_the_draft_survives_being_pasted_as_one_block() -> None:
+    """Messenger and the Marketplace composer both SEND on Enter. Paragraphs
+    separated by blank lines paste whole; a single newline would send a
+    half-written message to a stranger."""
+    draft = api.draft_message("Sofa", 8000.0, "Prashanth Maruru")
+    assert draft.count("\n\n") == 2
+    assert "\n" not in draft.replace("\n\n", "")
+    assert not draft.endswith("\n")
+
+
+def test_46_the_fallback_route_also_offers_the_draft() -> None:
+    """THE BUG. `Copy message` lived only in the messenger_url arm, so the
+    ~9% without a user id got the listing link and nothing to paste -- they
+    landed on Facebook's own "Hi, is this available?" with our opener
+    unreachable. Both arms must reach window.__draft."""
+    html = TestClient(api.app).get("/").text
+    assert "copyAndOpen" in html
+    assert "Copy message + open listing" in html
+
+
+def test_47_the_fallback_opens_the_tab_inside_the_click() -> None:
+    """`await`ing the clipboard before window.open drops the user-gesture
+    context and the popup blocker eats the tab -- the copy works, nothing
+    opens, and it reads as a dead button. copyDraft must not be awaited."""
+    html = TestClient(api.app).get("/").text
+    body = html.split("function copyAndOpen")[1][:400]
+    assert "await copyDraft" not in body
+    assert "copyDraft(btn);" in body
+
+
+def test_48_the_leads_tab_does_not_still_claim_the_old_route() -> None:
+    """The help text said Message seller "opens the listing on Marketplace",
+    written when that was the only route. It is now wrong for 91% of rows."""
+    html = TestClient(api.app).get("/").text
+    assert "opens the listing\n        on Marketplace" not in html
+    assert "opens the Messenger thread" in html

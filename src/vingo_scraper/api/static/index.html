@@ -487,9 +487,11 @@
       </div>
       <div style="padding:0 19px 6px;font-size:11px;color:var(--muted)">
         Ranked by how likely the seller is to answer — price cuts, stated
-        reasons for selling, and how long it has sat unsold. Facebook exposes
-        no phone or email, so <strong>Message seller</strong> opens the listing
-        on Marketplace, where its own composer is.
+        reasons for selling, and how long it has sat unsold.
+        <strong>Message seller</strong> opens the Messenger thread with that
+        person; where Facebook withheld the user id it opens the listing
+        instead, and says so. Phone and email are never published, which is
+        why the drafted opener asks for a number.
       </div>
       <div id="lead-rows"></div>
     </div>
@@ -822,10 +824,13 @@ async function openDetail(id){
       + ' href="'+d.messenger_url+'" target="_blank" rel="noopener">Message seller</a>'
       + '<button class="btn-sm" style="width:100%;margin-top:6px;background:#475569"'
       + ' onclick="copyDraft(this)">Copy message</button>'
-    : '<a class="btn-sm" style="display:block;text-align:center;margin-top:9px;background:#475569"'
-      + ' href="'+d.listing_url+'" target="_blank" rel="noopener">Open listing to message</a>'
+    : '<button class="btn-sm" style="width:100%;margin-top:9px;background:#475569"'
+      + ' onclick="copyAndOpen(this, \'' + d.listing_url + '\')">'
+      + 'Copy message + open listing</button>'
       + '<div class="seller-none" style="margin-top:5px">No Facebook user id on this '
-      + 'listing, so a direct Messenger thread cannot be addressed.</div>';
+      + 'listing, so a direct Messenger thread cannot be addressed. This copies the '
+      + 'same opener and opens the listing -- paste it over Facebook\'s prefilled '
+      + '"Hi, is this available?".</div>';
 
   const sellerBlock = (d.seller && (d.seller.name || d.seller.phone))
     ? '<div class="seller-card">'
@@ -920,6 +925,19 @@ async function copyDraft(btn){
   const was = btn.textContent;
   btn.textContent = 'Copied';
   setTimeout(() => { btn.textContent = was; }, 1600);
+}
+
+// The fallback route, for the ~9% with no Facebook user id. One click, because
+// the listing page supplies its own "Hi, is this available?" composer and the
+// operator needs our opener already on the clipboard when it loads.
+//
+// copyDraft is NOT awaited on purpose. Awaiting the clipboard first drops the
+// user-gesture context, and window.open outside a gesture is eaten by the popup
+// blocker -- the copy works, the tab never appears, and it looks like a dead
+// button. Start the write, then open in the same synchronous turn.
+function copyAndOpen(btn, url){
+  copyDraft(btn);
+  window.open(url, '_blank', 'noopener');
 }
 
 async function saveContact(id, btn){

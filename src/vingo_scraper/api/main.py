@@ -245,9 +245,18 @@ def draft_message(title: str, price_inr: float | None,
                   seller_name: str | None = None) -> str:
     """The opener, built from this listing's own facts.
 
-    The ask for a phone number is IN the message because that is the one thing
-    we cannot scrape -- Facebook publishes phone on 0% of listings, so the
-    seller volunteering it is the only route to one.
+    It opens by saying who is writing and what Vingo is. Without that, a
+    stranger reading it has no reason to answer -- the first version led with
+    "Saw your <item>", which reads like a haggling buyer, not an approach.
+
+    The ask for a number is IN the message because that is the one thing we
+    cannot scrape -- Facebook publishes phone on 0% of listings, so the seller
+    volunteering it is the only route to one. WhatsApp is named explicitly
+    because in India that is usually the channel people expect.
+
+    Three paragraphs separated by blank lines. Both Messenger and the
+    Marketplace composer SEND on Enter, so this has to survive being pasted as
+    one block rather than being typed line by line.
 
     Copied, never sent: automated sending needs a logged-in account driven by
     code, which breaks Facebook's terms and realistically ends in a ban that
@@ -257,10 +266,12 @@ def draft_message(title: str, price_inr: float | None,
     item = f'"{title}"' if title else "your listing"
     priced = f" listed at ₹{int(price_inr):,}" if price_inr else ""
     return (
-        f"{greeting} Saw your {item}{priced} on Marketplace. "
-        "Would you like to sell it on Vingo? We can get it in front of buyers "
-        "quickly, at no cost to you. If you're interested, reply with your "
-        "phone number and I'll set the listing up for you."
+        f"{greeting} We're from team Vingo -- we list your item for you and "
+        "bring you serious buyers, free.\n\n"
+        f"We saw your {item}{priced} on Marketplace. Would you like us to put "
+        "it on Vingo as well?\n\n"
+        "If you're interested, reply with your phone or WhatsApp number and "
+        "we'll set it up for you."
     )
 
 

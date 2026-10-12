@@ -49,7 +49,7 @@ def _patch(monkeypatch, store, items=ITEMS, persisted=None):
         from vingo_scraper.apify.client import run_actor
         return await run_actor(*args, client=fake, **kwargs)
 
-    async def fake_persist(result, run):
+    async def fake_persist(result, run, **kw):
         if persisted is not None:
             # Snapshot exactly what persistence would have received.
             persisted.extend(

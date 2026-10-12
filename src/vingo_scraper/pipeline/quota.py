@@ -160,19 +160,27 @@ def should_stop(
     spent_usd: float,
     budget_usd: float,
     cells_left: int,
-) -> str | None:
-    """Why the sweep should stop, or None to continue.
+) -> tuple[str, str] | None:
+    """`(kind, sentence)` for why the sweep should stop, or None to continue.
 
     Every stop condition returns a sentence the operator can read. A sweep that
     halts without saying why is indistinguishable from one that crashed — the
     confusion that has already cost this project three debugging sessions.
+
+    The `kind` rides alongside so the console can branch on a value instead of
+    matching the prose. "Target met" and "Marketplace is empty" deserve
+    opposite treatment in the UI — one is success, the other means pressing Run
+    again cannot work — and a UI that tells them apart by substring breaks the
+    first time a sentence is reworded.
     """
     if obtained >= target:
-        return f"target met: {obtained} of {target}"
+        return ("target", f"target met: {obtained} of {target}")
     if spent_usd >= budget_usd:
-        return (f"spend ceiling reached: ${spent_usd:.4f} of ${budget_usd:.2f} "
+        return ("budget",
+                f"spend ceiling reached: ${spent_usd:.4f} of ${budget_usd:.2f} "
                 f"after {obtained} of {target} listings")
     if cells_left <= 0:
-        return (f"every category exhausted at {obtained} of {target} — "
+        return ("exhausted",
+                f"every category exhausted at {obtained} of {target} — "
                 f"Marketplace had no more, so a bigger quota will not help")
     return None

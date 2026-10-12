@@ -138,24 +138,27 @@ def test_15_rebalance_only_plans_the_remainder() -> None:
 # --------------------------------------------------------------------------
 
 def test_16_target_met_stops() -> None:
-    why = should_stop(obtained=250, target=250, spent_usd=0.3,
-                      budget_usd=5, cells_left=4)
-    assert why and "target met" in why
+    kind, why = should_stop(obtained=250, target=250, spent_usd=0.3,
+                            budget_usd=5, cells_left=4)
+    assert kind == "target"
+    assert "target met" in why
 
 
 def test_17_the_spend_ceiling_stops_it() -> None:
-    why = should_stop(obtained=90, target=250, spent_usd=5.0,
-                      budget_usd=5, cells_left=4)
-    assert why and "spend ceiling" in why
+    kind, why = should_stop(obtained=90, target=250, spent_usd=5.0,
+                            budget_usd=5, cells_left=4)
+    assert kind == "budget"
+    assert "spend ceiling" in why
     assert "90 of 250" in why          # names what it got, not just that it stopped
 
 
 def test_18_exhausting_every_category_stops_it() -> None:
     """And says a bigger quota will not help, because the limit is
     Marketplace's supply rather than our ambition."""
-    why = should_stop(obtained=90, target=250, spent_usd=0.3,
-                      budget_usd=5, cells_left=0)
-    assert why and "exhausted" in why
+    kind, why = should_stop(obtained=90, target=250, spent_usd=0.3,
+                            budget_usd=5, cells_left=0)
+    assert kind == "exhausted"
+    assert "exhausted" in why
     assert "will not help" in why
 
 
@@ -167,9 +170,10 @@ def test_19_a_healthy_sweep_continues() -> None:
 def test_20_the_budget_check_beats_the_cells_check() -> None:
     """Out of money and out of cells at once: report the money, since that is
     the one that costs something to get wrong."""
-    why = should_stop(obtained=10, target=250, spent_usd=9.0,
-                      budget_usd=5, cells_left=0)
-    assert why and "spend ceiling" in why
+    kind, why = should_stop(obtained=10, target=250, spent_usd=9.0,
+                            budget_usd=5, cells_left=0)
+    assert kind == "budget"
+    assert "spend ceiling" in why
 
 
 def test_21_every_stop_reason_is_a_readable_sentence() -> None:
@@ -180,5 +184,6 @@ def test_21_every_stop_reason_is_a_readable_sentence() -> None:
         {"obtained": 10, "target": 250, "spent_usd": 5.0, "budget_usd": 5, "cells_left": 2},
         {"obtained": 10, "target": 250, "spent_usd": 0.1, "budget_usd": 5, "cells_left": 0},
     ):
-        why = should_stop(**kwargs)
-        assert why and len(why.split()) >= 4
+        kind, why = should_stop(**kwargs)
+        assert kind in ("target", "budget", "exhausted")
+        assert len(why.split()) >= 4

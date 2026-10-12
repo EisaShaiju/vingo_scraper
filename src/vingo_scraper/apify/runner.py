@@ -57,6 +57,12 @@ class IngestResult:
     # True when the Actor returned nothing because everything was already in
     # its cache -- a successful no-op, not an empty search.
     all_cached: bool = False
+    # Handed off to Polaris. Counted rather than raised: the listings are
+    # already scraped, paid for and committed by the time these fire, so a
+    # receiver being down must never undo that. Both stay 0 while the webhook
+    # is unconfigured or in dry-run.
+    polaris_sent: int = 0
+    polaris_failed: int = 0
 
     def summary(self) -> str:
         lines = [
@@ -152,7 +158,8 @@ async def ingest(
 
     # 4. Persist.
     await emit("persist:start", listings=len(result.listings))
-    result.created, result.updated = await _persist(result, run)
+    result.created, result.updated = await _persist(result, run,
+                                                    location=location)
     await emit("persist:done", created=result.created, updated=result.updated)
     await emit("complete", **{
         "listings": len(result.listings), "created": result.created,
@@ -358,7 +365,8 @@ async def ingest_collected(
     result.listings, result.images_stored, result.images_failed = await rehost_all(
         result.listings, store=get_store()
     )
-    result.created, result.updated = await _persist(result, run, trigger=trigger)
+    result.created, result.updated = await _persist(
+        result, run, trigger=trigger, location=location)
     return result
 
 
@@ -418,11 +426,16 @@ async def _touch_last_seen(listings) -> None:
         log.warning("ingest.touch_failed", error=str(exc)[:160])
 
 
-async def _persist(result: IngestResult, run, *, trigger: str = "manual") -> tuple[int, int]:
+async def _persist(result: IngestResult, run, *, trigger: str = "manual",
+                   location: str = "") -> tuple[int, int]:
     from vingo_scraper.db import repository as repo
     from vingo_scraper.db.session import session_scope
 
     created = updated = 0
+    # Only rows we CREATE are news. Re-observing a listing is not, and without
+    # this a daily sweep over one city would re-notify Polaris about every
+    # listing it already holds, every day.
+    fresh: list = []
     async with session_scope() as session:
         run_row = await repo.create_scrape_run(
             session,
@@ -440,6 +453,8 @@ async def _persist(result: IngestResult, run, *, trigger: str = "manual") -> tup
             )
             created += was_created
             updated += not was_created
+            if was_created:
+                fresh.append(listing)
 
             # Batched: one SELECT per listing rather than two round trips per
             # image. Matters because the pooler is in another region.
@@ -458,6 +473,23 @@ async def _persist(result: IngestResult, run, *, trigger: str = "manual") -> tup
             # moment the 64-char status was overwritten.
             error=result.error,
         )
+
+    # OUTSIDE the session, deliberately. An HTTP call made with a transaction
+    # still open holds a pooled connection for the length of someone else's
+    # outage; a sweep doing that across hundreds of rows exhausts the pool and
+    # the symptom appears nowhere near the cause.
+    #
+    # Wrapped because the listings are already scraped, paid for, rehosted and
+    # COMMITTED by this point. Nothing Polaris does may undo that.
+    try:
+        from vingo_scraper.pipeline import polaris
+        result.polaris_sent, result.polaris_failed = await polaris.notify(
+            fresh, location=location,
+        )
+    except Exception as exc:                        # noqa: BLE001
+        log.warning("polaris.notify_failed",
+                    error=f"{type(exc).__name__}: {exc}"[:160])
+        result.polaris_failed = len(fresh)
 
     return created, updated
 

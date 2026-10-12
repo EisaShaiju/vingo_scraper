@@ -35,6 +35,7 @@ import structlog
 from fastapi import FastAPI, Header, HTTPException
 from fastapi.responses import FileResponse, Response
 from pydantic import BaseModel
+from sqlalchemy import false as sa_false
 from sqlalchemy import func, or_, select
 from sqlalchemy.orm import selectinload
 
@@ -284,6 +285,7 @@ async def listings(
     outreach: str | None = None,
     trigger: str | None = None,
     has_contact: bool = False,
+    since_ts: str | None = None,
     order: str = "recent",
 ) -> dict:
     """The catalog, the results of one run, or the lead queue.
@@ -292,11 +294,15 @@ async def listings(
     rather than SQL because the score is not stored -- see
     `pipeline.lead_score` for why. It therefore scores the `limit` rows the
     query returns, so a lead queue wants a generous limit.
+
+    `since_ts` scopes to runs that started at or after it -- what the Bulk tab
+    uses to show one sweep rather than every sweep ever run.
     """
     try:
         return await _listings(limit, since_run, offset=offset, search=search,
                                outreach=outreach, trigger=trigger,
-                               has_contact=has_contact, order=order)
+                               has_contact=has_contact, since_ts=since_ts,
+                               order=order)
     except Exception as exc:
         # Keep the console up when Postgres is genuinely down -- but SAY SO.
         # Returning a bare empty list made a crashed query indistinguishable
@@ -310,6 +316,7 @@ async def listings(
 async def _listings(limit: int, since_run: str | None, *, offset: int = 0,
                     search: str | None = None, outreach: str | None = None,
                     trigger: str | None = None, has_contact: bool = False,
+                    since_ts: str | None = None,
                     order: str = "recent") -> dict:
     async with session_scope() as s:
         q = select(models.Listing)
@@ -319,6 +326,26 @@ async def _listings(limit: int, since_run: str | None, *, offset: int = 0,
             )
             if run:
                 q = q.where(models.Listing.scrape_run_id == run.id)
+        if since_ts:
+            # A sweep is MANY runs -- one `ScrapeRun` per cell -- so `since_run`
+            # above, which takes a single run_id, cannot scope one. Without this
+            # the Bulk tab showed every bulk row ever ingested and successive
+            # sweeps piled into one view.
+            #
+            # A bad timestamp must narrow to nothing rather than silently
+            # widening to everything: an unfiltered view that looks filtered is
+            # how the last sweep's rows got read as this one's.
+            try:
+                cutoff = datetime.fromisoformat(since_ts.replace("Z", "+00:00"))
+            except ValueError:
+                cutoff = None
+            q = q.where(
+                models.Listing.scrape_run_id.in_(
+                    select(models.ScrapeRun.id).where(
+                        models.ScrapeRun.started_at >= cutoff
+                    )
+                ) if cutoff else sa_false()
+            )
         if search:
             # Server-side so the lead queue can be filtered across everything
             # held, not just the page the browser happens to have.
@@ -655,23 +682,38 @@ def measured_yields() -> tuple[dict[str, float], bool]:
     """
     import re
 
-    from vingo_scraper.config import CATEGORIES
+    from vingo_scraper.config import sweep_cells
+
+    # The cell set comes from here, NOT from the allocator: `plan_cells`
+    # iterates whatever `yields` contains, so this dict decides what a sweep
+    # walks. Keyed on `sweep_cells()` -- keying it on CATEGORIES would send
+    # every sweep across Facebook's 17 top-level categories again, buying
+    # inventory nobody asked for while the Vingo cells sat unused.
+    cells = sweep_cells()
 
     path = Path(__file__).resolve().parents[3] / "docs" / "supply-baseline.md"
     try:
         text = path.read_text(encoding="utf-8")
     except OSError:
-        return ({k: ASSUMED_YIELD_PER_PAGE for k in CATEGORIES}, False)
+        return ({k: ASSUMED_YIELD_PER_PAGE for k in cells}, False)
 
     found: dict[str, float] = {}
-    for key in CATEGORIES:
+    for key in cells:
         # "| `vehicles` | 28 | **26** | 4% | 41 | $0.0015 |"
         m = re.search(rf"\|\s*`{re.escape(key)}`\s*\|\s*\d+\s*\|\s*\*\*(\d+)\*\*", text)
         if m:
             found[key] = float(m.group(1))
     if not found:
-        return ({k: ASSUMED_YIELD_PER_PAGE for k in CATEGORIES}, False)
-    return (found, True)
+        return ({k: ASSUMED_YIELD_PER_PAGE for k in cells}, False)
+
+    # A PARTIAL baseline is the dangerous case, not a missing one. `plan_cells`
+    # allocates only to cells present in this dict, so a file measured against
+    # the old category set matches one key and silently shrinks the whole sweep
+    # to that single cell -- a 1000-target run buying one page and reporting
+    # "exhausted". Unmeasured cells get the assumption and `measured` stays
+    # False until every cell has a real number behind it.
+    complete = len(found) == len(cells)
+    return ({k: found.get(k, ASSUMED_YIELD_PER_PAGE) for k in cells}, complete)
 
 
 class SweepRequest(BaseModel):
@@ -688,12 +730,19 @@ async def _run_one_cell(category: str, pages: int, location: str):
     """
     from vingo_scraper.apify.client import LISTINGS_PER_PAGE, collect_run, start_run
     from vingo_scraper.apify.runner import ingest_collected
+    from vingo_scraper.config import VINGO_CELLS
     from vingo_scraper.pipeline.sweep import CellOutcome
+
+    # Vingo's targets are Facebook SUBcategories with no verified numeric id,
+    # so they run as keyword searches with no category at all. Sending both
+    # would be worse than either: `category_id` loses to a conflicting `query`
+    # and is discarded in silence.
+    keyword = VINGO_CELLS.get(category)
 
     try:
         started = await start_run(
-            None, location, pages * LISTINGS_PER_PAGE,
-            category=category, include_details=True,
+            keyword, location, pages * LISTINGS_PER_PAGE,
+            category=None if keyword else category, include_details=True,
             filters={"daysSinceListed": "7", "sortBy": "creation_time_descend"},
         )
 
@@ -723,7 +772,13 @@ async def _run_one_cell(category: str, pages: int, location: str):
                 error=f"timed out after {CELL_TIMEOUT_S}s; run {started.run_id} "
                       f"may still be charging -- collect it rather than re-run",
             )
-        result = await ingest_collected(run, location=location, trigger="bulk")
+        # The keyword goes through so `pipeline.relevance` can filter on the
+        # TITLE. Facebook matches description text, so a `watch` search returns
+        # listings that merely mention one -- the Actor-side term reduces cost,
+        # never guarantees correctness.
+        result = await ingest_collected(
+            run, location=location, trigger="bulk", search_term=keyword,
+        )
         return CellOutcome(
             category, pages,
             new_rows=result.created,
@@ -778,7 +833,13 @@ async def sweep_start(req: SweepRequest) -> dict:
     if (blocked := budget.blocked_reason()):
         raise HTTPException(402, blocked)
 
-    state = SweepState(target=req.target, location=req.location)
+    # Stamped BEFORE the first cell starts, so no run this sweep creates can
+    # fall outside its own window. A second later would be a race the Bulk tab
+    # would show as a missing row.
+    state = SweepState(
+        target=req.target, location=req.location,
+        started_at=datetime.now(UTC).isoformat(),
+    )
     await config_store.save_sweep(state.to_dict())
     asyncio.create_task(_drive_sweep(req.target, req.location, None))
     return {"started": True, "target": req.target}
@@ -796,6 +857,12 @@ async def sweep_resume() -> dict:
         raise HTTPException(404, "no sweep to resume")
 
     state.stopped_reason = None
+    state.stopped_kind = None
+    # A resumed sweep is the SAME sweep, so its window must not move -- resetting
+    # it here would hide the cells already paid for from the Bulk tab. Only a
+    # state written before `started_at` existed needs one.
+    if not state.started_at:
+        state.started_at = datetime.now(UTC).isoformat()
     asyncio.create_task(_drive_sweep(state.target, state.location, state))
     return {"resumed": True, "from_cells": len(state.completed)}
 
@@ -829,6 +896,12 @@ async def sweep_state() -> dict:
             for c in state.completed
         ],
         "stopped_reason": state.stopped_reason,
+        # The UI branches on this rather than on the sentence. "Target met" and
+        # "Marketplace is empty" want opposite treatment, and telling them
+        # apart by substring breaks the first time a sentence is reworded.
+        "stopped_kind": state.stopped_kind,
+        "location": state.location,
+        "started_at": state.started_at,
         "yields_measured": measured,
         "targets": list(SWEEP_TARGETS),
     }
@@ -1098,7 +1171,7 @@ async def capture_contact(listing_id: str, req: ContactRequest) -> dict:
 @app.get("/api/export.csv")
 async def export_csv(
     search: str | None = None, outreach: str | None = None,
-    has_contact: bool = False,
+    has_contact: bool = False, since_ts: str | None = None,
     order: str = "lead", limit: int = 1000,
 ) -> Response:
     """The lead queue as a file, for whoever works it outside this console.
@@ -1107,7 +1180,8 @@ async def export_csv(
     not a different question answered separately.
     """
     data = await _listings(limit, None, search=search, outreach=outreach,
-                           has_contact=has_contact, order=order)
+                           has_contact=has_contact, since_ts=since_ts,
+                           order=order)
     buf = io.StringIO()
     w = csv.writer(buf)
     w.writerow([

@@ -236,12 +236,18 @@ def test_15_an_unmeasured_baseline_is_declared_not_hidden() -> None:
 
 def test_16_assumed_yields_are_flat_and_cover_every_category() -> None:
     """Flat on purpose: an even split is the honest thing when nothing is
-    known, and identical numbers make the assumption visible."""
+    known, and identical numbers make the assumption visible.
+
+    Keyed on `sweep_cells()`, NOT on CATEGORIES. `plan_cells` iterates whatever
+    this dict holds, so it is what decides which cells a sweep walks -- keyed
+    on CATEGORIES it would send every sweep across Facebook's 17 top-level
+    categories while the Vingo cells sat unused.
+    """
     from vingo_scraper.api.main import measured_yields
-    from vingo_scraper.config import CATEGORIES
+    from vingo_scraper.config import sweep_cells
 
     yields, measured = measured_yields()
-    assert set(yields) == set(CATEGORIES)
+    assert set(yields) == set(sweep_cells())
     if not measured:
         assert len(set(yields.values())) == 1
 

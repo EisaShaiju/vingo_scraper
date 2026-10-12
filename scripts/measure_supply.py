@@ -65,13 +65,19 @@ class Probe:
 async def probe_one(key: str, location: str, days: str) -> Probe:
     from vingo_scraper.apify.client import collect_run, start_run
     from vingo_scraper.apify.runner import ingest_collected
+    from vingo_scraper.config import VINGO_CELLS
     from vingo_scraper.pipeline import lead_score
+
+    # Must mirror `api.main._run_one_cell` exactly. A probe that measures a
+    # different request than the sweep sends is measuring the wrong thing, and
+    # the quota built on it would be wrong in a way nothing surfaces.
+    keyword = VINGO_CELLS.get(key)
 
     out = Probe(key=key)
     try:
         started = await start_run(
-            None, location, LISTINGS_PER_PAGE,
-            category=key,
+            keyword, location, LISTINGS_PER_PAGE,
+            category=None if keyword else key,
             include_details=True,
             # Newest first, bounded window: a supply measurement wants what
             # arrived recently, not whatever has sat on Marketplace longest.
@@ -82,7 +88,9 @@ async def probe_one(key: str, location: str, days: str) -> Probe:
             out.error = "run did not finish"
             return out
 
-        result = await ingest_collected(run, location=location, trigger="probe")
+        result = await ingest_collected(
+            run, location=location, trigger="probe", search_term=keyword,
+        )
         out.returned = result.items_returned
         out.kept = len(result.listings)
         out.duplicates = result.skipped_duplicates
@@ -157,41 +165,118 @@ def render(probes: list[Probe], days: str, location: str) -> str:
     return "\n".join(lines) + "\n"
 
 
+def history_rows(probes: list[Probe], location: str, days: str,
+                 stamp: str) -> str:
+    """One dated line per (city, cell), APPENDED.
+
+    The point of the whole exercise. A single probe cannot tell "this city
+    produces 150 a day" apart from "our page cap returned 24" -- only the same
+    probe repeated can, because `kept` counts rows we did not already hold.
+    Day 1 collects the standing stock and reads high; by day 3-4 the number
+    plateaus, and the plateau is the daily arrival rate.
+    """
+    lines = []
+    for p in sorted(probes, key=lambda x: x.key):
+        lines.append(
+            f"| {stamp} | {location} | `{p.key}` | {days or 'any'} | "
+            f"{'—' if p.error else p.returned} | "
+            f"{'—' if p.error else p.kept} | "
+            f"{'—' if p.error else f'{p.dup_pct:.0f}%'} | "
+            f"${p.cost_usd:.4f} |"
+            + (f" {p.error}" if p.error else "")
+        )
+    return "\n".join(lines) + "\n"
+
+
+HISTORY_HEADER = (
+    "<!-- UNTRACKED — internal working doc. Gitignored, not for production. -->\n"
+    "\n"
+    "# Supply history — net-new per city per day\n"
+    "\n"
+    "APPEND ONLY. Each run adds one line per (city, cell). Read it by city:\n"
+    "`kept` on day 1 includes the standing stock, so it reads high; the number\n"
+    "it settles at from day 3-4 is the **daily arrival rate**, and that is the\n"
+    "only defensible basis for a per-city quota.\n"
+    "\n"
+    "| date | city | cell | days | returned | kept (net-new) | dup% | cost |\n"
+    "|---|---|---|---|---|---|---|---|\n"
+)
+
+
 async def run(args) -> int:
     import pathlib
+    from datetime import UTC, datetime
 
-    keys = list(CATEGORIES)
-    est = len(keys) * LISTINGS_PER_PAGE * 0.0014      # measured $/item
+    from vingo_scraper.config import VINGO_CELLS, sweep_cells
 
-    print(f"{len(keys)} categories x 1 page ({LISTINGS_PER_PAGE} listings)")
-    print(f"location={args.location}  daysSinceListed={args.days or 'any'}")
+    keys = sweep_cells()
+    cities = [c.strip() for c in args.location.split(",") if c.strip()]
+    est = len(keys) * len(cities) * LISTINGS_PER_PAGE * 0.0014   # measured $/item
+
+    print(f"{len(keys)} cells x {len(cities)} cities x 1 page "
+          f"({LISTINGS_PER_PAGE} listings)")
+    print(f"cities={', '.join(cities)}  daysSinceListed={args.days or 'any'}")
     print(f"estimated cost ~${est:.2f}  (cap ${settings.total_spend_cap_usd})")
+    if est > float(settings.total_spend_cap_usd):
+        print("WARNING: the estimate EXCEEDS the cap. The budget guard fails "
+              "closed, so this will stop part-way through and the matrix will "
+              "be incomplete. Raise VINGO_TOTAL_SPEND_CAP_USD or cut cities.")
 
     if args.dry_run:
         print("\n--dry-run: nothing was sent to Apify.")
         for k in keys:
-            print(f"  {k:<22} {CATEGORIES[k]['query']}")
+            kind = (f"keyword  query={VINGO_CELLS[k]!r}" if k in VINGO_CELLS
+                    else f"category id={CATEGORIES[k]['category_id']}")
+            print(f"  {k:<22} {kind}")
         return 0
 
-    probes = []
-    for i, key in enumerate(keys, 1):
-        print(f"  [{i}/{len(keys)}] {key} ...", end="", flush=True)
-        p = await probe_one(key, args.location, args.days)
-        probes.append(p)
-        print(f" {p.kept} kept / {p.returned} returned"
-              if not p.error else f" FAILED: {p.error}")
-
     out = pathlib.Path(args.out)
-    out.write_text(render(probes, args.days, args.location), encoding="utf-8")
-    print(f"\nwrote {out}")
+    hist = pathlib.Path(args.history)
+    stamp = datetime.now(UTC).strftime("%Y-%m-%d")
+    first_city_probes: list[Probe] = []
+
+    for city in cities:
+        print(f"\n== {city} ==")
+        probes = []
+        for i, key in enumerate(keys, 1):
+            print(f"  [{i}/{len(keys)}] {key} ...", end="", flush=True)
+            p = await probe_one(key, city, args.days)
+            probes.append(p)
+            print(f" {p.kept} kept / {p.returned} returned"
+                  if not p.error else f" FAILED: {p.error}")
+
+        # Appended per city, as each finishes. A crash on city 4 must not lose
+        # cities 1-3 -- they are already paid for.
+        if not hist.exists():
+            hist.write_text(HISTORY_HEADER, encoding="utf-8")
+        with hist.open("a", encoding="utf-8") as fh:
+            fh.write(history_rows(probes, city, args.days, stamp))
+
+        print(f"  {sum(p.new_rows for p in probes)} net-new in {city} "
+              f"for ${sum(p.cost_usd for p in probes):.4f}")
+        if not first_city_probes:
+            first_city_probes = probes
+
+    # `supply-baseline.md` stays SINGLE-CITY. `measured_yields()` greps it for
+    # the first match per cell, so stacking five cities in one file would make
+    # whichever city sorted first silently stand for all of them. The first
+    # city named on the command line is the one the allocator plans against;
+    # every city's numbers live in the history file.
+    out.write_text(render(first_city_probes, args.days, cities[0]),
+                   encoding="utf-8")
+    print(f"\nwrote {out} ({cities[0]}) and appended {hist}")
     return 0
 
 
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
-    ap.add_argument("--location", default="bangalore")
-    ap.add_argument("--days", default="7", help="'' | 1 | 7 | 30")
+    ap.add_argument("--location", default="bangalore",
+                    help="one city, or a comma list: bangalore,mumbai,delhi")
+    # ONE day, not seven. The question is how many listings ARRIVE per day;
+    # a 7-day window answers a different one and reads ~7x higher.
+    ap.add_argument("--days", default="1", help="'' | 1 | 7 | 30")
     ap.add_argument("--out", default="docs/supply-baseline.md")
+    ap.add_argument("--history", default="docs/supply-history.md")
     ap.add_argument("--dry-run", action="store_true")
     args = ap.parse_args()
 

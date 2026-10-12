@@ -394,6 +394,14 @@ class SweepState:
     location: str
     completed: list[CellOutcome] = field(default_factory=list)
     stopped_reason: str | None = None
+    # Which of the three stop conditions fired. The sentence is for the
+    # operator; this is for the UI, which must not branch by matching prose.
+    stopped_kind: str | None = None
+    # When this sweep began, ISO-8601. The Bulk tab filters listings on it so
+    # successive sweeps do not pile into one view -- a sweep spans one
+    # `ScrapeRun` per cell, so the existing single-run `since_run` cannot
+    # scope it. Survives resume: a resumed sweep is the same sweep.
+    started_at: str | None = None
 
     @property
     def obtained(self) -> int:
@@ -413,6 +421,8 @@ class SweepState:
             "target": self.target,
             "location": self.location,
             "stopped_reason": self.stopped_reason,
+            "stopped_kind": self.stopped_kind,
+            "started_at": self.started_at,
             "completed": [
                 {"category": c.category, "pages": c.pages, "new_rows": c.new_rows,
                  "cost_usd": c.cost_usd, "error": c.error}
@@ -428,6 +438,8 @@ class SweepState:
             target=raw.get("target", 0),
             location=raw.get("location", ""),
             stopped_reason=raw.get("stopped_reason"),
+            stopped_kind=raw.get("stopped_kind"),
+            started_at=raw.get("started_at"),
             completed=[CellOutcome(**c) for c in raw.get("completed", [])],
         )
 
@@ -463,7 +475,7 @@ async def run_quota_sweep(
             cells_left=len([k for k in yields if k not in state.done_cells]),
         )
         if why:
-            state.stopped_reason = why
+            state.stopped_kind, state.stopped_reason = why
             break
 
         # Plan only from what is left to buy. Feeding the allocator the full

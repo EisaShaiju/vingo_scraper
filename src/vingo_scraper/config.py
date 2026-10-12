@@ -94,6 +94,18 @@ class Settings(BaseSettings):
     #
     # Set a store id to re-enable it if a scheduled runner comes back.
     apify_cache_store_id: str = ""
+
+    # --- Polaris handoff -------------------------------------------------
+    # Where newly stored listings are POSTed so Polaris can build them into
+    # Vingo listings. EMPTY MEANS OFF, deliberately: there is no live endpoint
+    # yet, and a sweep firing forty-odd unexpected POSTs at whatever a
+    # half-configured URL points at is worse than firing none.
+    polaris_webhook_url: str = ""
+    polaris_webhook_token: str = ""
+    # On by default even once a URL is set. Logs the exact payload without
+    # sending it -- which is what gets shown to whoever builds the receiver to
+    # agree the shape before anything real is delivered. Turn OFF to send.
+    polaris_dry_run: bool = True
     # Ceiling on TOTAL Apify spend per UTC day, checked against actual
     # recorded spend in `scrape_run` before each cell. This is the guard
     # that makes unattended scheduling safe on a per-result-billed API.
@@ -251,9 +263,72 @@ CATEGORIES: dict[str, dict[str, str]] = {
     # the generic feed, which is worse than not offering it.
 }
 
-# What the automated sweep walks. Deliberately a subset: these are the
-# categories with resale value for Vingo, and a sweep over all 18 would cost
-# 3.5x a sweep over 5 for categories nobody asked for.
-AUTOMATION_CATEGORIES: list[str] = [
-    "mobile_phones", "electronics", "home_goods", "vehicles", "sporting_goods",
-]
+# What the automated sweep walks: Vingo's actual target inventory.
+#
+# These are KEYWORD searches, not category browses, and the distinction is the
+# whole point. Laptops, gaming, photography and watches are Facebook SUB
+# categories, and we have verified numeric ids only for the 17 top-level ones.
+# `category_id` also loses to a conflicting `query` -- a run sending both
+# returns the keyword's results and silently discards the category -- so
+# "Electronics narrowed to laptops" is not a thing the Actor can be asked for.
+#
+# A cell here therefore sends `query=<keyword>` and NO `category_id` at all.
+# The cost: Facebook matches DESCRIPTION text, so "cycles" once returned
+# MacBooks whose listings mentioned a battery cycle count. `_run_one_cell`
+# passes the keyword to `ingest_collected(search_term=...)` so
+# `pipeline.relevance` filters on the title afterwards.
+#
+# Replaced `AUTOMATION_CATEGORIES`, whose first entry was `mobile_phones` --
+# a key deleted from CATEGORIES when it turned out not to be a Facebook
+# category at all. `client.py` falls back to `category.replace("_", " ")` for
+# an unknown key, so that cell had been quietly running a keyword search for
+# "mobile phones" while presenting itself as a category browse.
+#
+# Tune the keywords freely; `test_vingo_cells.py` pins the invariants, not the
+# wording.
+VINGO_CELLS: dict[str, str] = {
+    # Laptops
+    "laptops": "laptop",
+    "macbooks": "macbook",
+    # Gaming and consoles
+    "consoles_playstation": "playstation",
+    "consoles_xbox": "xbox",
+    "consoles_nintendo": "nintendo switch",
+    "gaming_controllers": "gaming controller",
+    "vr_headsets": "vr headset",
+    "video_games": "video games",
+    # Photography
+    "cameras": "dslr camera",
+    "lenses": "camera lens",
+    "drones": "drone",
+    "studio_dj": "dj controller",
+    # Music -- the one area with a VERIFIED top-level category id, which is
+    # why `musical_instruments` stays a category cell in CATEGORIES above.
+    # These narrow within it; one real id beats four keywords where it exists.
+    "guitars": "guitar",
+    "keyboards_piano": "keyboard piano",
+    "drums": "drum kit",
+    "amps_effects": "guitar amplifier",
+    # Watches
+    "watches": "watch",
+}
+
+# Category cells the sweep also walks, by verified `category_id`. Keep this
+# short: a category buys a whole page, and only the ones Vingo actually wants
+# earn that.
+VINGO_CATEGORY_CELLS: list[str] = ["musical_instruments"]
+
+
+def sweep_cells() -> list[str]:
+    """Every cell key the sweep walks, keywords first.
+
+    One list so the quota allocator, the cost estimate and the runner cannot
+    disagree about what a sweep covers -- volume lived in two files once
+    before and they diverged.
+    """
+    return [*VINGO_CELLS, *VINGO_CATEGORY_CELLS]
+
+
+# Kept as an alias: `sweep.automation_cells()` and the CLI still import this
+# name, and a sweep walking the wrong list is not worth a rename.
+AUTOMATION_CATEGORIES: list[str] = sweep_cells()

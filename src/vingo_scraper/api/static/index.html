@@ -1441,10 +1441,24 @@ async function loadSweep(){
   catch(e){ return; }
 
   const running = !!d.running;
+  // Which sweep the listing panel below is allowed to show. A sweep spans one
+  // scrape run per cell, so the single-run `since_run` cannot scope it and
+  // successive sweeps used to pile into one view.
+  window.__sweepSince = d.started_at || '';
+
+  // Marketplace having no more is NOT the same as our sweep finishing, and
+  // pressing Run again cannot fix it. Branch on the kind, never on the
+  // sentence -- a reworded message must not silently change the UI.
+  const exhausted = d.stopped_kind === 'exhausted';
+
   $('#bulk-state').textContent = running ? 'sweeping…' : (d.stopped_reason ? 'stopped' : 'idle');
-  $('#bulk-start').disabled = running;
+  $('#bulk-start').disabled = running || exhausted;
+  $('#bulk-start').title = exhausted
+    ? 'Marketplace has no more net-new listings in these categories today. '
+      + 'Running again would pay for pages already bought.'
+    : '';
   $('#bulk-resume').style.display =
-    (!running && d.stopped_reason && d.obtained < d.target) ? '' : 'none';
+    (!running && !exhausted && d.stopped_reason && d.obtained < d.target) ? '' : 'none';
   $('#bulk-abandon').style.display = (d.cells && d.cells.length) ? '' : 'none';
 
   // An allocator running on assumed yields spends real money on guesses. Say
@@ -1468,9 +1482,20 @@ async function loadSweep(){
           <div style="height:8px;width:${pct}%;background:var(--brand);
                       border-radius:999px;transition:width .3s"></div>
         </div>
-        ${d.stopped_reason
-          ? `<div style="margin-top:8px;font-size:12px"><b>Stopped:</b> ${esc(d.stopped_reason)}</div>`
-          : ''}
+        ${exhausted
+          ? `<div style="margin-top:10px;padding:10px 12px;border-radius:8px;
+                         background:var(--warn-soft,#fef3c7);color:var(--warn-ink,#92400e);
+                         border:1px solid var(--warn,#f59e0b);font-size:13px">
+               <b>${esc(d.location || 'This city')} is out: ${d.obtained || 0}
+               of ${d.target}.</b><br>
+               Marketplace has no more net-new listings in these categories
+               today. A bigger target will not help, and running again pays
+               for pages already bought. Come back tomorrow, add a city, or
+               widen the categories.
+             </div>`
+          : d.stopped_reason
+            ? `<div style="margin-top:8px;font-size:12px"><b>Stopped:</b> ${esc(d.stopped_reason)}</div>`
+            : ''}
       </div>`;
     $('#bulk-cells').innerHTML = (d.cells || []).map(sweepCellRow).join('');
   } else {
@@ -1495,8 +1520,13 @@ let bulkLimit = 100;
 
 async function loadSweptListings(){
   try {
+    // `since_ts` scopes this to the CURRENT sweep. Without it the panel showed
+    // every bulk row ever ingested, so a 46-row sweep appeared to have found
+    // hundreds. Catalog is untouched and still shows everything.
+    const since = window.__sweepSince
+      ? '&since_ts=' + encodeURIComponent(window.__sweepSince) : '';
     const d = await (await fetch(
-      `/api/listings?trigger=bulk&limit=${bulkLimit}&order=lead`)).json();
+      `/api/listings?trigger=bulk&limit=${bulkLimit}&order=lead${since}`)).json();
     const rows = d.listings || [];
     const more = rows.length >= bulkLimit;
     $('#bulk-n').textContent = rows.length + (more ? '+ listings' : ' listings');

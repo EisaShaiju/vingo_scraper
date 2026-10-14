@@ -814,10 +814,11 @@ async function openDetail(id){
   const stored = (d.images||[]).filter(i => i.url);
   const attrs = Object.entries(d.attributes || {});
 
-  // Seller identity is present on ~91% of listings (measured 2026-10-11).
-  // The ~9% without it get the listing URL instead -- and the button SAYS
-  // which route it is, because "Message seller" landing on a listing page is
-  // a lie the operator pays for on every row.
+  // Seller identity is present on ~91% of listings (measured 2026-10-11), as
+  // a `pfbid` token rather than a numeric id -- which still opens the thread.
+  // The ~9% without it get the listing URL instead, and the button SAYS which
+  // route it is: "Message seller" landing on a listing page is a lie the
+  // operator pays for on every row.
   window.__draft = d.draft_message || '';
   const contactRoute = d.messenger_url
     ? '<a class="btn-sm" style="display:block;text-align:center;margin-top:9px"'

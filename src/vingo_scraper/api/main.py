@@ -230,16 +230,30 @@ def messenger_url(fb_seller_id: str | None) -> str | None:
     """The Messenger conversation with that seller, or None if we cannot build
     one.
 
-    Only a NUMERIC user id addresses a thread. Facebook also hands out
-    `pfbid...` profile tokens, which rotate and do not resolve under
-    /messages/t/ -- so a button built from one lands nowhere. Returning None
-    lets the caller fall back to the listing URL and SAY it is doing that; a
-    "Message seller" that silently opens a listing page is a small lie the
-    operator pays for on every row.
+    **`pfbid` tokens DO resolve under /messages/t/.** Verified 2026-10-14 in a
+    logged-in browser: the link opens the real thread, headed with the seller's
+    name and "You aren't friends on Facebook".
+
+    This function used to require `isdigit()`, on my assumption that only a
+    numeric user id addresses a thread. Every seller id the Actor actually
+    returns is a `pfbid` -- 0 of 3 numeric in the frozen real fixture -- so
+    that check returned None for **every live row** and the console fell back
+    to the listing page 100% of the time while the docs claimed 91% coverage.
+    The numeric ids I tested against came from a hand-written fixture.
+
+    The lesson, which is why this paragraph is long: a validation rule invented
+    without checking real data is indistinguishable from a working feature,
+    because the fallback it triggers looks deliberate.
+
+    Still rejects anything that is neither -- a URL built from a name or an
+    empty string lands nowhere, and the caller needs to be able to say so.
     """
-    if not fb_seller_id or not fb_seller_id.isdigit():
+    seller_id = (fb_seller_id or "").strip()
+    if not seller_id:
         return None
-    return MESSENGER_THREAD.format(fb_seller_id)
+    if not (seller_id.isdigit() or seller_id.startswith("pfbid")):
+        return None
+    return MESSENGER_THREAD.format(seller_id)
 
 
 def draft_message(title: str, price_inr: float | None,

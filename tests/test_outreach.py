@@ -304,13 +304,30 @@ def test_24_a_missing_id_builds_no_link_rather_than_a_broken_one() -> None:
     assert api.messenger_url("") is None
 
 
-def test_25_a_pfbid_token_is_refused() -> None:
-    """A `pfbid` is a rotating profile token, not a user id -- /messages/t/
-    does not resolve it. Returning None lets the caller fall back to the
-    listing and SAY so; a button that silently lands elsewhere is a lie the
-    operator pays for on every row.
+def test_25_a_pfbid_token_addresses_a_thread() -> None:
+    """THE regression this file exists for.
+
+    This test used to assert the opposite, on my assumption that only a numeric
+    id resolves under /messages/t/. Verified in a logged-in browser on
+    2026-10-14: a `pfbid` link opens the real Messenger thread. And `pfbid` is
+    what the Actor actually returns -- 0 of 3 seller ids in the frozen real
+    fixture are numeric -- so the old rule returned None for every live row,
+    and the console fell back to the listing page 100% of the time while
+    claiming 91% coverage.
+
+    The numeric ids the other tests here use come from a HAND-WRITTEN fixture.
+    That is how a rule invented without real data passed its own test suite.
     """
-    assert api.messenger_url("pfbid02aBcDeFgHiJkLmNoPqRsTuVwXyZ") is None
+    assert api.messenger_url("pfbid02aBcDeFgHiJkLmNoPqRsTuVwXyZ") == (
+        "https://www.facebook.com/messages/t/pfbid02aBcDeFgHiJkLmNoPqRsTuVwXyZ"
+    )
+
+
+def test_25b_an_id_that_is_neither_numeric_nor_pfbid_is_refused() -> None:
+    """A URL built from a name or a stray string lands nowhere, and the caller
+    has to be able to fall back and SAY it is doing that."""
+    assert api.messenger_url("Syed Saqlain") is None
+    assert api.messenger_url("   ") is None
 
 
 # --------------------------------------------------------------------------

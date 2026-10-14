@@ -257,11 +257,16 @@ def _extract_seller(node: dict[str, Any]) -> Seller | None:
     """Seller identity, where Facebook exposes it.
 
     Measured 2026-10-11 over 96 live items with `include_details` on:
-    **88/96 = 91%** carry `marketplace_listing_seller` with a numeric `id`,
-    `name` and profile `url`. The 6.4% (3/47) figure this docstring used to
-    state was taken BEFORE that flag was enabled and stayed uncorrected for
-    weeks -- it under-reported the field by 14x and argued one design decision
-    on a false premise.
+    **88/96 = 91%** carry `marketplace_listing_seller` with an `id`, `name` and
+    profile `url`. The 6.4% (3/47) figure this docstring used to state was
+    taken BEFORE that flag was enabled and under-reported the field by 14x.
+
+    **The `id` is a `pfbid` token, NOT a numeric user id** -- 0 of 3 are
+    numeric in `curious_coder_bengaluru.json`, the frozen real fixture. The
+    correction above said "numeric" and that was wrong too; only the 91%
+    presence held up. A `pfbid` DOES resolve under `/messages/t/` (verified
+    2026-10-14 in a browser), so it addresses a thread perfectly well -- but
+    code that validates for digits will reject every live row.
 
     Facebook still nulls it on the remaining ~9%, so absence is normal and must
     not be treated as a parse failure.

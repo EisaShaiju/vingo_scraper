@@ -21,9 +21,22 @@ from dataclasses import dataclass
 
 from vingo_scraper.apify.client import LISTINGS_PER_PAGE
 
-# No cell gets everything, however well it yields. One category monopolising a
-# sweep makes the catalog lopsided, and a yield measured yesterday is a guess
-# about today.
+# NOT MEASURED. Say so plainly rather than let the reasoning below read as
+# evidence: no probe has ever compared net-new yield at 2, 3, 4 or 5 pages on
+# the same cell, so this number is a judgement, not a boundary.
+#
+# What it rests on:
+#   1. A policy choice -- one category monopolising a sweep makes the catalog
+#      lopsided, and a yield measured yesterday is a guess about today.
+#   2. A coincidence -- it equals `settings.apify_max_pages`, the PLAN ceiling,
+#      which IS measured. But those are different quantities: one is how many
+#      pages Apify will deliver, the other is how many are worth buying. While
+#      both are 3 this cap is inert, which is also why nothing has surfaced it.
+#
+# `scripts/analyze_page_yield.py` mines the runs already paid for and reports
+# net-new per page at each request size -- free, and enough to say whether 3 is
+# too high. Settling whether it is too LOW needs a deliberate 1/3/5/7 ladder on
+# one deep keyword, ~$0.25, because nothing has ever asked for more than 3.
 MAX_PAGES_PER_CELL = 3
 
 # Below this, a category cannot carry a quota: the page costs the same as a
